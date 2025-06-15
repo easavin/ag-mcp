@@ -106,73 +106,49 @@ export default function Home() {
   return (
     <ChatLayout>
       <div className="flex flex-col h-full" style={{ height: '100%' }}>
-        <div 
-          className={`messages-container ${isInitialState ? 'justify-center' : 'justify-end'}`}
-          style={isInitialState ? {
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column'
-          } : {}}
-        >
-          {isInitialState ? (
-            <div className="welcome-container" style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              width: '100%',
-              maxWidth: '900px',
-              margin: '0 auto',
-              padding: '2rem'
-            }}>
-              <h1 className="welcome-title" style={{
-                fontSize: '3rem',
-                fontWeight: 600,
-                marginBottom: '1rem',
-                color: '#f5f5f5'
-              }}>Ag Assistant</h1>
-              <p className="welcome-subtitle" style={{
-                fontSize: '1.25rem',
-                color: '#a0a0a0',
-                marginBottom: '3rem',
-                maxWidth: '600px'
-              }}>Start a conversation to manage your farming operations.</p>
+        {isInitialState ? (
+          // Welcome screen layout with chat input positioned closer to title
+          <div className="flex flex-col h-full">
+            <div className="welcome-container-compact">
+              <h1 className="welcome-title">Ag Assistant</h1>
+              <p className="welcome-subtitle">Start a conversation to manage your farming operations.</p>
             </div>
-          ) : (
-            <div className="messages-content">
-              {messages.map((message) => (
-                <MessageBubble
-                  key={message.id}
-                  role={message.role}
-                  content={message.content}
-                  timestamp={message.createdAt}
-                  fileAttachments={message.fileAttachments}
-                />
-              ))}
-              
-              {isLoading && (
-                <div className="loading-message">
-                  <div className="loading-avatar" />
-                  <div className="loading-content">
-                    <div className="name">Ag Assistant</div>
-                    <div className="text" />
+            <div className="welcome-chat-input">
+              <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+            </div>
+            <div className="flex-1"></div> {/* Spacer to push everything up */}
+          </div>
+        ) : (
+          // Regular chat layout
+          <>
+            <div className="messages-container justify-end">
+              <div className="messages-content">
+                {messages.map((message) => (
+                  <MessageBubble
+                    key={message.id}
+                    role={message.role}
+                    content={message.content}
+                    timestamp={message.createdAt}
+                    fileAttachments={message.fileAttachments}
+                  />
+                ))}
+                
+                {isLoading && (
+                  <div className="loading-message">
+                    <div className="loading-avatar" />
+                    <div className="loading-content">
+                      <div className="name">Ag Assistant</div>
+                      <div className="text" />
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          )}
-        </div>
-        <div style={{ 
-          width: '100%', 
-          maxWidth: '900px', 
-          margin: '0 auto',
-          padding: '1rem 0'
-        }}>
-          <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
-        </div>
+            <div className="chat-input-container">
+              <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+            </div>
+          </>
+        )}
       </div>
     </ChatLayout>
   )
