@@ -4,11 +4,13 @@ import { useEffect, useRef } from 'react'
 import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
+import { NotificationProvider, useNotificationHelpers } from '@/components/NotificationSystem'
+import { MessageSkeleton } from '@/components/LoadingStates'
 // import JohnDeereDataButton from '@/components/JohnDeereDataButton'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 
-export default function Home() {
+function ChatInterface() {
   const {
     currentSessionId,
     sessions,
@@ -22,6 +24,7 @@ export default function Home() {
   } = useChatStore()
 
   const { user, loadUser, checkJohnDeereConnection } = useAuthStore()
+  const { success, error: notifyError, info } = useNotificationHelpers()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLDivElement>(null)
 
@@ -71,10 +74,16 @@ export default function Home() {
         fileSize: file.size,
       }))
 
+      // Show notification for file uploads
+      if (files && files.length > 0) {
+        info('Files uploaded', `${files.length} file(s) attached to your message`)
+      }
+
       // Send message and get LLM response
       await sendMessage(sessionId, content, fileAttachments)
     } catch (error) {
       console.error('Error sending message:', error)
+      notifyError('Message failed', 'Failed to send your message. Please try again.')
     }
   }
 
@@ -101,6 +110,7 @@ export default function Home() {
   const handleDataSourceSelect = async (sourceId: string, dataType: string) => {
     try {
       console.log('🎯 Data source selected:', { sourceId, dataType })
+      info('Fetching data', `Loading ${dataType} from ${sourceId}...`)
       
       let response: Response
       let data: any
@@ -162,9 +172,11 @@ export default function Home() {
           role: 'assistant',
           content
         })
+        success('Data loaded', `Successfully loaded ${dataType} data`)
       }
     } catch (error) {
       console.error('❌ Error fetching data source:', error)
+      notifyError('Data fetch failed', `Couldn't load ${dataType} data. Please try again.`)
       
       // Add error message directly as assistant message
       if (currentSessionId) {
@@ -240,6 +252,7 @@ export default function Home() {
                 {messages.map((message) => (
                   <MessageBubble
                     key={message.id}
+                    messageId={message.id}
                     role={message.role}
                     content={message.content}
                     timestamp={message.createdAt}
@@ -249,13 +262,7 @@ export default function Home() {
                 ))}
                 
                 {isLoading && (
-                  <div className="loading-message">
-                    <div className="loading-avatar" />
-                    <div className="loading-content">
-                      <div className="name">Ag Assistant</div>
-                      <div className="text" />
-                    </div>
-                  </div>
+                  <MessageSkeleton isUser={false} />
                 )}
                 <div ref={messagesEndRef} />
               </div>
@@ -267,5 +274,13 @@ export default function Home() {
         )}
       </div>
     </ChatLayout>
+  )
+}
+
+export default function Home() {
+  return (
+    <NotificationProvider>
+      <ChatInterface />
+    </NotificationProvider>
   )
 }

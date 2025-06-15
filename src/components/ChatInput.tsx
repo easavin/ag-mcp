@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, X } from 'lucide-react'
+import { Send, Paperclip, X, Upload } from 'lucide-react'
+import FileDropZone from './FileDropZone'
 
 interface ChatInputProps {
   onSendMessage: (message: string, files?: File[]) => void
@@ -11,6 +12,7 @@ interface ChatInputProps {
 export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const [message, setMessage] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const [showFileDropZone, setShowFileDropZone] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -32,6 +34,11 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
     }
   }
 
+  const handleFilesFromDropZone = (newFiles: File[]) => {
+    setFiles(prev => [...prev, ...newFiles])
+    setShowFileDropZone(false)
+  }
+
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index))
   }
@@ -44,13 +51,25 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   }, [message]);
 
   return (
-    <form onSubmit={handleSubmit} className="chat-input-container" style={{
+    <div className="chat-input-container" style={{
       padding: '1rem 0',
       background: '#1c1c1c',
       width: '100%',
       maxWidth: '900px',
       margin: '0 auto'
     }}>
+      {/* Enhanced File Drop Zone */}
+      {showFileDropZone && (
+        <div className="mb-4">
+          <FileDropZone
+            onFilesSelected={handleFilesFromDropZone}
+            maxFiles={10}
+            maxSize={50 * 1024 * 1024} // 50MB
+            acceptedTypes={['.shp', '.zip', '.kml', '.geojson', '.pdf', '.csv', '.json', '.txt', '.xlsx']}
+          />
+        </div>
+      )}
+
       {files.length > 0 && (
         <div className="file-tags">
           {files.map((file, index) => (
@@ -64,6 +83,8 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
           ))}
         </div>
       )}
+
+      <form onSubmit={handleSubmit}>
 
       <div className="chat-input-form">
         <div className="input-wrapper" style={{
@@ -112,10 +133,10 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             }}>
                 <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => setShowFileDropZone(!showFileDropZone)}
                     className="input-btn"
                     disabled={disabled}
-                    title="Attach files"
+                    title={showFileDropZone ? "Hide file uploader" : "Show file uploader"}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -123,13 +144,13 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
                       width: '40px',
                       height: '40px',
                       border: 'none',
-                      background: 'none',
-                      color: '#a0a0a0',
+                      background: showFileDropZone ? '#374151' : 'none',
+                      color: showFileDropZone ? '#60a5fa' : '#a0a0a0',
                       cursor: 'pointer',
                       borderRadius: '10px'
                     }}
                 >
-                    <Paperclip className="w-5 h-5" />
+                    {showFileDropZone ? <Upload className="w-5 h-5" /> : <Paperclip className="w-5 h-5" />}
                 </button>
                 <button
                     type="submit"
@@ -168,6 +189,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
           left: '-9999px'
         }}
       />
-    </form>
+      </form>
+    </div>
   )
 } 

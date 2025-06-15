@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: agmcp-postgres
+    environment:
+      POSTGRES_DB: agmcp
+      POSTGRES_USER: agmcp_user
+      POSTGRES_PASSWORD: agmcp_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - agmcp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agmcp_user -d agmcp"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for caching and rate limiting (production)
+  redis:
+    image: redis:7-alpine
+    container_name: agmcp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - agmcp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AgMCP Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agmcp-app
+    environment:
+      # Database
+      DATABASE_URL: postgresql://agmcp_user:agmcp_password@postgres:5432/agmcp
+      
+      # Redis
+      REDIS_URL: redis://redis:6379
+      
+      # Application
+      NODE_ENV: production
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: your-secret-key-change-in-production
+      
+      # John Deere API (set these in .env.local)
+      JOHN_DEERE_CLIENT_ID: ${JOHN_DEERE_CLIENT_ID}
+      JOHN_DEERE_CLIENT_SECRET: ${JOHN_DEERE_CLIENT_SECRET}
+      JOHN_DEERE_ENVIRONMENT: sandbox
+      
+      # LLM APIs (set these in .env.local)
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      
+      # File Upload
+      MAX_FILE_SIZE: 10485760
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agmcp-network
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Nginx reverse proxy (production)
+  nginx:
+    image: nginx:alpine
+    container_name: agmcp-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - agmcp-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  agmcp-network:
+    driver: bridge 

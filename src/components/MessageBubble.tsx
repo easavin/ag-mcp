@@ -4,11 +4,13 @@ import { User, Bot, Paperclip, Settings } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import DataSourceSelector from './DataSourceSelector'
+import MessageReactions from './MessageReactions'
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: Date | string
+  messageId?: string
   fileAttachments?: Array<{
     filename: string
     fileType: string
@@ -21,6 +23,7 @@ export default function MessageBubble({
   role,
   content,
   timestamp,
+  messageId,
   fileAttachments,
   onDataSourceSelect,
 }: MessageBubbleProps) {
@@ -123,7 +126,7 @@ export default function MessageBubble({
   }
 
   return (
-    <div className={`message ${isUser ? 'user' : isSystem ? 'system' : 'assistant'}`}>
+    <div className={`message group ${isUser ? 'user' : isSystem ? 'system' : 'assistant'}`}>
       <div className={`message-avatar ${
         isUser ? 'avatar-user' : 
         isSystem ? 'avatar-system' : 
@@ -191,6 +194,17 @@ export default function MessageBubble({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          
+          {/* Message Reactions - only show for assistant messages */}
+          {!isUser && !isSystem && messageId && (
+            <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <MessageReactions
+                messageId={messageId}
+                content={content}
+                className="justify-end"
+              />
             </div>
           )}
         </div>
