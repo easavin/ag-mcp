@@ -14,7 +14,7 @@ export default function Home() {
     isLoading,
     error,
     createSession,
-    addMessage,
+    sendMessage,
     loadSessions,
     setCurrentSession,
   } = useChatStore()
@@ -42,50 +42,21 @@ export default function Home() {
         sessionId = newSession.id
       }
 
-      // Add user message
+      // Process file attachments
       const fileAttachments = files?.map(file => ({
         filename: file.name,
         fileType: file.type,
         fileSize: file.size,
       }))
 
-      await addMessage(sessionId, {
-        role: 'user',
-        content,
-        fileAttachments,
-      })
-
-      // Generate and add assistant response
-      const assistantResponse = getAssistantResponse(content, files)
-      await addMessage(sessionId, {
-        role: 'assistant',
-        content: assistantResponse,
-      })
+      // Send message and get LLM response
+      await sendMessage(sessionId, content, fileAttachments)
     } catch (error) {
       console.error('Error sending message:', error)
     }
   }
 
-  const getAssistantResponse = (content: string, files?: File[]): string => {
-    if (files && files.length > 0) {
-      return `I've received ${files.length} file(s): ${files.map(f => f.name).join(', ')}. Once you connect your John Deere account, I'll be able to process these prescription files and upload them to your Operations Center. For now, I can help you understand what these files contain and prepare them for upload.`
-    }
 
-    const lowerContent = content.toLowerCase()
-    if (lowerContent.includes('field') || lowerContent.includes('crop')) {
-      return "I'd be happy to help with field and crop information! To access your specific field data, you'll need to connect your John Deere Operations Center account. Once connected, I can show you field boundaries, crop types, planting data, and yield information."
-    }
-    
-    if (lowerContent.includes('equipment') || lowerContent.includes('tractor')) {
-      return "For equipment information, I'll need access to your John Deere Operations Center. Once connected, I can provide details about your equipment fleet, location tracking, maintenance schedules, and operational data."
-    }
-
-    if (lowerContent.includes('connect') || lowerContent.includes('login')) {
-      return "To connect your John Deere Operations Center account, go to Settings and click 'Connect John Deere Account'. You'll be redirected to John Deere's secure login page to authorize the connection."
-    }
-
-    return "I'm here to help with your precision agriculture needs! Ask me about fields, equipment, prescriptions, or connecting your John Deere account. What would you like to know?"
-  }
 
   const isInitialState = messages.length === 0
 

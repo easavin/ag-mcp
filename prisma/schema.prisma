@@ -46,6 +46,7 @@ model Message {
   role            String    // 'user' | 'assistant' | 'system'
   content         String
   fileAttachments Json?     // Store file metadata as JSON
+  metadata        Json?     // Store LLM response metadata (model, usage, etc.)
   createdAt       DateTime  @default(now())
 
   // Relations

@@ -11,6 +11,14 @@ export interface Message {
     fileType: string
     fileSize: number
   }>
+  metadata?: {
+    model?: string
+    usage?: {
+      promptTokens: number
+      completionTokens: number
+      totalTokens: number
+    }
+  }
   createdAt: Date | string
 }
 
@@ -36,6 +44,7 @@ interface ChatState {
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>
   deleteSession: (sessionId: string) => Promise<void>
   addMessage: (sessionId: string, message: Omit<Message, 'id' | 'sessionId' | 'createdAt'>) => Promise<Message>
+  sendMessage: (sessionId: string, content: string, fileAttachments?: Array<{filename: string, fileType: string, fileSize: number}>) => Promise<Message>
   loadSessions: () => Promise<void>
   loadMessages: (sessionId: string) => Promise<void>
   setLoading: (loading: boolean) => void
@@ -186,6 +195,92 @@ export const useChatStore = create<ChatState>()(
           }))
 
           return newMessage
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          set({ error: errorMessage, isLoading: false })
+          throw error
+        }
+      },
+
+      sendMessage: async (sessionId, content, fileAttachments) => {
+        set({ isLoading: true, error: null })
+        try {
+          // First, save the user message
+          const userMessageResponse = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              role: 'user',
+              content, 
+              fileAttachments 
+            }),
+          })
+
+          if (!userMessageResponse.ok) {
+            throw new Error('Failed to save user message')
+          }
+
+          const rawUserMessage = await userMessageResponse.json()
+          const userMessage: Message = convertDates(rawUserMessage)
+
+          // Update state with user message
+          set((state) => ({
+            sessions: state.sessions.map((session) =>
+              session.id === sessionId
+                ? {
+                    ...session,
+                    messages: [...session.messages, userMessage],
+                    updatedAt: new Date(),
+                  }
+                : session
+            ),
+          }))
+
+          // Get all messages for the session to send to LLM
+          const currentSession = get().sessions.find(s => s.id === sessionId)
+          if (!currentSession) {
+            throw new Error('Session not found')
+          }
+
+          const allMessages = [...currentSession.messages, userMessage]
+
+          // Generate LLM response
+          const completionResponse = await fetch('/api/chat/completion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              messages: allMessages.map(msg => ({
+                role: msg.role,
+                content: msg.content,
+                fileAttachments: msg.fileAttachments || []
+              }))
+            }),
+          })
+
+          if (!completionResponse.ok) {
+            const errorData = await completionResponse.json()
+            throw new Error(errorData.error || 'Failed to generate response')
+          }
+
+          const completionData = await completionResponse.json()
+          const assistantMessage: Message = convertDates(completionData.message)
+
+          // Update state with assistant message
+          set((state) => ({
+            sessions: state.sessions.map((session) =>
+              session.id === sessionId
+                ? {
+                    ...session,
+                    messages: [...session.messages.filter(m => m.id !== userMessage.id), userMessage, assistantMessage],
+                    updatedAt: new Date(),
+                  }
+                : session
+            ),
+            isLoading: false,
+          }))
+
+          return assistantMessage
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
           set({ error: errorMessage, isLoading: false })
