@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
@@ -20,6 +20,12 @@ export default function Home() {
   } = useChatStore()
 
   const { user, loadUser } = useAuthStore()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLDivElement>(null)
+
+  // Get current session and messages
+  const currentSession = sessions.find(s => s.id === currentSessionId)
+  const messages = currentSession?.messages || []
 
   // Load sessions and user data on mount
   useEffect(() => {
@@ -27,9 +33,22 @@ export default function Home() {
     loadUser()
   }, [loadSessions, loadUser])
 
-  // Get current session and messages
-  const currentSession = sessions.find(s => s.id === currentSessionId)
-  const messages = currentSession?.messages || []
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, isLoading])
+
+  // Keep focus on chat input after sending message
+  useEffect(() => {
+    if (!isLoading && chatInputRef.current) {
+      const textarea = chatInputRef.current.querySelector('textarea')
+      if (textarea) {
+        textarea.focus()
+      }
+    }
+  }, [isLoading])
 
   const handleSendMessage = async (content: string, files?: File[]) => {
     try {
@@ -103,10 +122,20 @@ export default function Home() {
             <div className="flex-1"></div> {/* Spacer to push everything up */}
           </div>
         ) : (
-          // Regular chat layout
-          <>
-            <div className="messages-container justify-end">
-              <div className="messages-content">
+          // Regular chat layout with proper scrolling
+          <div className="flex flex-col h-full">
+            <div 
+              className="messages-container"
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0,
+                paddingBottom: '20px'
+              }}
+            >
+              <div className="messages-content" style={{ flex: 1 }}>
                 {messages.map((message) => (
                   <MessageBubble
                     key={message.id}
@@ -126,12 +155,13 @@ export default function Home() {
                     </div>
                   </div>
                 )}
+                <div ref={messagesEndRef} />
               </div>
             </div>
-            <div className="chat-input-container">
+            <div className="chat-input-container" style={{ flexShrink: 0 }} ref={chatInputRef}>
               <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
             </div>
-          </>
+          </div>
         )}
       </div>
     </ChatLayout>
