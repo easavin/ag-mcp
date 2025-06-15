@@ -66,7 +66,7 @@ export default function MobileMenu({ className = '' }: MobileMenuProps) {
       {/* Burger Menu Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`mobile-menu-trigger ${className}`}
+        className={`mobile-menu-trigger block md:hidden ${className}`}
         style={{
           position: 'fixed',
           top: '16px',

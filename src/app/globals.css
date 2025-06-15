@@ -895,6 +895,16 @@ input[type="file"] {
 }
 
 /* Mobile menu specific styles */
+.mobile-menu-trigger {
+  display: flex !important;
+}
+
+@media (min-width: 768px) {
+  .mobile-menu-trigger {
+    display: none !important;
+  }
+}
+
 .mobile-menu-trigger:hover {
   background: rgba(42, 42, 42, 1) !important;
   border-color: #555 !important;
