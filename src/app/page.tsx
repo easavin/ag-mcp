@@ -1,103 +1,115 @@
-import Image from "next/image";
+'use client'
+
+import { useState } from 'react'
+import ChatLayout from '@/components/ChatLayout'
+import MessageBubble from '@/components/MessageBubble'
+import ChatInput from '@/components/ChatInput'
+import { generateId } from '@/lib/utils'
+
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+  fileAttachments?: Array<{
+    filename: string
+    fileType: string
+    fileSize: number
+  }>
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      role: 'assistant',
+      content: "Hello! I'm your Ag Assistant. I can help you manage your John Deere operations, analyze field data, and process prescription files. What would you like to know about your farming operations?",
+      timestamp: new Date(),
+    },
+  ])
+  const [isLoading, setIsLoading] = useState(false)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  const handleSendMessage = async (content: string, files?: File[]) => {
+    const userMessage: Message = {
+      id: generateId(),
+      role: 'user',
+      content,
+      timestamp: new Date(),
+      fileAttachments: files?.map(file => ({
+        filename: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+      })),
+    }
+
+    setMessages(prev => [...prev, userMessage])
+    setIsLoading(true)
+
+    // Simulate assistant response
+    setTimeout(() => {
+      const assistantMessage: Message = {
+        id: generateId(),
+        role: 'assistant',
+        content: getAssistantResponse(content, files),
+        timestamp: new Date(),
+      }
+      setMessages(prev => [...prev, assistantMessage])
+      setIsLoading(false)
+    }, 1000)
+  }
+
+  const getAssistantResponse = (content: string, files?: File[]): string => {
+    if (files && files.length > 0) {
+      return `I've received ${files.length} file(s): ${files.map(f => f.name).join(', ')}. Once you connect your John Deere account, I'll be able to process these prescription files and upload them to your Operations Center. For now, I can help you understand what these files contain and prepare them for upload.`
+    }
+
+    const lowerContent = content.toLowerCase()
+    if (lowerContent.includes('field') || lowerContent.includes('crop')) {
+      return "I'd be happy to help with field and crop information! To access your specific field data, you'll need to connect your John Deere Operations Center account. Once connected, I can show you field boundaries, crop types, planting data, and yield information."
+    }
+    
+    if (lowerContent.includes('equipment') || lowerContent.includes('tractor')) {
+      return "For equipment information, I'll need access to your John Deere Operations Center. Once connected, I can provide details about your equipment fleet, location tracking, maintenance schedules, and operational data."
+    }
+
+    if (lowerContent.includes('connect') || lowerContent.includes('login')) {
+      return "To connect your John Deere Operations Center account, go to Settings and click 'Connect John Deere Account'. You'll be redirected to John Deere's secure login page to authorize the connection."
+    }
+
+    return "I'm here to help with your precision agriculture needs! Ask me about fields, equipment, prescriptions, or connecting your John Deere account. What would you like to know?"
+  }
+
+  return (
+    <ChatLayout>
+      <div className="flex flex-col h-full">
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto">
+          {messages.map((message) => (
+            <MessageBubble
+              key={message.id}
+              role={message.role}
+              content={message.content}
+              timestamp={message.timestamp}
+              fileAttachments={message.fileAttachments}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          ))}
+          
+          {isLoading && (
+            <div className="flex gap-3 p-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-900 mb-1">Ag Assistant</div>
+                <div className="text-gray-500">Thinking...</div>
+              </div>
+            </div>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+
+        {/* Chat Input */}
+        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+      </div>
+    </ChatLayout>
+  )
 }

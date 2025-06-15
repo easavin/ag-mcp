@@ -2,26 +2,44 @@
   "name": "ag-mcp",
   "version": "0.1.0",
   "private": true,
+  "description": "A Claude-style chat interface that connects to John Deere Operations Center via MCP (Model Context Protocol)",
+  "keywords": ["agriculture", "john-deere", "mcp", "chat", "precision-ag"],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write ."
   },
   "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "next": "15.3.3"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "next": "14.0.4",
+    "zustand": "^4.4.7",
+    "react-hook-form": "^7.48.2",
+    "lucide-react": "^0.294.0",
+    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@radix-ui/react-toast": "^1.1.5",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.1.0",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "typescript": "^5",
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
     "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4",
     "eslint": "^9",
-    "eslint-config-next": "15.3.3",
-    "@eslint/eslintrc": "^3"
+    "eslint-config-next": "14.0.4",
+    "@eslint/eslintrc": "^3",
+    "prettier": "^3.1.0",
+    "prettier-plugin-tailwindcss": "^0.5.7",
+    "@types/uuid": "^9.0.7",
+    "@types/geojson": "^7946.0.13"
   }
 }
