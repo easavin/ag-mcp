@@ -30,13 +30,57 @@ export default function MessageBubble({
   const getIcon = () => {
     if (isUser) return <User className="w-4 h-4" />
     if (isSystem) return <Settings className="w-4 h-4" />
+    
+    // Check if this is a John Deere data response
+    if (isJohnDeereResponse()) {
+      return (
+        <img
+          src="/assets/logos/johndeere-logo.png"
+          alt="John Deere"
+          width={16}
+          height={16}
+          className="rounded-sm"
+          onError={(e) => {
+            console.error('Failed to load John Deere logo:', e)
+            // Fallback to bot icon if image fails to load
+            e.currentTarget.style.display = 'none'
+          }}
+          onLoad={() => {
+            console.log('✅ John Deere logo loaded successfully')
+          }}
+        />
+      )
+    }
+    
     return <Bot className="w-4 h-4" />
   }
 
   const getName = () => {
     if (isUser) return 'You'
     if (isSystem) return 'System'
+    
+    // Show John Deere branding for John Deere data responses
+    if (isJohnDeereResponse()) {
+      return 'John Deere Data'
+    }
+    
     return 'Ag Assistant'
+  }
+
+  // Check if this message contains John Deere data
+  const isJohnDeereResponse = () => {
+    if (isUser || isSystem) return false
+    
+    // Look for patterns that indicate this is John Deere data
+    const johnDeerePatterns = [
+      /Your organization name is:/i,
+      /Your Equipment:/i,
+      /Your Fields:/i,
+      /Your Recent Operations:/i,
+      /Green Growth/i, // Specific to the user's org
+    ]
+    
+    return johnDeerePatterns.some(pattern => pattern.test(content))
   }
 
   // Check if this message should show a data source selector
@@ -80,7 +124,12 @@ export default function MessageBubble({
 
   return (
     <div className={`message ${isUser ? 'user' : isSystem ? 'system' : 'assistant'}`}>
-      <div className={`message-avatar ${isUser ? 'avatar-user' : isSystem ? 'avatar-system' : 'avatar-assistant'}`}>
+      <div className={`message-avatar ${
+        isUser ? 'avatar-user' : 
+        isSystem ? 'avatar-system' : 
+        isJohnDeereResponse() ? 'avatar-johndeere' : 
+        'avatar-assistant'
+      }`}>
         {getIcon()}
       </div>
 

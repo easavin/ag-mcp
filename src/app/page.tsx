@@ -102,20 +102,54 @@ export default function Home() {
     try {
       console.log('🎯 Data source selected:', { sourceId, dataType })
       
-      // Fetch data from the selected source
-      const response = await fetch(`/api/johndeere/${dataType}`)
+      let response: Response
+      let data: any
+      
+      if (dataType === 'organizations') {
+        // Direct organizations endpoint
+        response = await fetch(`/api/johndeere/${dataType}`)
+      } else {
+        // For other data types, we need to get organization first, then fetch the specific data
+        console.log('🔍 Fetching organization first for nested endpoint...')
+        const orgResponse = await fetch('/api/johndeere/organizations')
+        
+        if (!orgResponse.ok) {
+          throw new Error('Failed to fetch organization data')
+        }
+        
+        const orgData = await orgResponse.json()
+        
+        if (!orgData.organizations || orgData.organizations.length === 0) {
+          throw new Error('No organizations found')
+        }
+        
+        const orgId = orgData.organizations[0].id
+        console.log('🏢 Using organization ID:', orgId)
+        
+        // Now fetch the specific data type for this organization
+        response = await fetch(`/api/johndeere/organizations/${orgId}/${dataType}`)
+      }
       
       if (!response.ok) {
         throw new Error(`Failed to fetch ${dataType} data`)
       }
       
-      const data = await response.json()
+      data = await response.json()
       
       // Format the response based on data type
       let content: string
       if (dataType === 'organizations' && data.organizations && data.organizations.length > 0) {
         const org = data.organizations[0]
         content = `Your organization name is: **${org.name}**`
+      } else if (dataType === 'equipment' && data.equipment && data.equipment.length > 0) {
+        const equipmentList = data.equipment.map((eq: any) => `• **${eq.name}** (${eq.make} ${eq.model})`).join('\n')
+        content = `**Your Equipment:**\n\n${equipmentList}`
+      } else if (dataType === 'fields' && data.fields && data.fields.length > 0) {
+        const fieldsList = data.fields.map((field: any) => `• **${field.name}** (${field.area.measurement} ${field.area.unit})`).join('\n')
+        content = `**Your Fields:**\n\n${fieldsList}`
+      } else if (dataType === 'operations' && data.operations && data.operations.length > 0) {
+        const operationsList = data.operations.map((op: any) => `• **${op.type}** - ${op.operationType}`).join('\n')
+        content = `**Your Recent Operations:**\n\n${operationsList}`
       } else if (data.title && data.content) {
         content = `**${data.title}**\n\n${data.content}`
       } else {

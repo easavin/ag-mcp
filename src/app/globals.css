@@ -324,8 +324,40 @@ body {
   color: white;
 }
 
+.avatar-johndeere {
+  background: #367c2b;
+  color: white;
+  padding: 2px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-johndeere img {
+  width: 16px !important;
+  height: 16px !important;
+  object-fit: contain;
+  display: block;
+}
+
+.avatar-johndeere img:error {
+  display: none;
+}
+
+/* Fallback when image fails */
+.avatar-johndeere::after {
+  content: "🚜";
+  font-size: 12px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+}
+
 .avatar-system {
-  background: #7c3aed;
+  background: #6b7280;
   color: white;
 }
 
