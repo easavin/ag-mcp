@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLLMService, AGRICULTURAL_SYSTEM_PROMPT, ChatMessage, FunctionCall } from '@/lib/llm'
 import { prisma } from '@/lib/prisma'
+import { mcpToolExecutor, ALL_MCP_TOOLS } from '@/lib/mcp-tools'
 
 // Function to execute John Deere API calls
 async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any> {
   const { name, arguments: args } = functionCall
   
-  console.log(`🔧 Executing function: ${name}`, args)
+  console.log(`🔧 Executing John Deere function: ${name}`, args)
   
   try {
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
@@ -29,7 +30,7 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
         url = `${baseUrl}/api/johndeere/organizations/${args.orgId}/comprehensive`
         break
       default:
-        throw new Error(`Unknown function: ${name}`)
+        throw new Error(`Unknown John Deere function: ${name}`)
     }
 
     console.log(`📡 Making API call to: ${url}`)
@@ -50,17 +51,46 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
     }
 
     const data = await response.json()
-    console.log(`✅ Function ${name} completed successfully`, { dataKeys: Object.keys(data) })
+    console.log(`✅ John Deere function ${name} completed successfully`, { dataKeys: Object.keys(data) })
     
     return data
   } catch (error) {
-    console.error(`❌ Error executing function ${name}:`, error)
+    console.error(`❌ Error executing John Deere function ${name}:`, error)
     return { 
       error: `Failed to execute ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       functionName: name,
       arguments: args
     }
   }
+}
+
+// Unified function executor that handles both John Deere functions and MCP tools
+async function executeFunction(functionCall: FunctionCall): Promise<any> {
+  const { name, arguments: args } = functionCall
+  
+  console.log(`🔧 Executing function: ${name}`, args)
+  
+  // Check if it's an MCP tool
+  const mcpTool = ALL_MCP_TOOLS.find(tool => tool.name === name)
+  if (mcpTool) {
+    console.log(`🛠️ Executing MCP tool: ${name}`)
+    try {
+      const result = await mcpToolExecutor.executeTool(name, args)
+      console.log(`✅ MCP tool ${name} completed:`, result)
+      return result
+    } catch (error) {
+      console.error(`❌ Error executing MCP tool ${name}:`, error)
+      return {
+        success: false,
+        error: `Failed to execute MCP tool ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        functionName: name,
+        arguments: args
+      }
+    }
+  }
+  
+  // Otherwise, it's a John Deere function
+  return executeJohnDeereFunction(functionCall)
 }
 
 export async function POST(request: NextRequest) {
@@ -123,13 +153,13 @@ export async function POST(request: NextRequest) {
 
     console.log('💬 Chat messages prepared:', chatMessages.length)
 
-    // Generate completion with function calling disabled for now
+    // Generate completion with function calling enabled
     console.log('🎯 Generating LLM completion...')
     let response = await llmService.generateChatCompletion(chatMessages, {
       maxTokens: options?.maxTokens || 4000,
       temperature: options?.temperature || 0.7,
       systemPrompt: AGRICULTURAL_SYSTEM_PROMPT,
-      enableFunctions: false, // Disabled for now - will use data source selector instead
+      enableFunctions: true, // Enable both John Deere functions and MCP tools
     })
 
     console.log('🎯 LLM response received:', {
@@ -143,12 +173,12 @@ export async function POST(request: NextRequest) {
     if (response.functionCalls && response.functionCalls.length > 0) {
       console.log('🔧 Function calls detected:', response.functionCalls.map(fc => fc.name))
       
-      // Execute all function calls
+      // Execute all function calls (both John Deere and MCP tools)
       console.log('⚡ Executing function calls...')
       const functionResults = await Promise.all(
         response.functionCalls.map(async (functionCall, index) => {
           console.log(`🔧 Executing function ${index + 1}/${response.functionCalls!.length}: ${functionCall.name}`)
-          const result = await executeJohnDeereFunction(functionCall)
+          const result = await executeFunction(functionCall)
           return {
             name: functionCall.name,
             result,
