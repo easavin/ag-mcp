@@ -5,6 +5,7 @@ import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
 import { useChatStore } from '@/stores/chatStore'
+import { useAuthStore } from '@/stores/authStore'
 
 export default function Home() {
   const {
@@ -18,10 +19,13 @@ export default function Home() {
     setCurrentSession,
   } = useChatStore()
 
-  // Load sessions on mount
+  const { user, loadUser } = useAuthStore()
+
+  // Load sessions and user data on mount
   useEffect(() => {
     loadSessions()
-  }, [loadSessions])
+    loadUser()
+  }, [loadSessions, loadUser])
 
   // Get current session and messages
   const currentSession = sessions.find(s => s.id === currentSessionId)
@@ -85,6 +89,15 @@ export default function Home() {
 
   const isInitialState = messages.length === 0
 
+  // Get the welcome title based on user data
+  const getWelcomeTitle = () => {
+    if (user?.name) {
+      const firstName = user.name.split(' ')[0]
+      return `Hi ${firstName},`
+    }
+    return 'Ag Assistant'
+  }
+
   if (error) {
     return (
       <ChatLayout>
@@ -110,7 +123,7 @@ export default function Home() {
           // Welcome screen layout with chat input positioned closer to title
           <div className="flex flex-col h-full">
             <div className="welcome-container-compact">
-              <h1 className="welcome-title">Ag Assistant</h1>
+              <h1 className="welcome-title">{getWelcomeTitle()}</h1>
               <p className="welcome-subtitle">Start a conversation to manage your farming operations.</p>
             </div>
             <div className="welcome-chat-input">

@@ -27,6 +27,7 @@ interface AuthState {
 
   // Actions
   setUser: (user: User | null) => void
+  loadUser: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   connectJohnDeere: () => Promise<string> // Returns authorization URL
@@ -61,6 +62,24 @@ export const useAuthStore = create<AuthState>()(
               isConnected: user?.johnDeereConnected || false,
             },
           })
+        },
+
+        loadUser: async () => {
+          set({ isLoading: true, error: null })
+          try {
+            const response = await fetch('/api/auth/user')
+
+            if (!response.ok) {
+              throw new Error('Failed to load user')
+            }
+
+            const { user } = await response.json()
+            get().setUser(user)
+            set({ isLoading: false })
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to load user'
+            set({ error: errorMessage, isLoading: false })
+          }
         },
 
         login: async (email, password) => {
