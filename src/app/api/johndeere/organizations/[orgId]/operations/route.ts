@@ -7,16 +7,32 @@ export async function GET(
 ) {
   try {
     const { orgId } = params
+    const { searchParams } = new URL(request.url)
+    
+    // Parse query parameters
+    const startDate = searchParams.get('startDate') || undefined
+    const endDate = searchParams.get('endDate') || undefined
+    const fieldId = searchParams.get('fieldId') || undefined
+
     const johnDeereClient = getJohnDeereAPIClient()
-    const equipment = await johnDeereClient.getEquipment(orgId)
+    const operations = await johnDeereClient.getFieldOperations(orgId, {
+      startDate,
+      endDate,
+      fieldId,
+    })
 
     return NextResponse.json({
       organizationId: orgId,
-      equipment,
-      count: equipment.length,
+      operations,
+      count: operations.length,
+      filters: {
+        startDate,
+        endDate,
+        fieldId,
+      },
     })
   } catch (error) {
-    console.error('Error fetching equipment:', error)
+    console.error('Error fetching field operations:', error)
     
     if (error instanceof Error) {
       if (error.message.includes('token') || error.message.includes('auth')) {
@@ -28,7 +44,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { error: 'Failed to fetch equipment' },
+      { error: 'Failed to fetch field operations' },
       { status: 500 }
     )
   }

@@ -1,29 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedJohnDeereAPI } from '@/lib/johndeere-auth'
+import { getJohnDeereAPIClient } from '@/lib/johndeere-api'
 
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get user ID from authentication session
-    const userId = 'user_placeholder'
-
-    // Get authenticated John Deere API client
-    const johnDeereAPI = await getAuthenticatedJohnDeereAPI(userId)
-
-    // Fetch organizations
-    const organizations = await johnDeereAPI.getOrganizations()
+    const johnDeereClient = getJohnDeereAPIClient()
+    const organizations = await johnDeereClient.getOrganizations()
 
     return NextResponse.json({
       organizations,
       count: organizations.length,
     })
   } catch (error) {
-    console.error('Error fetching John Deere organizations:', error)
-
-    if (error instanceof Error && error.message.includes('No valid John Deere tokens')) {
-      return NextResponse.json(
-        { error: 'John Deere account not connected or tokens expired' },
-        { status: 401 }
-      )
+    console.error('Error fetching organizations:', error)
+    
+    if (error instanceof Error) {
+      if (error.message.includes('token') || error.message.includes('auth')) {
+        return NextResponse.json(
+          { error: 'John Deere authentication required. Please connect your account.' },
+          { status: 401 }
+        )
+      }
     }
 
     return NextResponse.json(
