@@ -838,12 +838,48 @@ input[type="file"] {
   }
   .chat-main {
     width: 100%;
+    padding-top: 80px; /* Add top padding to account for mobile menu button */
   }
   .messages-content {
     padding: 16px;
   }
   .chat-input-container {
     padding: 1rem;
+  }
+
+  /* Mobile-specific welcome screen adjustments */
+  .welcome-container-compact {
+    padding-top: 2rem; /* Reduce top padding on mobile */
+  }
+
+  .welcome-title {
+    font-size: 2rem; /* Slightly smaller on mobile */
+  }
+
+  .welcome-subtitle {
+    font-size: 1rem; /* Adjust subtitle size */
+    margin-bottom: 2rem;
+  }
+
+  /* Mobile input optimizations */
+  .chat-input-field {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+  }
+
+  /* Larger touch targets on mobile */
+  .input-btn {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  
+  /* Better spacing for mobile */
+  .message {
+    margin-bottom: 1.5rem;
+  }
+  
+  /* Improved mobile scrolling */
+  .messages-container {
+    -webkit-overflow-scrolling: touch;
   }
   
   .modal-content {
@@ -856,6 +892,24 @@ input[type="file"] {
   .modal-footer {
     padding: 16px;
   }
+}
+
+/* Mobile menu specific styles */
+.mobile-menu-trigger:hover {
+  background: rgba(42, 42, 42, 1) !important;
+  border-color: #555 !important;
+}
+
+.mobile-menu-panel button:hover {
+  background: #2a2a2a !important;
+  color: #fff !important;
+}
+
+/* Ensure mobile menu is above everything */
+.mobile-menu-overlay,
+.mobile-menu-panel {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 /* Integrations Modal Styles */

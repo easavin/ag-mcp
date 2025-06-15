@@ -52,8 +52,8 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
 
   return (
     <div className="chat-layout">
-      {/* Sidebar */}
-      <div className={`sidebar ${!sidebarOpen ? 'w-0 overflow-hidden' : ''}`}>
+      {/* Sidebar - hidden on mobile */}
+      <div className={`sidebar hidden md:flex ${!sidebarOpen ? 'w-0 overflow-hidden' : ''}`}>
         <div className="sidebar-header">
           <h2>Farm MCP</h2>
           <button onClick={() => setSidebarOpen(false)}>
@@ -147,7 +147,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         {!sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
-            className="absolute top-4 left-4 p-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg z-10 border border-gray-600"
+            className="absolute top-4 left-4 p-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg z-10 border border-gray-600 hidden md:block"
           >
             <MessageSquare className="w-4 h-4 text-white" />
           </button>

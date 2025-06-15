@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
+import MobileMenu from '@/components/MobileMenu'
 import { NotificationProvider, useNotificationHelpers } from '@/components/NotificationSystem'
 import { MessageSkeleton } from '@/components/LoadingStates'
 // import JohnDeereDataButton from '@/components/JohnDeereDataButton'
@@ -218,62 +219,67 @@ function ChatInterface() {
   }
 
   return (
-    <ChatLayout>
-      <div className="flex flex-col h-full" style={{ height: '100%' }}>
-        {isInitialState ? (
-          // Welcome screen layout with chat input positioned closer to title
-          <div className="flex flex-col h-full">
-            <div className="welcome-container-compact">
-              <h1 className="welcome-title">{getWelcomeTitle()}</h1>
-              <p className="welcome-subtitle">Start a conversation to manage your farming operations.</p>
+    <>
+      {/* Mobile Menu - only visible on mobile */}
+      <MobileMenu className="md:hidden" />
+      
+      <ChatLayout>
+        <div className="flex flex-col h-full" style={{ height: '100%' }}>
+          {isInitialState ? (
+            // Welcome screen layout with chat input positioned closer to title
+            <div className="flex flex-col h-full">
+              <div className="welcome-container-compact">
+                <h1 className="welcome-title">{getWelcomeTitle()}</h1>
+                <p className="welcome-subtitle">Start a conversation to manage your farming operations.</p>
+              </div>
+              <div className="welcome-chat-input">
+                <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+              </div>
+              <div className="flex-1"></div> {/* Spacer to push everything up */}
             </div>
-            <div className="welcome-chat-input">
-              <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
-            </div>
-            <div className="flex-1"></div> {/* Spacer to push everything up */}
-          </div>
-        ) : (
-          // Regular chat layout with proper scrolling
-          <div className="flex flex-col h-full">
-            <div 
-              className="messages-container"
-              style={{
-                flex: 1,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-                paddingBottom: '20px'
-              }}
-            >
-              <div className="messages-content" style={{ flex: 1 }}>
-                {/* <JohnDeereDataButton onDataReceived={handleDataFetched} /> */}
-                
-                {messages.map((message) => (
-                  <MessageBubble
-                    key={message.id}
-                    messageId={message.id}
-                    role={message.role}
-                    content={message.content}
-                    timestamp={message.createdAt}
-                    fileAttachments={message.fileAttachments}
-                    onDataSourceSelect={handleDataSourceSelect}
-                  />
-                ))}
-                
-                {isLoading && (
-                  <MessageSkeleton isUser={false} />
-                )}
-                <div ref={messagesEndRef} />
+          ) : (
+            // Regular chat layout with proper scrolling
+            <div className="flex flex-col h-full">
+              <div 
+                className="messages-container"
+                style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                  paddingBottom: '20px'
+                }}
+              >
+                <div className="messages-content" style={{ flex: 1 }}>
+                  {/* <JohnDeereDataButton onDataReceived={handleDataFetched} /> */}
+                  
+                  {messages.map((message) => (
+                    <MessageBubble
+                      key={message.id}
+                      messageId={message.id}
+                      role={message.role}
+                      content={message.content}
+                      timestamp={message.createdAt}
+                      fileAttachments={message.fileAttachments}
+                      onDataSourceSelect={handleDataSourceSelect}
+                    />
+                  ))}
+                  
+                  {isLoading && (
+                    <MessageSkeleton isUser={false} />
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+              <div className="chat-input-container" style={{ flexShrink: 0 }} ref={chatInputRef}>
+                <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
               </div>
             </div>
-            <div className="chat-input-container" style={{ flexShrink: 0 }} ref={chatInputRef}>
-              <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
-            </div>
-          </div>
-        )}
-      </div>
-    </ChatLayout>
+          )}
+        </div>
+      </ChatLayout>
+    </>
   )
 }
 

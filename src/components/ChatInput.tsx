@@ -93,7 +93,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
           border: '1px solid #444',
           borderRadius: '16px',
           background: '#2a2a2a',
-          minHeight: '60px'
+          minHeight: '80px' // Increased from 60px to 80px for better mobile visibility
         }}>
             <textarea
                 ref={textareaRef}
@@ -111,7 +111,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
                 }}
                 style={{
                   width: '100%',
-                  padding: '18px 60px 18px 20px',
+                  padding: '22px 60px 22px 20px', // Increased padding for better mobile touch
                   border: 'none',
                   background: 'transparent',
                   color: '#e0e0e0',
@@ -120,16 +120,16 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
                   resize: 'none',
                   outline: 'none',
                   maxHeight: '200px',
-                  minHeight: '24px'
+                  minHeight: '36px' // Increased from 24px to 36px for better mobile visibility
                 }}
             />
             <div className="input-buttons" style={{
               position: 'absolute',
               right: '16px',
-              bottom: '12px',
+              bottom: '16px', // Adjusted to match increased padding
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '8px' // Slightly increased gap for better mobile touch
             }}>
                 <button
                     type="button"
