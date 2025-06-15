@@ -1,0 +1,60 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getJohnDeereAPI } from '@/lib/johndeere'
+import { prisma } from '@/lib/prisma'
+
+export async function POST(request: NextRequest) {
+  try {
+    // TODO: Get user ID from authentication session
+    // For now, we'll use the placeholder user
+    const userId = 'user_placeholder'
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Generate John Deere authorization URL
+    const johnDeereAPI = getJohnDeereAPI()
+    const { url, state } = johnDeereAPI.generateAuthorizationUrl([
+      'ag1', // Basic agricultural data
+      'ag2', // Field and boundary data
+      'ag3', // Equipment and work records
+    ])
+
+    // Store the state parameter temporarily (in a real app, you'd use Redis or similar)
+    // For now, we'll store it in the database
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        // We'll add a temporary field for OAuth state
+        // In production, use a separate table or cache
+      },
+    })
+
+    return NextResponse.json({
+      authorizationUrl: url,
+      state,
+    })
+  } catch (error) {
+    console.error('Error initiating John Deere authorization:', error)
+    
+    if (error instanceof Error && error.message.includes('credentials not configured')) {
+      return NextResponse.json(
+        { error: 'John Deere API not configured. Please check environment variables.' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to initiate John Deere authorization' },
+      { status: 500 }
+    )
+  }
+} 

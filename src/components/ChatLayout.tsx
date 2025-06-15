@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { MessageSquare, Settings, Plus, Trash2 } from 'lucide-react'
 import { useChatStore } from '@/stores/chatStore'
 import { formatDate } from '@/lib/utils'
+import SettingsModal from './SettingsModal'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -11,6 +12,7 @@ interface ChatLayoutProps {
 
 export default function ChatLayout({ children }: ChatLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   
   const {
     currentSessionId,
@@ -103,7 +105,10 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         </div>
         
         <div className="sidebar-footer">
-          <button className="settings-btn">
+          <button 
+            className="settings-btn"
+            onClick={() => setSettingsOpen(true)}
+          >
             <Settings className="w-4 h-4" />
             Settings
           </button>
@@ -140,6 +145,12 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
           {children}
         </div>
       </main>
+
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={settingsOpen} 
+        onClose={() => setSettingsOpen(false)} 
+      />
     </div>
   )
 } 
