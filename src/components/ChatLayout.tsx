@@ -5,6 +5,7 @@ import { MessageSquare, Settings, Plus, Trash2 } from 'lucide-react'
 import { useChatStore } from '@/stores/chatStore'
 import { formatDate } from '@/lib/utils'
 import SettingsModal from './SettingsModal'
+import IntegrationsModal from './IntegrationsModal'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -13,6 +14,8 @@ interface ChatLayoutProps {
 export default function ChatLayout({ children }: ChatLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [showIntegrations, setShowIntegrations] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   
   const {
     currentSessionId,
@@ -107,9 +110,24 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         <div className="sidebar-footer">
           <button 
             className="settings-btn"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => setShowIntegrations(true)}
           >
-            <Settings className="w-4 h-4" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+            Integrations
+          </button>
+          <button 
+            className="settings-btn"
+            onClick={() => setShowSettings(true)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v6m0 6v6"/>
+              <path d="M1 12h6m6 0h6"/>
+            </svg>
             Settings
           </button>
         </div>
@@ -148,8 +166,13 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
 
       {/* Settings Modal */}
       <SettingsModal 
-        isOpen={settingsOpen} 
-        onClose={() => setSettingsOpen(false)} 
+        isOpen={showSettings} 
+        onClose={() => setShowSettings(false)} 
+      />
+      
+      <IntegrationsModal 
+        isOpen={showIntegrations} 
+        onClose={() => setShowIntegrations(false)} 
       />
     </div>
   )
