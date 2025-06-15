@@ -1,12 +1,12 @@
 'use client'
 
-import { User, Bot, Paperclip } from 'lucide-react'
+import { User, Bot, Paperclip, Settings } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 interface MessageBubbleProps {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
-  timestamp: Date
+  timestamp: Date | string
   fileAttachments?: Array<{
     filename: string
     fileType: string
@@ -21,17 +21,30 @@ export default function MessageBubble({
   fileAttachments,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
+  const isSystem = role === 'system'
+
+  const getIcon = () => {
+    if (isUser) return <User className="w-4 h-4" />
+    if (isSystem) return <Settings className="w-4 h-4" />
+    return <Bot className="w-4 h-4" />
+  }
+
+  const getName = () => {
+    if (isUser) return 'You'
+    if (isSystem) return 'System'
+    return 'Ag Assistant'
+  }
 
   return (
-    <div className={`message ${isUser ? 'user' : 'assistant'}`}>
-      <div className={`message-avatar ${isUser ? 'avatar-user' : 'avatar-assistant'}`}>
-        {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+    <div className={`message ${isUser ? 'user' : isSystem ? 'system' : 'assistant'}`}>
+      <div className={`message-avatar ${isUser ? 'avatar-user' : isSystem ? 'avatar-system' : 'avatar-assistant'}`}>
+        {getIcon()}
       </div>
 
       <div className="message-content">
         <div className="message-header">
           <span className="name">
-            {isUser ? 'You' : 'Ag Assistant'}
+            {getName()}
           </span>
           <span className="time">{formatDate(timestamp)}</span>
         </div>

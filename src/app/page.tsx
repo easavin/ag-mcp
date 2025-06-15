@@ -1,54 +1,65 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect } from 'react'
 import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
-import { generateId } from '@/lib/utils'
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-  fileAttachments?: Array<{
-    filename: string
-    fileType: string
-    fileSize: number
-  }>
-}
+import { useChatStore } from '@/stores/chatStore'
 
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const {
+    currentSessionId,
+    sessions,
+    isLoading,
+    error,
+    createSession,
+    addMessage,
+    loadSessions,
+    setCurrentSession,
+  } = useChatStore()
+
+  // Load sessions on mount
+  useEffect(() => {
+    loadSessions()
+  }, [loadSessions])
+
+  // Get current session and messages
+  const currentSession = sessions.find(s => s.id === currentSessionId)
+  const messages = currentSession?.messages || []
 
   const handleSendMessage = async (content: string, files?: File[]) => {
-    const userMessage: Message = {
-      id: generateId(),
-      role: 'user',
-      content,
-      timestamp: new Date(),
-      fileAttachments: files?.map(file => ({
+    try {
+      let sessionId = currentSessionId
+
+      // Create a new session if none exists
+      if (!sessionId) {
+        const title = content.length > 50 ? content.substring(0, 50) + '...' : content
+        const newSession = await createSession(title)
+        sessionId = newSession.id
+      }
+
+      // Add user message
+      const fileAttachments = files?.map(file => ({
         filename: file.name,
         fileType: file.type,
         fileSize: file.size,
-      })),
-    }
+      }))
 
-    setMessages(prev => [...prev, userMessage])
-    setIsLoading(true)
+      await addMessage(sessionId, {
+        role: 'user',
+        content,
+        fileAttachments,
+      })
 
-    // Simulate assistant response
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: generateId(),
+      // Generate and add assistant response
+      const assistantResponse = getAssistantResponse(content, files)
+      await addMessage(sessionId, {
         role: 'assistant',
-        content: getAssistantResponse(content, files),
-        timestamp: new Date(),
-      }
-      setMessages(prev => [...prev, assistantMessage])
-      setIsLoading(false)
-    }, 1000)
+        content: assistantResponse,
+      })
+    } catch (error) {
+      console.error('Error sending message:', error)
+    }
   }
 
   const getAssistantResponse = (content: string, files?: File[]): string => {
@@ -72,7 +83,25 @@ export default function Home() {
     return "I'm here to help with your precision agriculture needs! Ask me about fields, equipment, prescriptions, or connecting your John Deere account. What would you like to know?"
   }
 
-  const isInitialState = messages.length === 0;
+  const isInitialState = messages.length === 0
+
+  if (error) {
+    return (
+      <ChatLayout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-red-400 text-center">
+            <p>Error: {error}</p>
+            <button 
+              onClick={() => loadSessions()}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </ChatLayout>
+    )
+  }
 
   return (
     <ChatLayout>
@@ -119,7 +148,7 @@ export default function Home() {
                   key={message.id}
                   role={message.role}
                   content={message.content}
-                  timestamp={message.timestamp}
+                  timestamp={message.createdAt}
                   fileAttachments={message.fileAttachments}
                 />
               ))}

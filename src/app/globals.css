@@ -8,7 +8,7 @@
 }
 
 html, body {
-  margin: 0;
+  margin: 0; 
   padding: 0;
   height: 100%;
 }
@@ -114,10 +114,38 @@ body {
   cursor: pointer;
   transition: background 0.15s ease;
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .chat-history-item:hover {
   background: #222; /* Darker hover */
+}
+
+.chat-history-item.active {
+  background: #2563eb;
+  color: white;
+}
+
+.chat-history-item .delete-btn {
+  opacity: 0;
+  padding: 4px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.chat-history-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.chat-history-item .delete-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .chat-history-item .title {
@@ -271,6 +299,11 @@ body {
 
 .avatar-assistant {
   background: #059669;
+  color: white;
+}
+
+.avatar-system {
+  background: #7c3aed;
   color: white;
 }
 

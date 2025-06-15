@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
+  johnDeereConnected Boolean  @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  chatSessions      ChatSession[]
+  johnDeereTokens   JohnDeereToken?
+
+  @@map("users")
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("chat_sessions")
+}
+
+model Message {
+  id              String    @id @default(cuid())
+  sessionId       String
+  role            String    // 'user' | 'assistant' | 'system'
+  content         String
+  fileAttachments Json?     // Store file metadata as JSON
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model JohnDeereToken {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  scope        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("john_deere_tokens")
+}
+
+model FileUpload {
+  id           String    @id @default(cuid())
+  filename     String
+  originalName String
+  fileType     String
+  fileSize     Int
+  filePath     String
+  status       String    @default("uploaded") // 'uploaded' | 'processing' | 'processed' | 'error'
+  metadata     Json?     // Store shapefile metadata, field mappings, etc.
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("file_uploads")
+}
+
+model FieldOperation {
+  id                String    @id @default(cuid())
+  johnDeereFieldId  String
+  operationType     String    // 'planting' | 'harvesting' | 'spraying' | 'fertilizing'
+  operationDate     DateTime
+  equipmentId       String?
+  area              Float?    // acres
+  yield             Float?    // bushels per acre
+  notes             String?
+  metadata          Json?     // Store additional John Deere operation data
+  createdAt         DateTime  @default(now())
+
+  @@map("field_operations")
+}
+
+model Equipment {
+  id               String    @id @default(cuid())
+  johnDeereId      String    @unique
+  name             String
+  type             String    // 'tractor' | 'combine' | 'sprayer' | 'planter'
+  model            String?
+  year             Int?
+  serialNumber     String?
+  lastLocation     Json?     // Store lat/lng coordinates
+  lastSeen         DateTime?
+  isActive         Boolean   @default(true)
+  metadata         Json?     // Store additional John Deere equipment data
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("equipment")
+}

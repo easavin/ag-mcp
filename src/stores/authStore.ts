@@ -1,0 +1,264 @@
+import { create } from 'zustand'
+import { devtools, persist } from 'zustand/middleware'
+
+export interface User {
+  id: string
+  email: string
+  name?: string
+  johnDeereConnected: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface JohnDeereConnection {
+  isConnected: boolean
+  expiresAt?: Date
+  scope?: string
+  lastSync?: Date
+}
+
+interface AuthState {
+  // Current state
+  user: User | null
+  isAuthenticated: boolean
+  johnDeereConnection: JohnDeereConnection
+  isLoading: boolean
+  error: string | null
+
+  // Actions
+  setUser: (user: User | null) => void
+  login: (email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  connectJohnDeere: () => Promise<string> // Returns authorization URL
+  handleJohnDeereCallback: (code: string, state: string) => Promise<void>
+  disconnectJohnDeere: () => Promise<void>
+  refreshJohnDeereToken: () => Promise<void>
+  checkJohnDeereConnection: () => Promise<void>
+  setLoading: (loading: boolean) => void
+  setError: (error: string | null) => void
+}
+
+export const useAuthStore = create<AuthState>()(
+  devtools(
+    persist(
+      (set, get) => ({
+        // Initial state
+        user: null,
+        isAuthenticated: false,
+        johnDeereConnection: {
+          isConnected: false,
+        },
+        isLoading: false,
+        error: null,
+
+        // Actions
+        setUser: (user) => {
+          set({
+            user,
+            isAuthenticated: !!user,
+            johnDeereConnection: {
+              ...get().johnDeereConnection,
+              isConnected: user?.johnDeereConnected || false,
+            },
+          })
+        },
+
+        login: async (email, password) => {
+          set({ isLoading: true, error: null })
+          try {
+            const response = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, password }),
+            })
+
+            if (!response.ok) {
+              throw new Error('Login failed')
+            }
+
+            const { user } = await response.json()
+            get().setUser(user)
+            set({ isLoading: false })
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Login failed'
+            set({ error: errorMessage, isLoading: false })
+            throw error
+          }
+        },
+
+        logout: async () => {
+          set({ isLoading: true, error: null })
+          try {
+            await fetch('/api/auth/logout', { method: 'POST' })
+            
+            set({
+              user: null,
+              isAuthenticated: false,
+              johnDeereConnection: { isConnected: false },
+              isLoading: false,
+            })
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Logout failed'
+            set({ error: errorMessage, isLoading: false })
+          }
+        },
+
+        connectJohnDeere: async () => {
+          set({ isLoading: true, error: null })
+          try {
+            const response = await fetch('/api/auth/johndeere/authorize', {
+              method: 'POST',
+            })
+
+            if (!response.ok) {
+              throw new Error('Failed to initiate John Deere connection')
+            }
+
+            const { authorizationUrl } = await response.json()
+            set({ isLoading: false })
+            
+            return authorizationUrl
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+            set({ error: errorMessage, isLoading: false })
+            throw error
+          }
+        },
+
+        handleJohnDeereCallback: async (code, state) => {
+          set({ isLoading: true, error: null })
+          try {
+            const response = await fetch('/api/auth/johndeere/callback', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code, state }),
+            })
+
+            if (!response.ok) {
+              throw new Error('Failed to complete John Deere connection')
+            }
+
+            const { user, connection } = await response.json()
+            
+            set({
+              user,
+              johnDeereConnection: {
+                isConnected: true,
+                expiresAt: new Date(connection.expiresAt),
+                scope: connection.scope,
+                lastSync: new Date(),
+              },
+              isLoading: false,
+            })
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+            set({ error: errorMessage, isLoading: false })
+            throw error
+          }
+        },
+
+        disconnectJohnDeere: async () => {
+          set({ isLoading: true, error: null })
+          try {
+            const response = await fetch('/api/auth/johndeere/disconnect', {
+              method: 'POST',
+            })
+
+            if (!response.ok) {
+              throw new Error('Failed to disconnect John Deere')
+            }
+
+            const { user } = await response.json()
+            
+            set({
+              user,
+              johnDeereConnection: { isConnected: false },
+              isLoading: false,
+            })
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Disconnect failed'
+            set({ error: errorMessage, isLoading: false })
+            throw error
+          }
+        },
+
+        refreshJohnDeereToken: async () => {
+          try {
+            const response = await fetch('/api/auth/johndeere/refresh', {
+              method: 'POST',
+            })
+
+            if (!response.ok) {
+              // Token refresh failed, disconnect user
+              set({
+                johnDeereConnection: { isConnected: false },
+                user: get().user ? { ...get().user!, johnDeereConnected: false } : null,
+              })
+              return
+            }
+
+            const { connection } = await response.json()
+            
+            set({
+              johnDeereConnection: {
+                isConnected: true,
+                expiresAt: new Date(connection.expiresAt),
+                scope: connection.scope,
+                lastSync: new Date(),
+              },
+            })
+          } catch (error) {
+            console.error('Token refresh failed:', error)
+            set({
+              johnDeereConnection: { isConnected: false },
+              user: get().user ? { ...get().user!, johnDeereConnected: false } : null,
+            })
+          }
+        },
+
+        checkJohnDeereConnection: async () => {
+          try {
+            const response = await fetch('/api/auth/johndeere/status')
+            
+            if (!response.ok) {
+              set({ johnDeereConnection: { isConnected: false } })
+              return
+            }
+
+            const { isConnected, connection } = await response.json()
+            
+            if (isConnected) {
+              set({
+                johnDeereConnection: {
+                  isConnected: true,
+                  expiresAt: connection?.expiresAt ? new Date(connection.expiresAt) : undefined,
+                  scope: connection?.scope,
+                  lastSync: new Date(),
+                },
+              })
+            } else {
+              set({ johnDeereConnection: { isConnected: false } })
+            }
+          } catch (error) {
+            console.error('Connection check failed:', error)
+            set({ johnDeereConnection: { isConnected: false } })
+          }
+        },
+
+        setLoading: (loading) => set({ isLoading: loading }),
+        setError: (error) => set({ error }),
+      }),
+      {
+        name: 'auth-store',
+        partialize: (state) => ({
+          user: state.user,
+          isAuthenticated: state.isAuthenticated,
+          johnDeereConnection: state.johnDeereConnection,
+        }),
+      }
+    ),
+    {
+      name: 'auth-store',
+    }
+  )
+) 
