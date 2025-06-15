@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 
 interface IntegrationsModalProps {
@@ -13,7 +13,7 @@ interface Integration {
   name: string;
   description: string;
   logo: string;
-  logoFallback?: string; // Fallback emoji or text
+  logoFallback: string;
   category: string;
   isConnected: boolean;
   features: string[];
@@ -64,6 +64,38 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
     };
   }, [isOpen, checkJohnDeereConnection, johnDeereConnection.isConnected]);
 
+  // Add message event listener for popup communication
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Verify origin for security
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+
+      if (event.data.type === 'JOHN_DEERE_AUTH_SUCCESS') {
+        console.log('John Deere auth success:', event.data);
+        setIsConnecting(false);
+        setConnectionStatus('connected');
+        // Refresh the connection status from the server
+        checkJohnDeereConnection();
+      } else if (event.data.type === 'JOHN_DEERE_AUTH_ERROR') {
+        console.error('John Deere auth error:', event.data.error);
+        setIsConnecting(false);
+        setConnectionStatus('disconnected');
+        // You could show an error message here
+        alert(`Authentication failed: ${event.data.error}`);
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('message', handleMessage);
+    }
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [isOpen, checkJohnDeereConnection]);
+
   const handleConnect = async (integrationId: string) => {
     if (integrationId === 'johndeere') {
       setIsConnecting(true);
@@ -72,7 +104,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         window.open(authUrl, 'johndeere-auth', 'width=600,height=700,scrollbars=yes,resizable=yes');
       } catch (error) {
         console.error('Failed to initiate John Deere connection:', error);
-      } finally {
         setIsConnecting(false);
       }
     }

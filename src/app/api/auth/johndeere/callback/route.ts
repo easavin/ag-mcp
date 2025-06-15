@@ -23,15 +23,22 @@ export async function POST(request: NextRequest) {
     const johnDeereAPI = getJohnDeereAPI()
     const tokens = await johnDeereAPI.exchangeCodeForTokens(code)
 
+    console.log('Received tokens:', { 
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiresIn: tokens.expires_in,
+      scope: tokens.scope 
+    })
+
     // Calculate expiration date
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
 
-    // Store tokens in database
+    // Store tokens in database - handle missing refresh_token
     await prisma.johnDeereToken.upsert({
       where: { userId },
       update: {
         accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
+        refreshToken: tokens.refresh_token || null,
         expiresAt,
         scope: tokens.scope,
         updatedAt: new Date(),
@@ -39,7 +46,7 @@ export async function POST(request: NextRequest) {
       create: {
         userId,
         accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
+        refreshToken: tokens.refresh_token || null,
         expiresAt,
         scope: tokens.scope,
       },
@@ -77,16 +84,58 @@ export async function GET(request: NextRequest) {
     const error = searchParams.get('error')
 
     if (error) {
-      // Redirect to frontend with error
-      return NextResponse.redirect(
-        new URL(`/?error=john_deere_auth_failed&message=${encodeURIComponent(error)}`, request.url)
-      )
+      // Return HTML page that closes popup and sends error to parent
+      return new NextResponse(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>John Deere Authorization</title>
+        </head>
+        <body>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'JOHN_DEERE_AUTH_ERROR',
+                error: '${encodeURIComponent(error)}'
+              }, window.location.origin);
+              window.close();
+            } else {
+              window.location.href = '/?error=john_deere_auth_failed&message=${encodeURIComponent(error)}';
+            }
+          </script>
+          <p>Authorization failed. This window should close automatically.</p>
+        </body>
+        </html>
+      `, {
+        headers: { 'Content-Type': 'text/html' },
+      })
     }
 
     if (!code || !state) {
-      return NextResponse.redirect(
-        new URL('/?error=john_deere_auth_failed&message=Missing authorization code', request.url)
-      )
+      return new NextResponse(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>John Deere Authorization</title>
+        </head>
+        <body>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'JOHN_DEERE_AUTH_ERROR',
+                error: 'Missing authorization code'
+              }, window.location.origin);
+              window.close();
+            } else {
+              window.location.href = '/?error=john_deere_auth_failed&message=Missing authorization code';
+            }
+          </script>
+          <p>Authorization failed. This window should close automatically.</p>
+        </body>
+        </html>
+      `, {
+        headers: { 'Content-Type': 'text/html' },
+      })
     }
 
     // Process the callback using the same logic as POST
@@ -95,11 +144,18 @@ export async function GET(request: NextRequest) {
     const tokens = await johnDeereAPI.exchangeCodeForTokens(code)
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
 
+    console.log('GET callback - Received tokens:', { 
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiresIn: tokens.expires_in,
+      scope: tokens.scope 
+    })
+
     await prisma.johnDeereToken.upsert({
       where: { userId },
       update: {
         accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
+        refreshToken: tokens.refresh_token || null,
         expiresAt,
         scope: tokens.scope,
         updatedAt: new Date(),
@@ -107,7 +163,7 @@ export async function GET(request: NextRequest) {
       create: {
         userId,
         accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
+        refreshToken: tokens.refresh_token || null,
         expiresAt,
         scope: tokens.scope,
       },
@@ -118,14 +174,60 @@ export async function GET(request: NextRequest) {
       data: { johnDeereConnected: true },
     })
 
-    // Redirect to frontend with success
-    return NextResponse.redirect(
-      new URL('/?john_deere_connected=true', request.url)
-    )
+    // Return HTML page that closes popup and sends success message to parent
+    return new NextResponse(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>John Deere Authorization</title>
+      </head>
+      <body>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'JOHN_DEERE_AUTH_SUCCESS',
+              connection: {
+                isConnected: true,
+                expiresAt: '${expiresAt.toISOString()}',
+                scope: '${tokens.scope}'
+              }
+            }, window.location.origin);
+            window.close();
+          } else {
+            window.location.href = '/?john_deere_connected=true';
+          }
+        </script>
+        <p>Authorization successful! This window should close automatically.</p>
+      </body>
+      </html>
+    `, {
+      headers: { 'Content-Type': 'text/html' },
+    })
   } catch (error) {
     console.error('Error handling John Deere GET callback:', error)
-    return NextResponse.redirect(
-      new URL('/?error=john_deere_auth_failed&message=Authorization failed', request.url)
-    )
+    return new NextResponse(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>John Deere Authorization</title>
+      </head>
+      <body>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'JOHN_DEERE_AUTH_ERROR',
+              error: 'Authorization failed'
+            }, window.location.origin);
+            window.close();
+          } else {
+            window.location.href = '/?error=john_deere_auth_failed&message=Authorization failed';
+          }
+        </script>
+        <p>Authorization failed. This window should close automatically.</p>
+      </body>
+      </html>
+    `, {
+      headers: { 'Content-Type': 'text/html' },
+    })
   }
 } 

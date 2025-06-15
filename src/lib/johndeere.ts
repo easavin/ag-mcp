@@ -5,13 +5,13 @@ import { v4 as uuidv4 } from 'uuid'
 const JOHN_DEERE_CONFIG = {
   sandbox: {
     baseURL: 'https://sandboxapi.deere.com/platform',
-    authURL: 'https://sandboxapi.deere.com/platform/oauth2/authorize',
-    tokenURL: 'https://sandboxapi.deere.com/platform/oauth2/token',
+    authURL: 'https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1/authorize',
+    tokenURL: 'https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1/token',
   },
   production: {
     baseURL: 'https://api.deere.com/platform',
-    authURL: 'https://api.deere.com/platform/oauth2/authorize',
-    tokenURL: 'https://api.deere.com/platform/oauth2/token',
+    authURL: 'https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1/authorize',
+    tokenURL: 'https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1/token',
   },
 }
 
@@ -111,7 +111,7 @@ export class JohnDeereAPI {
   }
 
   // OAuth Flow Methods
-  generateAuthorizationUrl(scopes: string[] = ['ag1', 'ag2', 'ag3']): { url: string; state: string } {
+  generateAuthorizationUrl(scopes: string[] = ['ag1', 'ag2', 'ag3', 'offline_access']): { url: string; state: string } {
     const state = uuidv4()
     const config = JOHN_DEERE_CONFIG[this.environment]
     

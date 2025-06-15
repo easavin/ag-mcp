@@ -58,7 +58,7 @@ model JohnDeereToken {
   id           String    @id @default(cuid())
   userId       String    @unique
   accessToken  String
-  refreshToken String
+  refreshToken String?
   expiresAt    DateTime
   scope        String?
   createdAt    DateTime  @default(now())
