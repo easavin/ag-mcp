@@ -13,10 +13,24 @@ interface LLMConfig {
   }
 }
 
+// Function calling interfaces
+export interface FunctionCall {
+  name: string
+  arguments: Record<string, any>
+}
+
+export interface FunctionResult {
+  name: string
+  result: any
+  error?: string
+}
+
 // Message interface for chat
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant' | 'system' | 'function'
   content: string
+  functionCall?: FunctionCall
+  functionResult?: FunctionResult
   fileAttachments?: Array<{
     filename: string
     fileType: string
@@ -29,12 +43,82 @@ export interface ChatMessage {
 export interface LLMResponse {
   content: string
   model: string
+  functionCalls?: FunctionCall[]
   usage?: {
     promptTokens: number
     completionTokens: number
     totalTokens: number
   }
 }
+
+// John Deere function definitions
+const JOHN_DEERE_FUNCTIONS = [
+  {
+    name: 'getOrganizations',
+    description: 'Get all John Deere organizations for the user',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'getFields',
+    description: 'Get fields for a specific organization',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID'
+        }
+      },
+      required: ['orgId']
+    }
+  },
+  {
+    name: 'getEquipment',
+    description: 'Get equipment for a specific organization',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID'
+        }
+      },
+      required: ['orgId']
+    }
+  },
+  {
+    name: 'getOperations',
+    description: 'Get field operations for a specific organization',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID'
+        }
+      },
+      required: ['orgId']
+    }
+  },
+  {
+    name: 'getComprehensiveData',
+    description: 'Get comprehensive farm data including fields, equipment, and operations for an organization',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID'
+        }
+      },
+      required: ['orgId']
+    }
+  }
+]
 
 export class LLMService {
   private geminiClient: GoogleGenerativeAI | null = null
@@ -74,9 +158,10 @@ export class LLMService {
       maxTokens?: number
       temperature?: number
       systemPrompt?: string
+      enableFunctions?: boolean
     }
   ): Promise<LLMResponse> {
-    const { maxTokens = 4000, temperature = 0.7, systemPrompt } = options || {}
+    const { maxTokens = 4000, temperature = 0.7, systemPrompt, enableFunctions = true } = options || {}
 
     // Try Gemini first
     if (this.geminiClient) {
@@ -86,6 +171,7 @@ export class LLMService {
           maxTokens,
           temperature,
           systemPrompt,
+          enableFunctions,
         })
       } catch (error) {
         console.warn('Gemini failed, falling back to OpenAI:', error)
@@ -100,6 +186,7 @@ export class LLMService {
           maxTokens,
           temperature,
           systemPrompt,
+          enableFunctions,
         })
       } catch (error) {
         console.error('OpenAI also failed:', error)
@@ -119,19 +206,29 @@ export class LLMService {
       maxTokens: number
       temperature: number
       systemPrompt?: string
+      enableFunctions?: boolean
     }
   ): Promise<LLMResponse> {
     if (!this.geminiClient) {
       throw new Error('Gemini client not initialized')
     }
 
-    const model = this.geminiClient.getGenerativeModel({
+    const modelConfig: any = {
       model: this.config.gemini.model,
       generationConfig: {
         maxOutputTokens: options.maxTokens,
         temperature: options.temperature,
       },
-    })
+    }
+
+    // Add function calling if enabled
+    if (options.enableFunctions) {
+      modelConfig.tools = [{
+        functionDeclarations: JOHN_DEERE_FUNCTIONS
+      }]
+    }
+
+    const model = this.geminiClient.getGenerativeModel(modelConfig)
 
     // Convert messages to Gemini format
     const geminiMessages = this.convertToGeminiFormat(messages, options.systemPrompt)
@@ -143,9 +240,21 @@ export class LLMService {
     const response = await result.response
     const text = response.text()
 
+    // Check for function calls
+    const functionCalls: FunctionCall[] = []
+    if (response.functionCalls && Array.isArray(response.functionCalls) && response.functionCalls.length > 0) {
+      for (const call of response.functionCalls) {
+        functionCalls.push({
+          name: call.name,
+          arguments: call.args || {}
+        })
+      }
+    }
+
     return {
       content: text,
       model: this.config.gemini.model,
+      functionCalls,
       usage: {
         promptTokens: response.usageMetadata?.promptTokenCount || 0,
         completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
@@ -163,6 +272,7 @@ export class LLMService {
       maxTokens: number
       temperature: number
       systemPrompt?: string
+      enableFunctions?: boolean
     }
   ): Promise<LLMResponse> {
     if (!this.openaiClient) {
@@ -172,21 +282,46 @@ export class LLMService {
     // Convert messages to OpenAI format
     const openaiMessages = this.convertToOpenAIFormat(messages, options.systemPrompt)
 
-    const completion = await this.openaiClient.chat.completions.create({
+    const completionOptions: any = {
       model: this.config.openai.model,
       messages: openaiMessages,
       max_tokens: options.maxTokens,
       temperature: options.temperature,
-    })
+    }
+
+    // Add function calling if enabled
+    if (options.enableFunctions) {
+      completionOptions.tools = JOHN_DEERE_FUNCTIONS.map(func => ({
+        type: 'function',
+        function: func
+      }))
+      completionOptions.tool_choice = 'auto'
+    }
+
+    const completion = await this.openaiClient.chat.completions.create(completionOptions)
 
     const choice = completion.choices[0]
-    if (!choice?.message?.content) {
+    if (!choice?.message) {
       throw new Error('No response from OpenAI')
     }
 
+    // Check for function calls
+    const functionCalls: FunctionCall[] = []
+    if (choice.message.tool_calls) {
+      for (const toolCall of choice.message.tool_calls) {
+        if (toolCall.type === 'function') {
+          functionCalls.push({
+            name: toolCall.function.name,
+            arguments: JSON.parse(toolCall.function.arguments || '{}')
+          })
+        }
+      }
+    }
+
     return {
-      content: choice.message.content,
+      content: choice.message.content || '',
       model: this.config.openai.model,
+      functionCalls,
       usage: {
         promptTokens: completion.usage?.prompt_tokens || 0,
         completionTokens: completion.usage?.completion_tokens || 0,
@@ -266,10 +401,13 @@ export class LLMService {
         content = `${content}\n\n${fileInfo}`
       }
 
-      openaiMessages.push({
-        role: message.role,
-        content,
-      })
+      // Skip function messages for OpenAI format
+      if (message.role !== 'function') {
+        openaiMessages.push({
+          role: message.role as 'user' | 'assistant' | 'system',
+          content,
+        })
+      }
     }
 
     return openaiMessages
@@ -314,50 +452,68 @@ export function getLLMService(): LLMService {
 }
 
 // Agricultural-specific system prompt with John Deere integration
-export const AGRICULTURAL_SYSTEM_PROMPT = `You are an AI assistant specialized in precision agriculture and farming operations.
+export const AGRICULTURAL_SYSTEM_PROMPT = `You are an AI assistant specialized in precision agriculture and farming operations with access to John Deere Operations Center data.
 
 ## **Your Role:**
-You are a knowledgeable farming advisor who helps farmers optimize their operations. You provide practical, actionable advice based on modern farming practices and precision agriculture techniques.
+You are a knowledgeable farming advisor who helps farmers optimize their operations. You provide practical, actionable advice based on modern farming practices and precision agriculture techniques. You have access to their John Deere data and can automatically retrieve it when needed.
 
 ## **Communication Style:**
 - Be conversational, helpful, and encouraging
 - Use clear, practical language that farmers can understand
 - Never mention technical implementation details or system functions
-- Always provide specific, actionable advice
+- Always provide specific, actionable advice based on their actual data
 - Be supportive and focus on helping farmers succeed
+
+## **Data Access Capabilities:**
+You have access to the following John Deere data through function calls:
+- **getOrganizations**: Get all organizations for the user
+- **getFields**: Get fields for a specific organization
+- **getEquipment**: Get equipment for a specific organization  
+- **getOperations**: Get field operations for a specific organization
+- **getComprehensiveData**: Get comprehensive farm data for an organization
 
 ## **When Users Ask About Their Farm Data:**
 
-### **If they ask about fields, equipment, or operations:**
-- Assume they may have John Deere Operations Center connected
-- Offer practical advice based on common farming scenarios
-- Suggest they check their Operations Center account for specific data
-- Provide general best practices while encouraging them to use their actual data
+### **Automatically fetch relevant data when users ask about:**
+- Their organizations, fields, equipment, or operations
+- Farm summaries or overviews
+- Specific farming activities or performance
+- Equipment status or utilization
+- Field conditions or activities
 
-### **Example Responses:**
+### **How to respond:**
+1. **Automatically call the appropriate function** to get their actual data
+2. **Analyze the real data** and provide specific insights
+3. **Give practical recommendations** based on their actual situation
+4. **Be encouraging** about their farming operations
+
+### **Example Flow:**
 - **User asks "tell me about my fields"**: 
-  - "I'd be happy to help you with field management! For the most accurate insights, I'd recommend checking your John Deere Operations Center account if you have it connected. Generally, effective field management involves monitoring soil health, crop rotation, and yield data. What specific aspect of your fields would you like to focus on?"
+  - Automatically call getOrganizations, then getFields for their organization
+  - Analyze their actual field data (acreage, crops, etc.)
+  - Provide specific insights: "I can see you have 3 fields totaling 107 acres. Your North Field at 45.7 acres is your largest..."
 
 - **User asks "what organizations do I have"**:
-  - "If you have a John Deere Operations Center account connected, you can check your organizations there. This typically includes your main farming operation and any partnerships or custom work arrangements. Is there something specific about your farm organization you'd like help with?"
+  - Automatically call getOrganizations
+  - Tell them about their actual organizations: "You have the 'Green Growth' organization..."
 
 - **User asks about equipment**:
-  - "Equipment management is crucial for efficient farming! If you have John Deere equipment connected to Operations Center, you can track utilization, maintenance schedules, and performance. What equipment questions can I help you with?"
+  - Automatically call getOrganizations, then getEquipment
+  - Provide details about their actual equipment and recommendations
 
 ## **Key Guidelines:**
-- Never say things like "I'll fetch your data" or "Let me retrieve information"
-- Never mention "functions," "APIs," or technical processes
-- Never use placeholder text like "[Insert Number]" or "(Pause for data retrieval)"
-- Always provide helpful, practical farming advice
-- Encourage farmers to use their actual data from Operations Center when available
-- Focus on actionable insights and best practices
-- Be encouraging about precision agriculture adoption
+- **Always fetch real data** when users ask about their farm
+- **Never say** "I'll fetch your data" or "Let me retrieve information" - just do it automatically
+- **Never mention** "functions," "APIs," or technical processes
+- **Never use** placeholder text like "[Insert Number]" or "(Pause for data retrieval)"
+- **Always provide** specific insights based on their actual data
+- **Be encouraging** about their farming operations and precision agriculture adoption
 
 ## **Forbidden Phrases:**
 - Do NOT say: "I'll use the getFields() function"
-- Do NOT say: "Let me fetch that information"
+- Do NOT say: "Let me fetch that information"  
 - Do NOT say: "One moment while I retrieve..."
 - Do NOT say: "[Insert Number]" or any placeholder text
 - Do NOT say: "(Pause for data retrieval)"
 
-Remember: You're a farming consultant, not a technical system. Always speak naturally and focus on helping farmers improve their operations through practical advice and encouraging them to leverage their available data tools.` 
+Remember: You're a farming consultant with access to their data. Automatically get their information when they ask about it, then provide specific, helpful insights based on their actual farming operation.` 

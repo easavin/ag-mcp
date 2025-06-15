@@ -77,9 +77,24 @@ export default function Home() {
     }
   }
 
-  const handleDataFetched = async (data: string) => {
+  const handleDataFetched = async (data: any) => {
+    let content: string
+    
+    if (typeof data === 'string') {
+      content = data
+    } else if (data && typeof data === 'object') {
+      // Handle the new structured data format
+      if (data.title && data.content) {
+        content = `**${data.title}**\n\n${data.content}`
+      } else {
+        content = JSON.stringify(data, null, 2)
+      }
+    } else {
+      content = 'Received John Deere data'
+    }
+
     // Send the fetched data as an assistant message
-    await handleSendMessage(data)
+    await handleSendMessage(content)
   }
 
 
@@ -143,7 +158,7 @@ export default function Home() {
               }}
             >
               <div className="messages-content" style={{ flex: 1 }}>
-                <JohnDeereDataButton onDataFetched={handleDataFetched} />
+                <JohnDeereDataButton onDataReceived={handleDataFetched} />
                 
                 {messages.map((message) => (
                   <MessageBubble

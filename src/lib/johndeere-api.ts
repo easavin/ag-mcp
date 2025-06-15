@@ -232,8 +232,16 @@ export class JohnDeereAPIClient {
     try {
       const response = await this.axiosInstance.get(`/organizations/${organizationId}/fields`)
       return response.data.values || []
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching fields:', error)
+      // Preserve the original error information for better error handling
+      if (error.response?.status === 403) {
+        const authError = new Error('Failed to fetch fields: authorization denied')
+        authError.name = 'AuthorizationError'
+        ;(authError as any).status = 403
+        ;(authError as any).originalError = error
+        throw authError
+      }
       throw new Error('Failed to fetch fields')
     }
   }
@@ -258,8 +266,15 @@ export class JohnDeereAPIClient {
     try {
       const response = await this.axiosInstance.get(`/organizations/${organizationId}/equipment`)
       return response.data.values || []
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching equipment:', error)
+      if (error.response?.status === 403) {
+        const authError = new Error('Failed to fetch equipment: authorization denied')
+        authError.name = 'AuthorizationError'
+        ;(authError as any).status = 403
+        ;(authError as any).originalError = error
+        throw authError
+      }
       throw new Error('Failed to fetch equipment')
     }
   }
@@ -286,8 +301,15 @@ export class JohnDeereAPIClient {
 
       const response = await this.axiosInstance.get(url)
       return response.data.values || []
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching field operations:', error)
+      if (error.response?.status === 403) {
+        const authError = new Error('Failed to fetch field operations: authorization denied')
+        authError.name = 'AuthorizationError'
+        ;(authError as any).status = 403
+        ;(authError as any).originalError = error
+        throw authError
+      }
       throw new Error('Failed to fetch field operations')
     }
   }
@@ -433,8 +455,16 @@ export class JohnDeereAPIClient {
         assets,
         farms,
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching comprehensive farm data:', error)
+      // If any of the sub-requests failed due to authorization, propagate that error
+      if (error.name === 'AuthorizationError' || error.status === 403) {
+        const authError = new Error('Failed to fetch comprehensive farm data: authorization denied')
+        authError.name = 'AuthorizationError'
+        ;(authError as any).status = 403
+        ;(authError as any).originalError = error
+        throw authError
+      }
       throw new Error('Failed to fetch comprehensive farm data')
     }
   }

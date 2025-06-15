@@ -356,8 +356,12 @@ body {
   font-size: 1rem;
   line-height: 1.6;
   color: #e0e0e0; /* Light text */
-  white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+/* Only apply pre-wrap to user messages (plain text) */
+.message.user .message-text {
+  white-space: pre-wrap;
 }
 
 .message-text p {
