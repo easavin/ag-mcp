@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
+import JohnDeereDataButton from '@/components/JohnDeereDataButton'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -19,7 +20,7 @@ export default function Home() {
     setCurrentSession,
   } = useChatStore()
 
-  const { user, loadUser } = useAuthStore()
+  const { user, loadUser, checkJohnDeereConnection } = useAuthStore()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLDivElement>(null)
 
@@ -31,7 +32,8 @@ export default function Home() {
   useEffect(() => {
     loadSessions()
     loadUser()
-  }, [loadSessions, loadUser])
+    checkJohnDeereConnection()
+  }, [loadSessions, loadUser, checkJohnDeereConnection])
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -73,6 +75,11 @@ export default function Home() {
     } catch (error) {
       console.error('Error sending message:', error)
     }
+  }
+
+  const handleDataFetched = async (data: string) => {
+    // Send the fetched data as an assistant message
+    await handleSendMessage(data)
   }
 
 
@@ -136,6 +143,8 @@ export default function Home() {
               }}
             >
               <div className="messages-content" style={{ flex: 1 }}>
+                <JohnDeereDataButton onDataFetched={handleDataFetched} />
+                
                 {messages.map((message) => (
                   <MessageBubble
                     key={message.id}
