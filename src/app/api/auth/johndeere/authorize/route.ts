@@ -28,6 +28,13 @@ export async function POST(request: NextRequest) {
       'ag3', // Equipment and work records
     ])
 
+    // Debug logging
+    console.log('Generated authorization URL:', url)
+    console.log('Environment variables check:')
+    console.log('- NEXTAUTH_URL:', process.env.NEXTAUTH_URL || 'NOT SET (using default: http://localhost:3000)')
+    console.log('- JOHN_DEERE_CLIENT_ID:', process.env.JOHN_DEERE_CLIENT_ID ? 'SET' : 'NOT SET')
+    console.log('- JOHN_DEERE_CLIENT_SECRET:', process.env.JOHN_DEERE_CLIENT_SECRET ? 'SET' : 'NOT SET')
+
     // Store the state parameter temporarily (in a real app, you'd use Redis or similar)
     // For now, we'll store it in the database
     await prisma.user.update({

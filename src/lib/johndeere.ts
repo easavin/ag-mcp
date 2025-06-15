@@ -302,7 +302,10 @@ export function getJohnDeereAPI(): JohnDeereAPI {
     const clientId = process.env.JOHN_DEERE_CLIENT_ID
     const clientSecret = process.env.JOHN_DEERE_CLIENT_SECRET
     const environment = (process.env.JOHN_DEERE_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox'
-    const redirectUri = `${process.env.NEXTAUTH_URL}/api/auth/johndeere/callback`
+    
+    // Handle redirect URI - use NEXTAUTH_URL if available, otherwise default to localhost for development
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    const redirectUri = `${baseUrl}/api/auth/johndeere/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error('John Deere API credentials not configured')
