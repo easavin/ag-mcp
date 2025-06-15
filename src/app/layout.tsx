@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Ag MCP - Agricultural Chat Interface",
+  title: "Farm MCP - Agricultural Chat Interface",
   description: "A Claude-style chat interface that connects to John Deere Operations Center via MCP (Model Context Protocol)",
 };
 

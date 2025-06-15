@@ -19,7 +19,7 @@ const DATA_SOURCES: DataSource[] = [
   {
     id: 'johndeere',
     name: 'John Deere Operations Center',
-    icon: '🚜',
+    icon: '/assets/logos/johndeere-logo.png',
     description: 'Access your John Deere equipment, fields, and operations data',
     available: true
   }
@@ -61,7 +61,19 @@ export default function DataSourceSelector({ onSelect, dataType }: DataSourceSel
             key={source.id}
             className={`data-source-card ${!source.available ? 'disabled' : ''}`}
           >
-            <div className="source-icon">{source.icon}</div>
+            <div className="source-icon">
+              {source.icon.startsWith('/') ? (
+                <img 
+                  src={source.icon} 
+                  alt={source.name}
+                  width={32}
+                  height={32}
+                  className="source-logo"
+                />
+              ) : (
+                source.icon
+              )}
+            </div>
             <div className="source-info">
               <h4>{source.name}</h4>
               <p>{source.description}</p>

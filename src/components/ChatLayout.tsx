@@ -55,7 +55,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
       {/* Sidebar */}
       <div className={`sidebar ${!sidebarOpen ? 'w-0 overflow-hidden' : ''}`}>
         <div className="sidebar-header">
-          <h2>Ag MCP</h2>
+          <h2>Farm MCP</h2>
           <button onClick={() => setSidebarOpen(false)}>
             <MessageSquare className="w-4 h-4" />
           </button>

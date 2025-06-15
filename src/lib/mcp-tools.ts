@@ -37,8 +37,8 @@ export const FIELD_OPERATION_TOOLS: MCPTool[] = [
         },
         scheduledDate: {
           type: 'string',
-          format: 'date',
-          description: 'Planned date for the operation (YYYY-MM-DD)'
+          format: 'date-time',
+          description: 'Planned date for the operation (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)'
         },
         equipmentId: {
           type: 'string',
@@ -101,13 +101,13 @@ export const FIELD_OPERATION_TOOLS: MCPTool[] = [
         },
         plantingDate: {
           type: 'string',
-          format: 'date',
-          description: 'Date when the field was planted (if applicable)'
+          format: 'date-time',
+          description: 'Date when the field was planted (if applicable) (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)'
         },
         expectedHarvestDate: {
           type: 'string',
-          format: 'date',
-          description: 'Expected harvest date (if applicable)'
+          format: 'date-time',
+          description: 'Expected harvest date (if applicable) (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)'
         },
         notes: {
           type: 'string',
@@ -138,8 +138,8 @@ export const EQUIPMENT_MANAGEMENT_TOOLS: MCPTool[] = [
         },
         scheduledDate: {
           type: 'string',
-          format: 'date',
-          description: 'Planned date for maintenance'
+          format: 'date-time',
+          description: 'Planned date for maintenance (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)'
         },
         priority: {
           type: 'string',
