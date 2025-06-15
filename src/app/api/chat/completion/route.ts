@@ -6,67 +6,72 @@ import { prisma } from '@/lib/prisma'
 async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any> {
   const { name, arguments: args } = functionCall
   
+  console.log(`🔧 Executing function: ${name}`, args)
+  
   try {
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    let url: string
+    
     switch (name) {
       case 'getOrganizations':
-        const orgResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/johndeere/organizations`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        return await orgResponse.json()
-
+        url = `${baseUrl}/api/johndeere/organizations`
+        break
       case 'getFields':
-        const fieldsResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/johndeere/organizations/${args.orgId}/fields`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        return await fieldsResponse.json()
-
+        url = `${baseUrl}/api/johndeere/organizations/${args.orgId}/fields`
+        break
       case 'getEquipment':
-        const equipmentResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/johndeere/organizations/${args.orgId}/equipment`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        return await equipmentResponse.json()
-
+        url = `${baseUrl}/api/johndeere/organizations/${args.orgId}/equipment`
+        break
       case 'getOperations':
-        const operationsResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/johndeere/organizations/${args.orgId}/operations`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        return await operationsResponse.json()
-
+        url = `${baseUrl}/api/johndeere/organizations/${args.orgId}/operations`
+        break
       case 'getComprehensiveData':
-        const comprehensiveResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/johndeere/organizations/${args.orgId}/comprehensive`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        return await comprehensiveResponse.json()
-
+        url = `${baseUrl}/api/johndeere/organizations/${args.orgId}/comprehensive`
+        break
       default:
         throw new Error(`Unknown function: ${name}`)
     }
+
+    console.log(`📡 Making API call to: ${url}`)
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    console.log(`📡 API response status: ${response.status}`)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`❌ API call failed: ${response.status} - ${errorText}`)
+      throw new Error(`API call failed: ${response.status} - ${errorText}`)
+    }
+
+    const data = await response.json()
+    console.log(`✅ Function ${name} completed successfully`, { dataKeys: Object.keys(data) })
+    
+    return data
   } catch (error) {
-    console.error(`Error executing function ${name}:`, error)
-    return { error: `Failed to execute ${name}: ${error instanceof Error ? error.message : 'Unknown error'}` }
+    console.error(`❌ Error executing function ${name}:`, error)
+    return { 
+      error: `Failed to execute ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      functionName: name,
+      arguments: args
+    }
   }
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 Starting chat completion request')
+  
   try {
     const { sessionId, messages, options } = await request.json()
+    console.log('📝 Request data:', { sessionId, messageCount: messages?.length, options })
 
     if (!sessionId || !messages || !Array.isArray(messages)) {
+      console.error('❌ Missing required fields')
       return NextResponse.json(
         { error: 'Missing required fields: sessionId, messages' },
         { status: 400 }
@@ -77,6 +82,7 @@ export async function POST(request: NextRequest) {
     const userId = 'user_placeholder'
 
     // Verify session belongs to user
+    console.log('🔍 Verifying session:', sessionId)
     const session = await prisma.chatSession.findFirst({
       where: {
         id: sessionId,
@@ -85,6 +91,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!session) {
+      console.error('❌ Chat session not found:', sessionId)
       return NextResponse.json(
         { error: 'Chat session not found' },
         { status: 404 }
@@ -92,11 +99,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Get LLM service
+    console.log('🤖 Initializing LLM service')
     const llmService = getLLMService()
 
     // Check available providers
     const providers = llmService.getAvailableProviders()
+    console.log('🔌 Available LLM providers:', providers)
+    
     if (!providers.gemini && !providers.openai) {
+      console.error('❌ No LLM providers configured')
       return NextResponse.json(
         { error: 'No LLM providers configured. Please set GOOGLE_API_KEY or OPENAI_API_KEY environment variables.' },
         { status: 500 }
@@ -110,21 +121,33 @@ export async function POST(request: NextRequest) {
       fileAttachments: msg.fileAttachments || [],
     }))
 
-    // Generate completion with function calling enabled
+    console.log('💬 Chat messages prepared:', chatMessages.length)
+
+    // Generate completion with function calling disabled for now
+    console.log('🎯 Generating LLM completion...')
     let response = await llmService.generateChatCompletion(chatMessages, {
       maxTokens: options?.maxTokens || 4000,
       temperature: options?.temperature || 0.7,
       systemPrompt: AGRICULTURAL_SYSTEM_PROMPT,
-      enableFunctions: true,
+      enableFunctions: false, // Disabled for now - will use data source selector instead
+    })
+
+    console.log('🎯 LLM response received:', {
+      model: response.model,
+      contentLength: response.content?.length,
+      hasFunctionCalls: !!response.functionCalls?.length,
+      functionCallCount: response.functionCalls?.length || 0
     })
 
     // Handle function calls if present
     if (response.functionCalls && response.functionCalls.length > 0) {
-      console.log('Function calls detected:', response.functionCalls)
+      console.log('🔧 Function calls detected:', response.functionCalls.map(fc => fc.name))
       
       // Execute all function calls
+      console.log('⚡ Executing function calls...')
       const functionResults = await Promise.all(
-        response.functionCalls.map(async (functionCall) => {
+        response.functionCalls.map(async (functionCall, index) => {
+          console.log(`🔧 Executing function ${index + 1}/${response.functionCalls!.length}: ${functionCall.name}`)
           const result = await executeJohnDeereFunction(functionCall)
           return {
             name: functionCall.name,
@@ -133,6 +156,8 @@ export async function POST(request: NextRequest) {
           }
         })
       )
+
+      console.log('✅ All function calls completed:', functionResults.map(fr => ({ name: fr.name, hasError: !!fr.error })))
 
       // Add function results to conversation and get final response
       const messagesWithFunctions: ChatMessage[] = [
@@ -149,6 +174,7 @@ export async function POST(request: NextRequest) {
         }))
       ]
 
+      console.log('🎯 Getting final response with function results...')
       // Get final response with function results
       response = await llmService.generateChatCompletion(messagesWithFunctions, {
         maxTokens: options?.maxTokens || 4000,
@@ -156,9 +182,15 @@ export async function POST(request: NextRequest) {
         systemPrompt: AGRICULTURAL_SYSTEM_PROMPT,
         enableFunctions: false, // Disable functions for final response
       })
+
+      console.log('✅ Final response generated:', {
+        model: response.model,
+        contentLength: response.content?.length
+      })
     }
 
     // Save assistant message to database
+    console.log('💾 Saving message to database...')
     const assistantMessage = await prisma.message.create({
       data: {
         sessionId: sessionId,
@@ -172,6 +204,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    console.log('✅ Chat completion successful:', assistantMessage.id)
+
     return NextResponse.json({
       message: {
         id: assistantMessage.id,
@@ -184,10 +218,16 @@ export async function POST(request: NextRequest) {
       model: response.model,
     })
   } catch (error) {
-    console.error('Error generating chat completion:', error)
+    console.error('❌ Error generating chat completion:', error)
     
     // Return specific error messages for common issues
     if (error instanceof Error) {
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
+      
       if (error.message.includes('API key')) {
         return NextResponse.json(
           { error: 'LLM API configuration error. Please check your API keys.' },

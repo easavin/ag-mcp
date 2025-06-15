@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
-import JohnDeereDataButton from '@/components/JohnDeereDataButton'
+// import JohnDeereDataButton from '@/components/JohnDeereDataButton'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -16,6 +16,7 @@ export default function Home() {
     error,
     createSession,
     sendMessage,
+    addMessage,
     loadSessions,
     setCurrentSession,
   } = useChatStore()
@@ -97,7 +98,49 @@ export default function Home() {
     await handleSendMessage(content)
   }
 
-
+  const handleDataSourceSelect = async (sourceId: string, dataType: string) => {
+    try {
+      console.log('🎯 Data source selected:', { sourceId, dataType })
+      
+      // Fetch data from the selected source
+      const response = await fetch(`/api/johndeere/${dataType}`)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${dataType} data`)
+      }
+      
+      const data = await response.json()
+      
+      // Format the response based on data type
+      let content: string
+      if (dataType === 'organizations' && data.organizations && data.organizations.length > 0) {
+        const org = data.organizations[0]
+        content = `Your organization name is: **${org.name}**`
+      } else if (data.title && data.content) {
+        content = `**${data.title}**\n\n${data.content}`
+      } else {
+        content = JSON.stringify(data, null, 2)
+      }
+      
+      // Add the response directly as an assistant message (no LLM call needed)
+      if (currentSessionId) {
+        await addMessage(currentSessionId, {
+          role: 'assistant',
+          content
+        })
+      }
+    } catch (error) {
+      console.error('❌ Error fetching data source:', error)
+      
+      // Add error message directly as assistant message
+      if (currentSessionId) {
+        await addMessage(currentSessionId, {
+          role: 'assistant',
+          content: `Sorry, I couldn't fetch the ${dataType} data. Please try again.`
+        })
+      }
+    }
+  }
 
   const isInitialState = messages.length === 0
 
@@ -158,7 +201,7 @@ export default function Home() {
               }}
             >
               <div className="messages-content" style={{ flex: 1 }}>
-                <JohnDeereDataButton onDataReceived={handleDataFetched} />
+                {/* <JohnDeereDataButton onDataReceived={handleDataFetched} /> */}
                 
                 {messages.map((message) => (
                   <MessageBubble
@@ -167,6 +210,7 @@ export default function Home() {
                     content={message.content}
                     timestamp={message.createdAt}
                     fileAttachments={message.fileAttachments}
+                    onDataSourceSelect={handleDataSourceSelect}
                   />
                 ))}
                 
