@@ -19,14 +19,7 @@ interface Message {
 }
 
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: "Hello! I'm your Ag Assistant. I can help you manage your John Deere operations, analyze field data, and process prescription files. What would you like to know about your farming operations?",
-      timestamp: new Date(),
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSendMessage = async (content: string, files?: File[]) => {
@@ -79,36 +72,78 @@ export default function Home() {
     return "I'm here to help with your precision agriculture needs! Ask me about fields, equipment, prescriptions, or connecting your John Deere account. What would you like to know?"
   }
 
+  const isInitialState = messages.length === 0;
+
   return (
     <ChatLayout>
-      <div className="flex flex-col h-full">
-        {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto">
-          {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              role={message.role}
-              content={message.content}
-              timestamp={message.timestamp}
-              fileAttachments={message.fileAttachments}
-            />
-          ))}
-          
-          {isLoading && (
-            <div className="flex gap-3 p-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-900 mb-1">Ag Assistant</div>
-                <div className="text-gray-500">Thinking...</div>
-              </div>
+      <div className="flex flex-col h-full" style={{ height: '100%' }}>
+        <div 
+          className={`messages-container ${isInitialState ? 'justify-center' : 'justify-end'}`}
+          style={isInitialState ? {
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column'
+          } : {}}
+        >
+          {isInitialState ? (
+            <div className="welcome-container" style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              width: '100%',
+              maxWidth: '900px',
+              margin: '0 auto',
+              padding: '2rem'
+            }}>
+              <h1 className="welcome-title" style={{
+                fontSize: '3rem',
+                fontWeight: 600,
+                marginBottom: '1rem',
+                color: '#f5f5f5'
+              }}>Ag Assistant</h1>
+              <p className="welcome-subtitle" style={{
+                fontSize: '1.25rem',
+                color: '#a0a0a0',
+                marginBottom: '3rem',
+                maxWidth: '600px'
+              }}>Start a conversation to manage your farming operations.</p>
+            </div>
+          ) : (
+            <div className="messages-content">
+              {messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  role={message.role}
+                  content={message.content}
+                  timestamp={message.timestamp}
+                  fileAttachments={message.fileAttachments}
+                />
+              ))}
+              
+              {isLoading && (
+                <div className="loading-message">
+                  <div className="loading-avatar" />
+                  <div className="loading-content">
+                    <div className="name">Ag Assistant</div>
+                    <div className="text" />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
-
-        {/* Chat Input */}
-        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+        <div style={{ 
+          width: '100%', 
+          maxWidth: '900px', 
+          margin: '0 auto',
+          padding: '1rem 0'
+        }}>
+          <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+        </div>
       </div>
     </ChatLayout>
   )

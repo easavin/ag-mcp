@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Send, Paperclip, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface ChatInputProps {
   onSendMessage: (message: string, files?: File[]) => void
@@ -11,9 +10,9 @@ interface ChatInputProps {
 
 export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const [message, setMessage] = useState('')
-  const [dragActive, setDragActive] = useState(false)
   const [files, setFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,46 +26,38 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || [])
     setFiles(prev => [...prev, ...selectedFiles])
-  }
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
+    // Reset file input value to allow selecting the same file again
+    if (fileInputRef.current) {
+        fileInputRef.current.value = ''
     }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-
-    const droppedFiles = Array.from(e.dataTransfer.files)
-    setFiles(prev => [...prev, ...droppedFiles])
   }
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index))
   }
 
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [message]);
+
   return (
-    <div className="border-t border-gray-200 bg-white p-4">
-      {/* File attachments */}
+    <form onSubmit={handleSubmit} className="chat-input-container" style={{
+      padding: '1rem 0',
+      background: '#1c1c1c',
+      width: '100%',
+      maxWidth: '900px',
+      margin: '0 auto'
+    }}>
       {files.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="file-tags">
           {files.map((file, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full text-sm"
-            >
-              <span className="text-gray-700">{file.name}</span>
-              <button
-                onClick={() => removeFile(index)}
-                className="text-gray-500 hover:text-gray-700"
-              >
+            <div key={index} className="file-tag">
+              <Paperclip className="w-4 h-4" />
+              <span>{file.name}</span>
+              <button onClick={() => removeFile(index)}>
                 <X className="w-3 h-3" />
               </button>
             </div>
@@ -74,74 +65,109 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <div className="flex-1 relative">
-          <div
-            className={cn(
-              'border border-gray-300 rounded-lg transition-colors',
-              dragActive && 'border-blue-500 bg-blue-50'
-            )}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
+      <div className="chat-input-form">
+        <div className="input-wrapper" style={{
+          flexGrow: 1,
+          position: 'relative',
+          border: '1px solid #444',
+          borderRadius: '16px',
+          background: '#2a2a2a',
+          minHeight: '60px'
+        }}>
             <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask about your fields, equipment, or upload a prescription file..."
-              className="w-full p-3 resize-none border-0 rounded-lg focus:outline-none focus:ring-0"
-              rows={3}
-              disabled={disabled}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSubmit(e)
-                }
-              }}
+                ref={textareaRef}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Ask about your fields, equipment, or upload a prescription file..."
+                className="chat-input-field"
+                rows={1}
+                disabled={disabled}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSubmit(e)
+                    }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '18px 60px 18px 20px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#e0e0e0',
+                  fontSize: '1.1rem',
+                  lineHeight: 1.5,
+                  resize: 'none',
+                  outline: 'none',
+                  maxHeight: '200px',
+                  minHeight: '24px'
+                }}
             />
-          </div>
-
-          {dragActive && (
-            <div className="absolute inset-0 flex items-center justify-center bg-blue-50 bg-opacity-90 rounded-lg">
-              <div className="text-blue-600 font-medium">Drop files here</div>
+            <div className="input-buttons" style={{
+              position: 'absolute',
+              right: '16px',
+              bottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="input-btn"
+                    disabled={disabled}
+                    title="Attach files"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '40px',
+                      height: '40px',
+                      border: 'none',
+                      background: 'none',
+                      color: '#a0a0a0',
+                      cursor: 'pointer',
+                      borderRadius: '10px'
+                    }}
+                >
+                    <Paperclip className="w-5 h-5" />
+                </button>
+                <button
+                    type="submit"
+                    disabled={disabled || (!message.trim() && files.length === 0)}
+                    className="input-btn send-btn"
+                    title="Send message"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '40px',
+                      height: '40px',
+                      border: 'none',
+                      backgroundColor: '#2563eb',
+                      color: 'white',
+                      cursor: 'pointer',
+                      borderRadius: '10px'
+                    }}
+                >
+                    <Send className="w-5 h-5" />
+                </button>
             </div>
-          )}
         </div>
-
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-            disabled={disabled}
-          >
-            <Paperclip className="w-5 h-5" />
-          </button>
-
-          <button
-            type="submit"
-            disabled={disabled || (!message.trim() && files.length === 0)}
-            className={cn(
-              'p-2 rounded-lg transition-colors',
-              disabled || (!message.trim() && files.length === 0)
-                ? 'text-gray-400 cursor-not-allowed'
-                : 'text-blue-600 hover:bg-blue-50'
-            )}
-          >
-            <Send className="w-5 h-5" />
-          </button>
-        </div>
-      </form>
+      </div>
 
       <input
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".shp,.zip,.kml,.geojson"
+        accept=".shp,.zip,.kml,.geojson, .pdf, .csv, .json"
         onChange={handleFileSelect}
-        className="hidden"
+        style={{
+          display: 'none',
+          visibility: 'hidden',
+          position: 'absolute',
+          left: '-9999px'
+        }}
       />
-    </div>
+    </form>
   )
 } 

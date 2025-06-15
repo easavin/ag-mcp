@@ -1,0 +1,319 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+I want to build an app that connects farming data form different precision agriculture platforms via mcp and i want to start with john deere operations center because it is most commond and well documented. here is the epic
+
+# John Deere MCP Chat Interface - Development Epic
+
+## Project Overview
+Build a Claude-style chat interface that connects to John Deere Operations Center via MCP (Model Context Protocol), allowing farmers to interact with their farming data through natural conversation and upload prescription shapefiles.
+
+---
+
+## Epic Breakdown
+
+### **Phase 1: Foundation & Core Infrastructure**
+
+#### **Task 1.1: Project Setup & Architecture**
+- [ ] Initialize Next.js project with TypeScript
+- [ ] Set up project structure (components, pages, api, lib, types)
+- [ ] Configure Tailwind CSS for styling
+- [ ] Set up ESLint and Prettier
+- [ ] Create environment configuration files
+- [ ] Initialize Git repository with proper .gitignore
+
+**Files to create:**
+- `package.json`, `tsconfig.json`, `tailwind.config.js`
+- `src/` folder structure
+- `.env.example` with required environment variables
+
+#### **Task 1.2: Basic Chat UI Components**
+- [ ] Create main chat layout component (similar to Claude)
+- [ ] Build message bubble components (user/assistant messages)
+- [ ] Implement chat input with file upload capability
+- [ ] Create typing indicator component
+- [ ] Add basic responsive design
+
+**Components to build:**
+- `ChatLayout.tsx`
+- `MessageBubble.tsx` 
+- `ChatInput.tsx`
+- `TypingIndicator.tsx`
+
+#### **Task 1.3: Chat History Sidebar**
+- [ ] Create collapsible sidebar for chat history
+- [ ] Build chat session list component
+- [ ] Implement new chat creation
+- [ ] Add chat session management (rename, delete)
+- [ ] Create mobile-responsive drawer for history
+
+**Components to build:**
+- `ChatSidebar.tsx`
+- `ChatHistoryList.tsx`
+- `ChatSession.tsx`
+
+---
+
+### **Phase 2: Data Layer & State Management**
+
+#### **Task 2.1: Database Setup**
+- [ ] Choose database solution (SQLite for local dev, PostgreSQL for production)
+- [ ] Design database schema for chats, messages, user sessions
+- [ ] Set up Prisma ORM or similar
+- [ ] Create database migrations
+- [ ] Set up database seeding for development
+
+**Schema design:**
+```sql
+- users (id, email, created_at, john_deere_connected)
+- chat_sessions (id, user_id, title, created_at, updated_at)
+- messages (id, session_id, role, content, file_attachments, created_at)
+- john_deere_tokens (user_id, access_token, refresh_token, expires_at)
+```
+
+#### **Task 2.2: State Management**
+- [ ] Set up Zustand or Redux Toolkit for global state
+- [ ] Create chat state management (current chat, message history)
+- [ ] Implement file upload state handling
+- [ ] Add John Deere connection status management
+- [ ] Create error state handling
+
+**Store slices to create:**
+- `chatStore.ts` - chat sessions and messages
+- `authStore.ts` - user authentication and JD connection
+- `fileStore.ts` - file upload progress and management
+
+---
+
+### **Phase 3: John Deere Integration**
+
+#### **Task 3.1: John Deere OAuth Setup**
+- [ ] Register application on John Deere Developer Portal
+- [ ] Implement OAuth2 flow for John Deere authentication
+- [ ] Create API routes for OAuth callback handling
+- [ ] Set up token refresh mechanism
+- [ ] Build connection status UI component
+
+**API routes to create:**
+- `/api/auth/johndeere/authorize`
+- `/api/auth/johndeere/callback` 
+- `/api/auth/johndeere/refresh`
+- `/api/auth/johndeere/disconnect`
+
+#### **Task 3.2: MCP Server Foundation**
+- [ ] Research and set up MCP SDK/library
+- [ ] Create MCP server configuration
+- [ ] Implement basic John Deere API client
+- [ ] Set up error handling and logging
+- [ ] Create API wrapper functions for common operations
+
+**Core MCP functions:**
+- `getOrganizations()`, `getFields()`, `getEquipment()`
+- `getFieldOperations()`, `getAssets()`
+- Error handling and rate limiting
+
+#### **Task 3.3: File Upload Processing**
+- [ ] Implement shapefile parsing (using shpjs or similar)
+- [ ] Create file validation for supported formats
+- [ ] Set up temporary file storage
+- [ ] Build shapefile to GeoJSON conversion
+- [ ] Implement file cleanup mechanisms
+
+**Supported formats:**
+- Shapefiles (.shp, .dbf, .shx as .zip)
+- KML files
+- GeoJSON files
+
+---
+
+### **Phase 4: MCP Implementation**
+
+#### **Task 4.1: Core MCP Resources**
+- [ ] Implement organization data retrieval
+- [ ] Build field management operations
+- [ ] Create equipment data access
+- [ ] Implement work operations history
+- [ ] Add real-time equipment location tracking
+
+**MCP Resources to implement:**
+```javascript
+// Organizations
+mcp.getOrganizations()
+mcp.getOrganizationFields(orgId)
+
+// Fields  
+mcp.getFieldDetails(fieldId)
+mcp.getFieldOperations(fieldId, dateRange)
+
+// Equipment
+mcp.getEquipmentList(orgId)
+mcp.getEquipmentLocation(equipmentId)
+```
+
+#### **Task 4.2: Prescription Upload Features**
+- [ ] Implement Map Layer upload to John Deere
+- [ ] Create Work Plan generation from shapefiles
+- [ ] Build prescription validation logic
+- [ ] Add field boundary matching
+- [ ] Implement rate validation against field history
+
+**Upload workflow:**
+1. Parse uploaded shapefile
+2. Validate against existing field boundaries
+3. Create Map Layer in John Deere
+4. Generate Work Plan with scheduling options
+5. Return confirmation with next steps
+
+#### **Task 4.3: Natural Language Processing**
+- [ ] Integrate with LLM API (OpenAI, Anthropic, or local model)
+- [ ] Build prompt templates for farming contexts
+- [ ] Implement query interpretation for field operations
+- [ ] Create response formatting for agricultural data
+- [ ] Add context awareness for multi-turn conversations
+
+**Query types to handle:**
+- "Show me yield data for Field 23"
+- "What equipment worked on corn fields last week?"
+- "Upload this prescription and schedule for next Tuesday"
+- "Compare fuel usage between my tractors"
+
+---
+
+### **Phase 5: User Experience & Polish**
+
+#### **Task 5.1: Advanced Chat Features**
+- [ ] Implement file drag-and-drop interface
+- [ ] Add message reactions and feedback
+- [ ] Create data visualization components (charts, maps)
+- [ ] Build export functionality for conversations
+- [ ] Add keyboard shortcuts and accessibility
+
+**UX enhancements:**
+- File preview before upload
+- Interactive maps showing field data
+- Charts for productivity metrics
+- Quick action buttons for common tasks
+
+#### **Task 5.2: John Deere Account Management**
+- [ ] Build account connection setup wizard
+- [ ] Create organization selection interface
+- [ ] Implement permission management UI
+- [ ] Add connection health monitoring
+- [ ] Build troubleshooting guides
+
+**Account setup flow:**
+1. Welcome screen explaining benefits
+2. John Deere OAuth connection
+3. Organization selection
+4. Permission configuration
+5. Connection verification
+
+#### **Task 5.3: Error Handling & User Feedback**
+- [ ] Implement comprehensive error boundary components
+- [ ] Create user-friendly error messages
+- [ ] Add loading states for all async operations
+- [ ] Build retry mechanisms for failed operations
+- [ ] Add success notifications and confirmations
+
+---
+
+### **Phase 6: Testing & Deployment**
+
+#### **Task 6.1: Testing Suite**
+- [ ] Set up Jest and React Testing Library
+- [ ] Write unit tests for core components
+- [ ] Create integration tests for MCP operations
+- [ ] Build end-to-end tests with Playwright
+- [ ] Add John Deere API mocking for tests
+
+#### **Task 6.2: Performance & Security**
+- [ ] Implement rate limiting for API calls
+- [ ] Add request caching strategies
+- [ ] Set up security headers and CORS
+- [ ] Implement data encryption for sensitive information
+- [ ] Add audit logging for data access
+
+#### **Task 6.3: Deployment & DevOps**
+- [ ] Set up Docker containerization
+- [ ] Configure CI/CD pipeline
+- [ ] Set up production database
+- [ ] Implement monitoring and alerting
+- [ ] Create deployment documentation
+
+---
+
+## Technical Stack
+
+**Frontend:**
+- Next.js 14+ with App Router
+- TypeScript
+- Tailwind CSS
+- Zustand for state management
+- React Hook Form for forms
+
+**Backend:**
+- Next.js API routes
+- Prisma ORM
+- PostgreSQL (production) / SQLite (development)
+- MCP SDK for John Deere integration
+
+**External Services:**
+- John Deere MyJohnDeere API
+- OpenAI/Anthropic API for LLM
+- File storage (local/S3)
+
+**Development Tools:**
+- ESLint + Prettier
+- Jest + React Testing Library
+- Playwright for E2E tests
+- Docker for containerization
+
+---
+
+## Environment Variables Needed
+
+```env
+# Database
+DATABASE_URL=
+
+# John Deere API
+JOHN_DEERE_CLIENT_ID=
+JOHN_DEERE_CLIENT_SECRET=
+JOHN_DEERE_ENVIRONMENT=sandbox # or production
+
+# LLM API (choose one)
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+
+# Application
+NEXTAUTH_SECRET=
+NEXTAUTH_URL=
+
+# File Upload
+MAX_FILE_SIZE=10485760 # 10MB
+UPLOAD_DIR=./uploads
+```
+
+---
+
+## Success Metrics
+
+- [ ] User can connect John Deere account in <2 minutes
+- [ ] Upload shapefile and create work plan in <30 seconds
+- [ ] Natural language queries return accurate data in <3 seconds
+- [ ] 99%+ uptime for John Deere API integration
+- [ ] Responsive design works on mobile, tablet, desktop
+
+---
+
+## Getting Started
+
+1. **Start with Task 1.1** - Set up the basic Next.js project
+2. **Build Task 1.2** - Create the chat interface without backend
+3. **Implement Task 2.1** - Add database and basic data persistence
+4. **Focus on Task 3.1** - Get John Deere OAuth working in sandbox
+5. **Iterate through phases** - Build incrementally and test frequently
+
+Each task is designed to be completable in 1-4 hours and can be fed directly to Cursor for implementation.

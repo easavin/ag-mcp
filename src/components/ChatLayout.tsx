@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { MessageSquare, Settings, Plus } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -12,52 +11,39 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="chat-layout">
       {/* Sidebar */}
-      <div
-        className={cn(
-          'flex flex-col bg-white border-r border-gray-200 transition-all duration-300',
-          sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'
-        )}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Ag MCP</h2>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="p-1 hover:bg-gray-100 rounded"
-          >
+      <div className={`sidebar ${!sidebarOpen ? 'w-0 overflow-hidden' : ''}`}>
+        <div className="sidebar-header">
+          <h2>Ag MCP</h2>
+          <button onClick={() => setSidebarOpen(false)}>
             <MessageSquare className="w-4 h-4" />
           </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4">
-            <button className="w-full flex items-center gap-2 p-2 text-left hover:bg-gray-100 rounded-lg">
-              <Plus className="w-4 h-4" />
-              New Chat
-            </button>
-          </div>
+        <div className="sidebar-content">
+          <button className="new-chat-btn">
+            <Plus className="w-4 h-4" />
+            New Chat
+          </button>
           
-          {/* Chat History will go here */}
-          <div className="px-4 pb-4">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-              Recent Chats
-            </div>
-            <div className="space-y-1">
-              <div className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer">
-                <div className="text-sm text-gray-900">Field Analysis</div>
-                <div className="text-xs text-gray-500">2 hours ago</div>
+          <div className="chat-history-section">
+            <h3>Recent Chats</h3>
+            <div>
+              <div className="chat-history-item">
+                <div className="title">Field Analysis</div>
+                <div className="time">2 hours ago</div>
               </div>
-              <div className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer">
-                <div className="text-sm text-gray-900">Equipment Status</div>
-                <div className="text-xs text-gray-500">Yesterday</div>
+              <div className="chat-history-item">
+                <div className="title">Equipment Status</div>
+                <div className="time">Yesterday</div>
               </div>
             </div>
           </div>
         </div>
         
-        <div className="p-4 border-t border-gray-200">
-          <button className="w-full flex items-center gap-2 p-2 text-left hover:bg-gray-100 rounded-lg">
+        <div className="sidebar-footer">
+          <button className="settings-btn">
             <Settings className="w-4 h-4" />
             Settings
           </button>
@@ -65,17 +51,35 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <main className="chat-main" style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#1c1c1c',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem',
+        minHeight: 0
+      }}>
         {!sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
-            className="absolute top-4 left-4 p-2 hover:bg-gray-100 rounded-lg z-10"
+            className="absolute top-4 left-4 p-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg z-10 border border-gray-600"
           >
-            <MessageSquare className="w-4 h-4" />
+            <MessageSquare className="w-4 h-4 text-white" />
           </button>
         )}
-        {children}
-      </div>
+        <div style={{
+          width: '100%',
+          maxWidth: '900px',
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0
+        }}>
+          {children}
+        </div>
+      </main>
     </div>
   )
 } 
