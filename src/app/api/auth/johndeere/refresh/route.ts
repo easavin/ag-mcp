@@ -36,6 +36,11 @@ export async function POST(request: NextRequest) {
 
     // Refresh the token
     const johnDeereAPI = getJohnDeereAPI()
+    
+    if (!tokenRecord.refreshToken) {
+      throw new Error('No refresh token available')
+    }
+    
     const newTokens = await johnDeereAPI.refreshAccessToken(tokenRecord.refreshToken)
 
     // Calculate new expiration date

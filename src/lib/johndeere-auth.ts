@@ -34,6 +34,11 @@ export async function getValidJohnDeereTokens(userId: string): Promise<Validated
     // Try to refresh the token
     try {
       const johnDeereAPI = getJohnDeereAPI()
+      
+      if (!tokenRecord.refreshToken) {
+        throw new Error('No refresh token available')
+      }
+      
       const newTokens = await johnDeereAPI.refreshAccessToken(tokenRecord.refreshToken)
 
       // Calculate new expiration date

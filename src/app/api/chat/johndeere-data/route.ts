@@ -12,9 +12,21 @@ export async function POST(request: NextRequest) {
     // Try to get real data first
     let data
     let useMockData = false
+    let finalOrganizationId = organizationId
     
     try {
       const johnDeereApi = getJohnDeereAPIClient()
+
+      // If no organizationId is provided but we need one, fetch organizations and use the first one
+      if (!organizationId && ['fields', 'equipment', 'operations', 'comprehensive'].includes(dataType)) {
+        console.log(`No organization ID provided for ${dataType}, fetching organizations...`)
+        const organizations = await johnDeereApi.getOrganizations()
+        if (organizations.length === 0) {
+          return NextResponse.json({ error: 'No organizations found. Please connect your John Deere account.' }, { status: 404 })
+        }
+        finalOrganizationId = organizations[0].id
+        console.log(`Using organization: ${organizations[0].name} (${finalOrganizationId})`)
+      }
 
       switch (dataType) {
         case 'organizations':
@@ -22,24 +34,15 @@ export async function POST(request: NextRequest) {
           break
         
         case 'fields':
-          if (!organizationId) {
-            return NextResponse.json({ error: 'Organization ID required for fields' }, { status: 400 })
-          }
-          data = await johnDeereApi.getFields(organizationId)
+          data = await johnDeereApi.getFields(finalOrganizationId!)
           break
         
         case 'equipment':
-          if (!organizationId) {
-            return NextResponse.json({ error: 'Organization ID required for equipment' }, { status: 400 })
-          }
-          data = await johnDeereApi.getEquipment(organizationId)
+          data = await johnDeereApi.getEquipment(finalOrganizationId!)
           break
         
         case 'operations':
-          if (!organizationId) {
-            return NextResponse.json({ error: 'Organization ID required for operations' }, { status: 400 })
-          }
-          data = await johnDeereApi.getFieldOperations(organizationId, {
+          data = await johnDeereApi.getFieldOperations(finalOrganizationId!, {
             startDate: filters?.startDate,
             endDate: filters?.endDate,
             fieldId: filters?.fieldId
@@ -47,11 +50,7 @@ export async function POST(request: NextRequest) {
           break
         
         case 'comprehensive':
-          if (!organizationId) {
-            return NextResponse.json({ error: 'Organization ID required for comprehensive data' }, { status: 400 })
-          }
-          
-          data = await johnDeereApi.getComprehensiveFarmData(organizationId)
+          data = await johnDeereApi.getComprehensiveFarmData(finalOrganizationId!)
           break
         
         default:
@@ -66,7 +65,7 @@ export async function POST(request: NextRequest) {
           (error.response && error.response.status === 403)) {
         console.log(`Permission denied for ${dataType}, using mock data`)
         useMockData = true
-        data = getMockDataForType(dataType, organizationId)
+        data = getMockDataForType(dataType, finalOrganizationId)
       } else {
         // For other errors, throw them
         throw error

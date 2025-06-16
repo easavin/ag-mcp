@@ -5,8 +5,8 @@ import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
 import MobileMenu from '@/components/MobileMenu'
-import { NotificationProvider, useNotificationHelpers } from '@/components/NotificationSystem'
 import { MessageSkeleton } from '@/components/LoadingStates'
+import ProgressIndicator, { useProgressIndicator } from '@/components/ProgressIndicator'
 // import JohnDeereDataButton from '@/components/JohnDeereDataButton'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -25,7 +25,7 @@ function ChatInterface() {
   } = useChatStore()
 
   const { user, loadUser, checkJohnDeereConnection } = useAuthStore()
-  const { success, error: notifyError, info } = useNotificationHelpers()
+  const { steps, addStep, updateStep, clearSteps } = useProgressIndicator()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLDivElement>(null)
 
@@ -77,14 +77,14 @@ function ChatInterface() {
 
       // Show notification for file uploads
       if (files && files.length > 0) {
-        info('Files uploaded', `${files.length} file(s) attached to your message`)
+        console.info('Files uploaded', `${files.length} file(s) attached to your message`)
       }
 
       // Send message and get LLM response
       await sendMessage(sessionId, content, fileAttachments)
     } catch (error) {
       console.error('Error sending message:', error)
-      notifyError('Message failed', 'Failed to send your message. Please try again.')
+      console.info('Message failed', 'Failed to send your message. Please try again.')
     }
   }
 
@@ -109,83 +109,137 @@ function ChatInterface() {
   }
 
   const handleDataSourceSelect = async (sourceId: string, dataType: string) => {
+    if (sourceId !== 'johndeere') {
+      // Handle other data sources in the future
+      return
+    }
+
+    if (!currentSessionId) {
+      console.error('No current session available')
+      return
+    }
+
+    console.log(`🔄 Fetching ${dataType} data from John Deere...`)
+    
+    // Clear any previous progress steps
+    clearSteps()
+    
+    // Add initial step
+    const fetchStepId = addStep({
+      status: 'loading',
+      message: `Fetching data from John Deere...`,
+      details: `Loading ${dataType} from johndeere`
+    })
+
     try {
-      console.log('🎯 Data source selected:', { sourceId, dataType })
-      info('Fetching data', `Loading ${dataType} from ${sourceId}...`)
-      
-      let response: Response
-      let data: any
-      
-      if (dataType === 'organizations') {
-        // Direct organizations endpoint
-        response = await fetch(`/api/johndeere/${dataType}`)
-      } else {
-        // For other data types, we need to get organization first, then fetch the specific data
-        console.log('🔍 Fetching organization first for nested endpoint...')
-        const orgResponse = await fetch('/api/johndeere/organizations')
-        
-        if (!orgResponse.ok) {
-          throw new Error('Failed to fetch organization data')
-        }
-        
-        const orgData = await orgResponse.json()
-        
-        if (!orgData.organizations || orgData.organizations.length === 0) {
-          throw new Error('No organizations found')
-        }
-        
-        const orgId = orgData.organizations[0].id
-        console.log('🏢 Using organization ID:', orgId)
-        
-        // Now fetch the specific data type for this organization
-        response = await fetch(`/api/johndeere/organizations/${orgId}/${dataType}`)
+      // First, get organizations if needed
+      let organizationStepId
+      if (['fields', 'equipment', 'operations', 'comprehensive'].includes(dataType)) {
+        organizationStepId = addStep({
+          status: 'loading',
+          message: 'Getting organization details...',
+          details: 'Fetching your John Deere organizations'
+        })
       }
-      
+
+      const response = await fetch('/api/chat/johndeere-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dataType,
+          organizationId: null, // Let the API auto-select
+          filters: {}
+        }),
+      })
+
+      const result = await response.json()
+
+      // Update organization step if it was created
+      if (organizationStepId) {
+        updateStep(organizationStepId, {
+          status: 'success',
+          message: 'Organization found',
+          details: 'Using your default organization'
+        })
+      }
+
       if (!response.ok) {
-        throw new Error(`Failed to fetch ${dataType} data`)
+        updateStep(fetchStepId, {
+          status: 'error',
+          message: 'Failed to fetch data',
+          details: result.error || 'Unknown error occurred'
+        })
+        
+        // Also add error message to chat
+        addMessage(currentSessionId!, {
+          role: 'assistant',
+          content: `❌ **Error fetching ${dataType}**\n\n${result.error || 'Unknown error occurred'}\n\nPlease check your John Deere connection and try again.`
+        })
+        return
       }
+
+      // Success!
+      updateStep(fetchStepId, {
+        status: 'success',
+        message: `${dataType} data retrieved successfully`,
+        details: result.mockData ? 'Using demo data (sandbox limitations)' : `Found ${Array.isArray(result.data) ? result.data.length : 'some'} items`
+      })
+
+      // Format and add the data response to chat
+      let responseContent = ''
       
-      data = await response.json()
-      
-      // Format the response based on data type
-      let content: string
-      if (dataType === 'organizations' && data.organizations && data.organizations.length > 0) {
-        const org = data.organizations[0]
-        content = `Your organization name is: **${org.name}**`
-      } else if (dataType === 'equipment' && data.equipment && data.equipment.length > 0) {
-        const equipmentList = data.equipment.map((eq: any) => `• **${eq.name}** (${eq.make} ${eq.model})`).join('\n')
-        content = `**Your Equipment:**\n\n${equipmentList}`
-      } else if (dataType === 'fields' && data.fields && data.fields.length > 0) {
-        const fieldsList = data.fields.map((field: any) => `• **${field.name}** (${field.area.measurement} ${field.area.unit})`).join('\n')
-        content = `**Your Fields:**\n\n${fieldsList}`
-      } else if (dataType === 'operations' && data.operations && data.operations.length > 0) {
-        const operationsList = data.operations.map((op: any) => `• **${op.type}** - ${op.operationType}`).join('\n')
-        content = `**Your Recent Operations:**\n\n${operationsList}`
-      } else if (data.title && data.content) {
-        content = `**${data.title}**\n\n${data.content}`
+      if (result.mockData && result.message) {
+        responseContent = `**John Deere ${dataType.charAt(0).toUpperCase() + dataType.slice(1)} (Demo Data)**\n\n${result.message}`
       } else {
-        content = JSON.stringify(data, null, 2)
+        // Format real data
+        responseContent = `**Your ${dataType.charAt(0).toUpperCase() + dataType.slice(1)}**\n\n`
+        
+        if (Array.isArray(result.data)) {
+          if (dataType === 'fields') {
+            responseContent += result.data.map((field: any) => 
+              `• **${field.name}**: ${field.area?.measurement || 'Unknown'} ${field.area?.unit || 'acres'}`
+            ).join('\n')
+          } else if (dataType === 'equipment') {
+            responseContent += result.data.map((equipment: any) => 
+              `• **${equipment.name}** (${equipment.make} ${equipment.model})`
+            ).join('\n')
+          } else if (dataType === 'operations') {
+            responseContent += result.data.map((op: any) => 
+              `• **${op.operationType}** - ${new Date(op.startTime).toLocaleDateString()}`
+            ).join('\n')
+          } else {
+            responseContent += JSON.stringify(result.data, null, 2)
+          }
+        } else {
+          responseContent += JSON.stringify(result.data, null, 2)
+        }
       }
-      
-      // Add the response directly as an assistant message (no LLM call needed)
-      if (currentSessionId) {
-        await addMessage(currentSessionId, {
-          role: 'assistant',
-          content
-        })
-        success('Data loaded', `Successfully loaded ${dataType} data`)
-      }
+
+      addMessage(currentSessionId!, {
+        role: 'assistant',
+        content: responseContent
+      })
+
+      // Clear progress steps after a short delay
+      setTimeout(() => {
+        clearSteps()
+      }, 2000)
+
     } catch (error) {
-      console.error('❌ Error fetching data source:', error)
-      notifyError('Data fetch failed', `Couldn't load ${dataType} data. Please try again.`)
+      console.error('Error fetching John Deere data:', error)
       
-      // Add error message directly as assistant message
-      if (currentSessionId) {
-        await addMessage(currentSessionId, {
-          role: 'assistant',
-          content: `Sorry, I couldn't fetch the ${dataType} data. Please try again.`
-        })
-      }
+      updateStep(fetchStepId, {
+        status: 'error',
+        message: 'Connection failed',
+        details: error instanceof Error ? error.message : 'Network error'
+      })
+
+      addMessage(currentSessionId!, {
+        role: 'assistant',
+        content: `❌ **Connection Error**\n\nFailed to connect to John Deere API: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your internet connection and try again.`
+      })
     }
   }
 
@@ -266,6 +320,11 @@ function ChatInterface() {
                     />
                   ))}
                   
+                  {/* Show progress indicator if there are active steps */}
+                  {steps.length > 0 && (
+                    <ProgressIndicator steps={steps} />
+                  )}
+                  
                   {isLoading && (
                     <MessageSkeleton isUser={false} />
                   )}
@@ -285,8 +344,6 @@ function ChatInterface() {
 
 export default function Home() {
   return (
-    <NotificationProvider>
-      <ChatInterface />
-    </NotificationProvider>
+    <ChatInterface />
   )
 }

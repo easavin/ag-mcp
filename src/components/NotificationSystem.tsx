@@ -81,7 +81,17 @@ function NotificationContainer() {
   const { notifications, removeNotification } = useNotifications()
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full">
+    <div 
+      className="fixed top-4 right-4 z-[9999] space-y-2 max-w-sm w-full pointer-events-none"
+      style={{
+        position: 'fixed',
+        top: '1rem',
+        right: '1rem',
+        zIndex: 9999,
+        maxWidth: '20rem',
+        width: 'auto'
+      }}
+    >
       {notifications.map((notification) => (
         <NotificationItem
           key={notification.id}
@@ -130,32 +140,32 @@ function NotificationItem({ notification, onRemove }: NotificationItemProps) {
     switch (notification.type) {
       case 'success':
         return {
-          bg: 'bg-green-50 dark:bg-green-900/20',
-          border: 'border-green-200 dark:border-green-800',
+          bg: 'bg-white dark:bg-gray-800',
+          border: 'border-green-200 dark:border-green-700',
           icon: 'text-green-600 dark:text-green-400',
           title: 'text-green-900 dark:text-green-100',
           message: 'text-green-700 dark:text-green-300'
         }
       case 'error':
         return {
-          bg: 'bg-red-50 dark:bg-red-900/20',
-          border: 'border-red-200 dark:border-red-800',
+          bg: 'bg-white dark:bg-gray-800',
+          border: 'border-red-200 dark:border-red-700',
           icon: 'text-red-600 dark:text-red-400',
           title: 'text-red-900 dark:text-red-100',
           message: 'text-red-700 dark:text-red-300'
         }
       case 'warning':
         return {
-          bg: 'bg-yellow-50 dark:bg-yellow-900/20',
-          border: 'border-yellow-200 dark:border-yellow-800',
+          bg: 'bg-white dark:bg-gray-800',
+          border: 'border-yellow-200 dark:border-yellow-700',
           icon: 'text-yellow-600 dark:text-yellow-400',
           title: 'text-yellow-900 dark:text-yellow-100',
           message: 'text-yellow-700 dark:text-yellow-300'
         }
       case 'info':
         return {
-          bg: 'bg-blue-50 dark:bg-blue-900/20',
-          border: 'border-blue-200 dark:border-blue-800',
+          bg: 'bg-white dark:bg-gray-800',
+          border: 'border-blue-200 dark:border-blue-700',
           icon: 'text-blue-600 dark:text-blue-400',
           title: 'text-blue-900 dark:text-blue-100',
           message: 'text-blue-700 dark:text-blue-300'
@@ -168,17 +178,40 @@ function NotificationItem({ notification, onRemove }: NotificationItemProps) {
   return (
     <div
       className={`
-        transform transition-all duration-300 ease-in-out
+        transform transition-all duration-300 ease-in-out pointer-events-auto
         ${isVisible && !isRemoving 
           ? 'translate-x-0 opacity-100 scale-100' 
           : 'translate-x-full opacity-0 scale-95'
         }
       `}
+      style={{
+        pointerEvents: 'auto'
+      }}
     >
-      <div className={`
-        ${colors.bg} ${colors.border} border rounded-lg shadow-lg p-4
-        backdrop-blur-sm
-      `}>
+      <div 
+        className={`
+          ${colors.bg} ${colors.border} border rounded-lg shadow-lg p-3
+          backdrop-blur-sm min-w-0 max-w-sm
+        `}
+        style={{
+          backgroundColor: notification.type === 'error' 
+            ? '#1f2937' 
+            : notification.type === 'success'
+            ? '#1f2937'
+            : notification.type === 'warning'
+            ? '#1f2937'
+            : '#1f2937',
+          borderColor: notification.type === 'error' 
+            ? '#ef4444' 
+            : notification.type === 'success'
+            ? '#10b981'
+            : notification.type === 'warning'
+            ? '#f59e0b'
+            : '#3b82f6',
+          borderWidth: '1px',
+          borderStyle: 'solid'
+        }}
+      >
         <div className="flex items-start space-x-3">
           {/* Icon */}
           <div className={`flex-shrink-0 ${colors.icon}`}>
@@ -187,11 +220,11 @@ function NotificationItem({ notification, onRemove }: NotificationItemProps) {
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <h4 className={`text-sm font-medium ${colors.title}`}>
+            <h4 className="text-sm font-medium text-white">
               {notification.title}
             </h4>
             {notification.message && (
-              <p className={`text-sm mt-1 ${colors.message}`}>
+              <p className="text-sm mt-1 text-gray-300">
                 {notification.message}
               </p>
             )}
@@ -200,10 +233,7 @@ function NotificationItem({ notification, onRemove }: NotificationItemProps) {
             {notification.action && (
               <button
                 onClick={notification.action.onClick}
-                className={`
-                  text-sm font-medium mt-2 underline hover:no-underline
-                  ${colors.title}
-                `}
+                className="text-sm font-medium mt-2 underline hover:no-underline text-white"
               >
                 {notification.action.label}
               </button>
@@ -213,10 +243,7 @@ function NotificationItem({ notification, onRemove }: NotificationItemProps) {
           {/* Close Button */}
           <button
             onClick={handleRemove}
-            className={`
-              flex-shrink-0 p-1 rounded-md transition-colors
-              ${colors.icon} hover:bg-black/5 dark:hover:bg-white/5
-            `}
+            className="flex-shrink-0 p-1 rounded-md transition-colors text-gray-400 hover:text-white hover:bg-white/10"
           >
             <X className="w-4 h-4" />
           </button>
