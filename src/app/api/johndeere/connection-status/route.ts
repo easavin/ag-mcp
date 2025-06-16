@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       // This is based on the support ticket example
       const clientId = '0oap6omdg8Hj2j8jG5d7' // Your app's client ID
       // Add parameters to request full access by default
-      fallbackConnectionLink = `https://connections.deere.com/connections/${clientId}/select-organizations?requestFullAccess=true&scopes=ag1,ag2,ag3,offline_access`
+      fallbackConnectionLink = `https://connections.deere.com/connections/${clientId}/select-organizations?requestFullAccess=true&scopes=ag1,ag2,ag3,eq1,offline_access`
       console.log('📋 Using fallback connection link with full access request:', fallbackConnectionLink)
     }
     
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         // Add full access parameters to all connection links
         const url = new URL(link)
         url.searchParams.set('requestFullAccess', 'true')
-        url.searchParams.set('scopes', 'ag1,ag2,ag3,offline_access')
+        url.searchParams.set('scopes', 'ag1,ag2,ag3,eq1,offline_access')
         return url.toString()
       }),
       connectionRequired,

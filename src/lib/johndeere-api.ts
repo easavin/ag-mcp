@@ -435,7 +435,23 @@ export class JohnDeereAPIClient {
    */
   async getEquipment(organizationId: string): Promise<JDEquipment[]> {
     try {
-      const response = await this.axiosInstance.get(`/isg/equipment?organizationIds=${organizationId}`)
+      // Equipment API uses a different domain and headers
+      const token = await this.getValidAccessToken()
+      if (!token) {
+        throw new Error('No valid access token available')
+      }
+
+      const equipmentBaseUrl = this.environment === 'sandbox' 
+        ? 'https://equipmentapi.deere.com' 
+        : 'https://equipmentapi.deere.com'
+
+      const response = await axios.get(`${equipmentBaseUrl}/isg/equipment?organizationIds=${organizationId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+      })
       return response.data.values || []
     } catch (error: any) {
       console.error('Error fetching equipment:', error)
