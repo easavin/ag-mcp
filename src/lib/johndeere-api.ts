@@ -477,40 +477,29 @@ export class JohnDeereAPIClient {
    */
   async getEquipmentForConnectionTest(organizationId: string): Promise<JDEquipment[]> {
     try {
-      // First get the organization to find the machines link
-      const organizations = await this.getOrganizations()
-      const org = organizations.find(o => o.id === organizationId)
-      
-      if (!org) {
-        throw new Error(`Organization ${organizationId} not found`)
-      }
-      
-      // Find the machines link
-      const machinesLink = org.links?.find(link => link.rel === 'machines')
-      if (!machinesLink) {
-        throw new Error(`No machines link found for organization ${organizationId}`)
-      }
-      
-      console.log(`🔧 Using machines link for equipment: ${machinesLink.uri}`)
-      
-      // Get the current token
+      // Use the same endpoint as the working getEquipment method
       const token = await this.getValidAccessToken()
       if (!token) {
         throw new Error('No valid access token available')
       }
-      
-      // Make direct call to the machines URL
-      const response = await axios.get(machinesLink.uri, {
+
+      const equipmentBaseUrl = this.environment === 'sandbox' 
+        ? 'https://equipmentapi.deere.com' 
+        : 'https://equipmentapi.deere.com'
+
+      console.log(`🔧 Connection test: Using Equipment API endpoint: ${equipmentBaseUrl}/isg/equipment?organizationIds=${organizationId}`)
+
+      const response = await axios.get(`${equipmentBaseUrl}/isg/equipment?organizationIds=${organizationId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.deere.axiom.v3+json',
-          'Content-Type': 'application/vnd.deere.axiom.v3+json',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
         }
       })
       
       return response.data.values || []
     } catch (error: any) {
-      console.error('Equipment test error:', error.response?.status, error.message)
+      console.error('Equipment connection test error:', error.response?.status, error.message)
       // Don't fall back to mock data for connection testing
       throw error
     }
