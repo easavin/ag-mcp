@@ -435,7 +435,7 @@ export class JohnDeereAPIClient {
    */
   async getEquipment(organizationId: string): Promise<JDEquipment[]> {
     try {
-      const response = await this.axiosInstance.get(`/organizations/${organizationId}/equipment`)
+      const response = await this.axiosInstance.get(`/isg/equipment?organizationIds=${organizationId}`)
       return response.data.values || []
     } catch (error: any) {
       console.error('Error fetching equipment:', error)
@@ -461,9 +461,40 @@ export class JohnDeereAPIClient {
    */
   async getEquipmentForConnectionTest(organizationId: string): Promise<JDEquipment[]> {
     try {
-      const response = await this.axiosInstance.get(`/organizations/${organizationId}/equipment`)
+      // First get the organization to find the machines link
+      const organizations = await this.getOrganizations()
+      const org = organizations.find(o => o.id === organizationId)
+      
+      if (!org) {
+        throw new Error(`Organization ${organizationId} not found`)
+      }
+      
+      // Find the machines link
+      const machinesLink = org.links?.find(link => link.rel === 'machines')
+      if (!machinesLink) {
+        throw new Error(`No machines link found for organization ${organizationId}`)
+      }
+      
+      console.log(`🔧 Using machines link for equipment: ${machinesLink.uri}`)
+      
+      // Get the current token
+      const token = await this.getValidAccessToken()
+      if (!token) {
+        throw new Error('No valid access token available')
+      }
+      
+      // Make direct call to the machines URL
+      const response = await axios.get(machinesLink.uri, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.deere.axiom.v3+json',
+          'Content-Type': 'application/vnd.deere.axiom.v3+json',
+        }
+      })
+      
       return response.data.values || []
     } catch (error: any) {
+      console.error('Equipment test error:', error.response?.status, error.message)
       // Don't fall back to mock data for connection testing
       throw error
     }
