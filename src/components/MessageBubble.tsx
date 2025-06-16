@@ -17,6 +17,7 @@ interface MessageBubbleProps {
     fileSize: number
   }>
   onDataSourceSelect?: (sourceId: string, dataType: string) => void
+  currentDataSource?: string | null
 }
 
 export default function MessageBubble({
@@ -26,6 +27,7 @@ export default function MessageBubble({
   messageId,
   fileAttachments,
   onDataSourceSelect,
+  currentDataSource,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'
@@ -89,6 +91,9 @@ export default function MessageBubble({
   // Check if this message should show a data source selector
   const shouldShowDataSourceSelector = () => {
     if (isUser || isSystem) return false
+    
+    // Don't show selector if we already have a data source selected
+    if (currentDataSource) return false
     
     // Look for specific patterns that indicate we should show the selector
     const patterns = [

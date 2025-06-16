@@ -52,7 +52,7 @@ export interface LLMResponse {
   }
 }
 
-// John Deere function definitions (temporarily disabled to force data source selector flow)
+// John Deere function definitions - now re-enabled for direct data access
 const JOHN_DEERE_FUNCTIONS: Array<{
   name: string
   description: string
@@ -62,72 +62,71 @@ const JOHN_DEERE_FUNCTIONS: Array<{
     required: string[]
   }
 }> = [
-  // Temporarily commenting out John Deere functions to force the LLM to use data source selector approach
-  // {
-  //   name: 'getOrganizations',
-  //   description: 'Get all John Deere organizations for the user',
-  //   parameters: {
-  //     type: 'object',
-  //     properties: {},
-  //     required: []
-  //   }
-  // },
-  // {
-  //   name: 'getFields',
-  //   description: 'Get fields for a specific organization',
-  //   parameters: {
-  //     type: 'object',
-  //     properties: {
-  //       orgId: {
-  //         type: 'string',
-  //         description: 'Organization ID'
-  //       }
-  //     },
-  //     required: ['orgId']
-  //   }
-  // },
-  // {
-  //   name: 'getEquipment',
-  //   description: 'Get equipment for a specific organization',
-  //   parameters: {
-  //     type: 'object',
-  //     properties: {
-  //       orgId: {
-  //         type: 'string',
-  //         description: 'Organization ID'
-  //       }
-  //     },
-  //     required: ['orgId']
-  //   }
-  // },
-  // {
-  //   name: 'getOperations',
-  //   description: 'Get field operations for a specific organization',
-  //   parameters: {
-  //     type: 'object',
-  //     properties: {
-  //       orgId: {
-  //         type: 'string',
-  //         description: 'Organization ID'
-  //       }
-  //     },
-  //     required: ['orgId']
-  //   }
-  // },
-  // {
-  //   name: 'getComprehensiveData',
-  //   description: 'Get comprehensive farm data including fields, equipment, and operations for an organization',
-  //   parameters: {
-  //     type: 'object',
-  //     properties: {
-  //       orgId: {
-  //         type: 'string',
-  //         description: 'Organization ID'
-  //       }
-  //     },
-  //     required: ['orgId']
-  //   }
-  // }
+  {
+    name: 'getOrganizations',
+    description: 'Get all John Deere organizations for the user',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'getFields',
+    description: 'Get all fields for the user. Automatically fetches organization if needed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID (optional - will auto-fetch if not provided)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'getEquipment',
+    description: 'Get all equipment for the user. Automatically fetches organization if needed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID (optional - will auto-fetch if not provided)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'getOperations',
+    description: 'Get all field operations for the user. Automatically fetches organization if needed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID (optional - will auto-fetch if not provided)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'getComprehensiveData',
+    description: 'Get comprehensive farm data including fields, equipment, and operations for an organization',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID'
+        }
+      },
+      required: ['orgId']
+    }
+  }
 ]
 
 // Convert MCP tools to function format for LLM
@@ -188,16 +187,25 @@ export class LLMService {
   ): Promise<LLMResponse> {
     const { maxTokens = 4000, temperature = 0.7, systemPrompt, enableFunctions = true } = options || {}
 
-    // Try Gemini first
-    if (this.geminiClient) {
+    // For function calls, prefer OpenAI as it's more reliable
+    // For regular chat, try Gemini first
+    if (this.geminiClient && !enableFunctions) {
       try {
         console.log('Attempting to use Gemini 2.0 Flash...')
-        return await this.generateWithGemini(messages, {
+        const result = await this.generateWithGemini(messages, {
           maxTokens,
           temperature,
           systemPrompt,
           enableFunctions,
         })
+        
+        // Check if Gemini returned an empty response
+        if (!result.content && (!result.functionCalls || result.functionCalls.length === 0)) {
+          console.warn('⚠️ Gemini returned empty response, falling back to OpenAI')
+          throw new Error('Gemini returned empty response')
+        }
+        
+        return result
       } catch (error) {
         console.warn('Gemini failed, falling back to OpenAI:', error)
       }
@@ -248,6 +256,7 @@ export class LLMService {
 
     // Add function calling if enabled
     if (options.enableFunctions) {
+      console.log('🔧 Adding functions to Gemini:', ALL_FUNCTIONS.length)
       modelConfig.tools = [{
         functionDeclarations: ALL_FUNCTIONS
       }]
@@ -257,13 +266,17 @@ export class LLMService {
 
     // Convert messages to Gemini format
     const geminiMessages = this.convertToGeminiFormat(messages, options.systemPrompt)
+    console.log('📤 Sending to Gemini:', geminiMessages.length, 'messages')
 
     const result = await model.generateContent({
       contents: geminiMessages,
     })
 
     const response = await result.response
+    console.log('📥 Gemini response status:', response)
+    
     const text = response.text()
+    console.log('📝 Gemini response text length:', text?.length || 0)
 
     // Check for function calls
     const functionCalls: FunctionCall[] = []
@@ -316,6 +329,7 @@ export class LLMService {
 
     // Add function calling if enabled
     if (options.enableFunctions) {
+      console.log('🔧 Available functions:', ALL_FUNCTIONS.map(f => f.name))
       completionOptions.tools = ALL_FUNCTIONS.map(func => ({
         type: 'function',
         function: func

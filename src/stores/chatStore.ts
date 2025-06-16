@@ -37,6 +37,7 @@ interface ChatState {
   sessions: ChatSession[]
   isLoading: boolean
   error: string | null
+  currentDataSource: string | null
 
   // Actions
   setCurrentSession: (sessionId: string | null) => void
@@ -49,6 +50,7 @@ interface ChatState {
   loadMessages: (sessionId: string) => Promise<void>
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  setCurrentDataSource: (sourceId: string) => void
 }
 
 // Helper function to convert API response dates
@@ -81,6 +83,7 @@ export const useChatStore = create<ChatState>()(
       sessions: [],
       isLoading: false,
       error: null,
+      currentDataSource: null,
 
       // Actions
       setCurrentSession: (sessionId) => {
@@ -250,10 +253,11 @@ export const useChatStore = create<ChatState>()(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               sessionId,
+              currentDataSource: get().currentDataSource,
               messages: allMessages.map(msg => ({
                 role: msg.role,
                 content: msg.content,
-                fileAttachments: msg.fileAttachments || []
+                fileAttachments: msg.fileAttachments
               }))
             }),
           })
@@ -349,6 +353,7 @@ export const useChatStore = create<ChatState>()(
 
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
+      setCurrentDataSource: (sourceId) => set({ currentDataSource: sourceId }),
     }),
     {
       name: 'chat-store',

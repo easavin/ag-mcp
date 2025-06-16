@@ -7,6 +7,7 @@ import ChatInput from '@/components/ChatInput'
 import MobileMenu from '@/components/MobileMenu'
 import { MessageSkeleton } from '@/components/LoadingStates'
 import ProgressIndicator, { useProgressIndicator } from '@/components/ProgressIndicator'
+import DataSourceIndicator from '@/components/DataSourceIndicator'
 // import JohnDeereDataButton from '@/components/JohnDeereDataButton'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -17,11 +18,13 @@ function ChatInterface() {
     sessions,
     isLoading,
     error,
+    currentDataSource,
     createSession,
     sendMessage,
     addMessage,
     loadSessions,
     setCurrentSession,
+    setCurrentDataSource,
   } = useChatStore()
 
   const { user, loadUser, checkJohnDeereConnection } = useAuthStore()
@@ -109,17 +112,26 @@ function ChatInterface() {
   }
 
   const handleDataSourceSelect = async (sourceId: string, dataType: string) => {
-    if (sourceId !== 'johndeere') {
-      // Handle other data sources in the future
-      return
-    }
-
+    // This function is now only called from the persistent data source indicator
+    // or when the LLM needs to ask for a specific data type
+    
     if (!currentSessionId) {
       console.error('No current session available')
       return
     }
 
-    console.log(`🔄 Fetching ${dataType} data from John Deere...`)
+    const effectiveSourceId = sourceId || currentDataSource || 'johndeere'
+    
+    if (effectiveSourceId !== 'johndeere') {
+      // Handle other data sources in the future
+      addMessage(currentSessionId, {
+        role: 'assistant',
+        content: `${effectiveSourceId} integration is coming soon! Currently, only John Deere Operations Center is available.`
+      })
+      return
+    }
+
+    console.log(`🔄 Fetching ${dataType} data from ${effectiveSourceId}...`)
     
     // Clear any previous progress steps
     clearSteps()
@@ -127,8 +139,8 @@ function ChatInterface() {
     // Add initial step
     const fetchStepId = addStep({
       status: 'loading',
-      message: `Fetching data from John Deere...`,
-      details: `Loading ${dataType} from johndeere`
+      message: `Fetching data from ${effectiveSourceId}...`,
+      details: `Loading ${dataType}`
     })
 
     try {
@@ -138,7 +150,7 @@ function ChatInterface() {
         organizationStepId = addStep({
           status: 'loading',
           message: 'Getting organization details...',
-          details: 'Fetching your John Deere organizations'
+          details: 'Fetching your organizations'
         })
       }
 
@@ -175,7 +187,7 @@ function ChatInterface() {
         // Also add error message to chat
         addMessage(currentSessionId!, {
           role: 'assistant',
-          content: `❌ **Error fetching ${dataType}**\n\n${result.error || 'Unknown error occurred'}\n\nPlease check your John Deere connection and try again.`
+          content: `❌ **Error fetching ${dataType}**\n\n${result.error || 'Unknown error occurred'}\n\nPlease check your ${effectiveSourceId} connection and try again.`
         })
         return
       }
@@ -232,7 +244,7 @@ function ChatInterface() {
       }, 2000)
 
     } catch (error) {
-      console.error('Error fetching John Deere data:', error)
+      console.error('Error fetching data:', error)
       
       updateStep(fetchStepId, {
         status: 'error',
@@ -242,10 +254,27 @@ function ChatInterface() {
 
       addMessage(currentSessionId!, {
         role: 'assistant',
-        content: `❌ **Connection Error**\n\nFailed to connect to John Deere API: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your internet connection and try again.`
+        content: `❌ **Connection Error**\n\nFailed to connect to ${effectiveSourceId} API: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your internet connection and try again.`
       })
     }
   }
+
+  // New function to handle direct data requests when source is already selected
+  const handleDirectDataRequest = async (dataType: string) => {
+    if (!currentDataSource) {
+      // If no source is selected, default to John Deere but set it
+      setCurrentDataSource('johndeere')
+    }
+    
+    await handleDataSourceSelect(currentDataSource || 'johndeere', dataType)
+  }
+
+  // Initialize default data source
+  useEffect(() => {
+    if (!currentDataSource) {
+      setCurrentDataSource('johndeere')
+    }
+  }, [])
 
   const isInitialState = messages.length === 0
 
@@ -297,7 +326,20 @@ function ChatInterface() {
             </div>
           ) : (
             // Regular chat layout with proper scrolling
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full" style={{ position: 'relative' }}>
+              {/* Data Source Indicator - Top Right Corner */}
+              <div style={{ 
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                zIndex: 100
+              }}>
+                <DataSourceIndicator
+                  currentSource={currentDataSource}
+                  onSourceChange={setCurrentDataSource}
+                />
+              </div>
+              
               <div 
                 className="messages-container"
                 style={{
@@ -306,7 +348,8 @@ function ChatInterface() {
                   display: 'flex',
                   flexDirection: 'column',
                   minHeight: 0,
-                  paddingBottom: '20px'
+                  paddingBottom: '20px',
+                  paddingTop: '60px' // Space for data source indicator
                 }}
               >
                 <div className="messages-content" style={{ flex: 1 }}>
@@ -321,6 +364,7 @@ function ChatInterface() {
                       timestamp={message.createdAt}
                       fileAttachments={message.fileAttachments}
                       onDataSourceSelect={handleDataSourceSelect}
+                      currentDataSource={currentDataSource}
                     />
                   ))}
                   
@@ -335,6 +379,7 @@ function ChatInterface() {
                   <div ref={messagesEndRef} />
                 </div>
               </div>
+              
               <div className="chat-input-container" style={{ flexShrink: 0 }} ref={chatInputRef}>
                 <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
               </div>
@@ -351,3 +396,4 @@ export default function Home() {
     <ChatInterface />
   )
 }
+

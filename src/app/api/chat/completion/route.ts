@@ -18,12 +18,48 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
         url = `${baseUrl}/api/johndeere/organizations`
         break
       case 'getFields':
+        if (!args.orgId) {
+          // Auto-fetch organization first
+          console.log('🔄 No orgId provided, fetching organizations first...')
+          const orgResponse = await fetch(`${baseUrl}/api/johndeere/organizations`)
+          if (orgResponse.ok) {
+            const orgData = await orgResponse.json()
+            if (orgData.organizations && orgData.organizations.length > 0) {
+              args.orgId = orgData.organizations[0].id
+              console.log(`🏢 Using organization: ${orgData.organizations[0].name} (${args.orgId})`)
+            }
+          }
+        }
         url = `${baseUrl}/api/johndeere/organizations/${args.orgId}/fields`
         break
       case 'getEquipment':
+        if (!args.orgId) {
+          // Auto-fetch organization first
+          console.log('🔄 No orgId provided, fetching organizations first...')
+          const orgResponse = await fetch(`${baseUrl}/api/johndeere/organizations`)
+          if (orgResponse.ok) {
+            const orgData = await orgResponse.json()
+            if (orgData.organizations && orgData.organizations.length > 0) {
+              args.orgId = orgData.organizations[0].id
+              console.log(`🏢 Using organization: ${orgData.organizations[0].name} (${args.orgId})`)
+            }
+          }
+        }
         url = `${baseUrl}/api/johndeere/organizations/${args.orgId}/equipment`
         break
       case 'getOperations':
+        if (!args.orgId) {
+          // Auto-fetch organization first
+          console.log('🔄 No orgId provided, fetching organizations first...')
+          const orgResponse = await fetch(`${baseUrl}/api/johndeere/organizations`)
+          if (orgResponse.ok) {
+            const orgData = await orgResponse.json()
+            if (orgData.organizations && orgData.organizations.length > 0) {
+              args.orgId = orgData.organizations[0].id
+              console.log(`🏢 Using organization: ${orgData.organizations[0].name} (${args.orgId})`)
+            }
+          }
+        }
         url = `${baseUrl}/api/johndeere/organizations/${args.orgId}/operations`
         break
       case 'getComprehensiveData':
@@ -97,8 +133,8 @@ export async function POST(request: NextRequest) {
   console.log('🚀 Starting chat completion request')
   
   try {
-    const { sessionId, messages, options } = await request.json()
-    console.log('📝 Request data:', { sessionId, messageCount: messages?.length, options })
+    const { sessionId, messages, options, currentDataSource } = await request.json()
+    console.log('📝 Request data:', { sessionId, messageCount: messages?.length, options, currentDataSource })
 
     if (!sessionId || !messages || !Array.isArray(messages)) {
       console.error('❌ Missing required fields')
@@ -153,12 +189,45 @@ export async function POST(request: NextRequest) {
 
     console.log('💬 Chat messages prepared:', chatMessages.length)
 
+    // Prepare context-aware system prompt
+    let systemPrompt = AGRICULTURAL_SYSTEM_PROMPT
+    if (currentDataSource) {
+      systemPrompt += `\n\n**IMPORTANT CONTEXT:**
+The user has already selected "${currentDataSource}" as their active data source. When they ask about farm data (fields, equipment, organizations, operations), you MUST immediately use the available John Deere API functions to fetch their data.
+
+**REQUIRED ACTIONS for John Deere data requests:**
+- For field questions (count, list, details): Call getFields() - it will auto-fetch organization
+- For equipment/machine questions (count, list, details): Call getEquipment() - it will auto-fetch organization  
+- For operations questions (recent activity, field operations): Call getOperations() - it will auto-fetch organization
+- For comprehensive data: Call getComprehensiveData() with the organization ID
+- ALWAYS call the appropriate function when user asks about farm data
+
+**EXAMPLES:** 
+- User: "how many fields do I have" → IMMEDIATELY call getFields() → count the returned fields
+- User: "how many machines do I have" → IMMEDIATELY call getEquipment() → count the returned equipment
+- User: "operations on field X" → IMMEDIATELY call getOperations() → show the operations data
+
+**DO NOT:**
+- Show data source selection options
+- Give generic responses without calling functions
+- Ask the user to provide organization IDs manually
+
+**DO:**
+- Automatically fetch the organization first, then use its ID for subsequent calls
+- Provide specific data-driven responses based on actual API results
+
+Current active data source: ${currentDataSource}`
+    }
+
     // Generate completion with function calling enabled
     console.log('🎯 Generating LLM completion...')
+    console.log('📋 System prompt:', systemPrompt.substring(0, 200) + '...')
+    console.log('📝 Chat messages:', chatMessages.map(m => ({ role: m.role, contentLength: m.content.length })))
+    
     let response = await llmService.generateChatCompletion(chatMessages, {
       maxTokens: options?.maxTokens || 4000,
       temperature: options?.temperature || 0.7,
-      systemPrompt: AGRICULTURAL_SYSTEM_PROMPT,
+      systemPrompt: systemPrompt,
       enableFunctions: true, // Enable both John Deere functions and MCP tools
     })
 
@@ -205,11 +274,13 @@ export async function POST(request: NextRequest) {
       ]
 
       console.log('🎯 Getting final response with function results...')
-      // Get final response with function results
+      // Get final response with function results (use the same context-aware system prompt)
+      const finalSystemPrompt = systemPrompt + `\n\n**IMPORTANT: You have just received function results with actual farm data. Use this data to provide a specific, detailed response to the user's question. DO NOT give generic responses.**`
+      
       response = await llmService.generateChatCompletion(messagesWithFunctions, {
         maxTokens: options?.maxTokens || 4000,
         temperature: options?.temperature || 0.7,
-        systemPrompt: AGRICULTURAL_SYSTEM_PROMPT,
+        systemPrompt: finalSystemPrompt,
         enableFunctions: false, // Disable functions for final response
       })
 
