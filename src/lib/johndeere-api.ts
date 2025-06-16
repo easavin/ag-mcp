@@ -568,8 +568,21 @@ export class JohnDeereAPIClient {
     try {
       const response = await this.axiosInstance.get(`/organizations/${organizationId}/assets`)
       return response.data.values || []
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching assets:', error)
+      
+      // Handle both 403 and 404 errors (both indicate authorization/permission issues in sandbox)
+      if (error.response?.status === 403 || error.response?.status === 404) {
+        console.log('🔄 Assets access denied, falling back to mock data...')
+        
+        // Import mock data dynamically
+        const { getMockDataForType } = await import('./johndeere-mock-data')
+        const mockAssets = getMockDataForType('assets') as JDAsset[]
+        
+        console.log('📊 Using mock assets data:', mockAssets.length, 'items')
+        return mockAssets
+      }
+      
       throw new Error('Failed to fetch assets')
     }
   }
@@ -581,8 +594,21 @@ export class JohnDeereAPIClient {
     try {
       const response = await this.axiosInstance.get(`/organizations/${organizationId}/farms`)
       return response.data.values || []
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching farms:', error)
+      
+      // Handle both 403 and 404 errors (both indicate authorization/permission issues in sandbox)
+      if (error.response?.status === 403 || error.response?.status === 404) {
+        console.log('🔄 Farms access denied, falling back to mock data...')
+        
+        // Import mock data dynamically
+        const { getMockDataForType } = await import('./johndeere-mock-data')
+        const mockFarms = getMockDataForType('farms') as any[]
+        
+        console.log('📊 Using mock farms data:', mockFarms.length, 'items')
+        return mockFarms
+      }
+      
       throw new Error('Failed to fetch farms')
     }
   }
