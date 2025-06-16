@@ -1,6 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getJohnDeereAPIClient } from '@/lib/johndeere-api'
+import { getJohnDeereAPIClient, JDField, JDOrganization, JDEquipment } from '@/lib/johndeere-api'
 import { getMockDataForType, formatMockDataMessage } from '@/lib/johndeere-mock-data'
+
+// Helper function to format field data for better readability
+function formatFieldsData(fields: JDField[]): string {
+  if (!fields || fields.length === 0) {
+    return "No fields found in your account."
+  }
+
+  const fieldList = fields.map((field, index) => {
+    const name = field.name || `Field ${index + 1}`
+    const area = field.area ? 
+      `${field.area.measurement.toFixed(1)} ${field.area.unit || 'acres'}` : 
+      'Unknown area'
+    
+    return `- **${name}**: ${area}`
+  }).join('\n')
+
+  const totalArea = fields.reduce((sum, field) => {
+    return sum + (field.area?.measurement || 0)
+  }, 0)
+
+  const unit = fields[0]?.area?.unit || 'acres'
+
+  return `## Your Fields (${fields.length} total)\n\n${fieldList}\n\n**Total Area**: ${totalArea.toFixed(1)} ${unit}`
+}
+
+// Helper function to format organization data
+function formatOrganizationsData(organizations: JDOrganization[]): string {
+  if (!organizations || organizations.length === 0) {
+    return "No organizations found in your account."
+  }
+
+  if (organizations.length === 1) {
+    const org = organizations[0]
+    return `## Your Organization\n\n- **Name**: ${org.name}\n- **Type**: ${org.type}\n- **ID**: ${org.id}`
+  }
+
+  const orgList = organizations.map(org => 
+    `- **${org.name}** (${org.type}) - ID: ${org.id}`
+  ).join('\n')
+
+  return `## Your Organizations (${organizations.length} total)\n\n${orgList}`
+}
+
+// Helper function to format equipment data
+function formatEquipmentData(equipment: JDEquipment[]): string {
+  if (!equipment || equipment.length === 0) {
+    return "No equipment found in your account."
+  }
+
+  const equipmentList = equipment.map(item => {
+    const name = item.name || 'Unknown Equipment'
+    const details = []
+    
+    // Handle make and model as objects with name properties
+    const make = typeof item.make === 'string' ? item.make : item.make?.name
+    const model = typeof item.model === 'string' ? item.model : item.model?.name
+    
+    if (make) details.push(make)
+    if (model) details.push(model)
+    if (item.year) details.push(`(${item.year})`)
+    
+    const detailsStr = details.length > 0 ? ` - ${details.join(' ')}` : ''
+    
+    return `- **${name}**${detailsStr}`
+  }).join('\n')
+
+  return `## Your Equipment (${equipment.length} total)\n\n${equipmentList}`
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -83,7 +151,40 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ success: true, data })
+    // Format the real data for better readability
+    let formattedContent: string
+    switch (dataType) {
+      case 'organizations':
+        formattedContent = formatOrganizationsData(data as JDOrganization[])
+        break
+      case 'fields':
+        formattedContent = formatFieldsData(data as JDField[])
+        break
+      case 'equipment':
+        formattedContent = formatEquipmentData(data as JDEquipment[])
+        break
+      case 'operations':
+        formattedContent = `**Field Operations**\n\nFound ${Array.isArray(data) ? data.length : 0} operations in your account.`
+        break
+      case 'comprehensive':
+        // For comprehensive data, format each section
+        const compData = data as any
+        const sections = []
+        if (compData.fields) sections.push(formatFieldsData(compData.fields))
+        if (compData.equipment) sections.push(formatEquipmentData(compData.equipment))
+        if (compData.organization) sections.push(formatOrganizationsData([compData.organization]))
+        formattedContent = sections.join('\n\n---\n\n')
+        break
+      default:
+        formattedContent = `**${dataType.charAt(0).toUpperCase() + dataType.slice(1)} Data**\n\nReceived data from John Deere Operations Center.`
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      data,
+      formattedContent,
+      message: formattedContent
+    })
   } catch (error) {
     console.error('Error fetching John Deere data:', error)
     return NextResponse.json({ 

@@ -191,9 +191,13 @@ function ChatInterface() {
       let responseContent = ''
       
       if (result.mockData && result.message) {
-        responseContent = `**John Deere ${dataType.charAt(0).toUpperCase() + dataType.slice(1)} (Demo Data)**\n\n${result.message}`
+        responseContent = result.message
+      } else if (result.formattedContent) {
+        responseContent = result.formattedContent
+      } else if (result.message) {
+        responseContent = result.message
       } else {
-        // Format real data
+        // Fallback formatting if API doesn't provide formatted content
         responseContent = `**Your ${dataType.charAt(0).toUpperCase() + dataType.slice(1)}**\n\n`
         
         if (Array.isArray(result.data)) {

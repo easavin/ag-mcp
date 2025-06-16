@@ -45,12 +45,13 @@ export interface JDEquipment {
   '@type': string
   id: string
   name: string
-  category: string
-  make: string
-  model: string
+  category?: string
+  make: string | { name: string; id: string }
+  model: string | { name: string; id: string }
   serialNumber?: string
   year?: number
-  links: Array<{ rel: string; uri: string }>
+  type?: { name: string; id: string }
+  links?: Array<{ rel: string; uri: string }>
 }
 
 export interface JDFieldOperation {
