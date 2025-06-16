@@ -19,6 +19,22 @@ interface Integration {
   features: string[];
 }
 
+interface JohnDeereConnectionStatus {
+  status: 'loading' | 'connected' | 'auth_required' | 'connection_required' | 'error'
+  organizations?: Array<{ id: string; name: string; type: string; member: boolean }>
+  connectionLinks?: string[]
+  testResults?: {
+    hasDataAccess: boolean
+    testResults: {
+      fields: { success: boolean; count: number; error?: string }
+      equipment: { success: boolean; count: number; error?: string }
+      farms: { success: boolean; count: number; error?: string }
+      assets: { success: boolean; count: number; error?: string }
+    }
+  }
+  error?: string
+}
+
 // Logo component with fallback
 const LogoImage = ({ src, alt, fallback }: { src: string; alt: string; fallback?: string }) => {
   const [imageError, setImageError] = useState(false);
@@ -38,6 +54,187 @@ const LogoImage = ({ src, alt, fallback }: { src: string; alt: string; fallback?
   );
 };
 
+// John Deere Organization Connection Component
+const JohnDeereConnectionManager = ({ 
+  isConnected, 
+  connectionStatus 
+}: { 
+  isConnected: boolean
+  connectionStatus: JohnDeereConnectionStatus 
+}) => {
+  const [refreshing, setRefreshing] = useState(false)
+
+  const refreshStatus = async () => {
+    setRefreshing(true)
+    // Trigger refresh in parent component by reloading
+    window.location.reload()
+  }
+
+  const openConnectionLink = (url: string) => {
+    window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes')
+  }
+
+  if (!isConnected) return null
+
+  const renderOrganizationStatus = () => {
+    switch (connectionStatus.status) {
+      case 'loading':
+        return (
+          <div className="org-connection-status loading">
+            <div className="status-header">
+              <span className="status-icon">⏳</span>
+              <span>Checking organization access...</span>
+            </div>
+          </div>
+        )
+
+      case 'connection_required':
+        return (
+          <div className="org-connection-status required">
+            <div className="status-header">
+              <span className="status-icon">⚠️</span>
+              <span>Organization connection required</span>
+            </div>
+            
+            {connectionStatus.testResults && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-3">Data Access Status:</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    {connectionStatus.testResults.testResults.fields.success ? (
+                      <span className="text-green-600">✅ Fields ({connectionStatus.testResults.testResults.fields.count})</span>
+                    ) : (
+                      <span className="text-orange-600">⏳ Fields (pending)</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {connectionStatus.testResults.testResults.farms.success ? (
+                      <span className="text-green-600">✅ Farms ({connectionStatus.testResults.testResults.farms.count})</span>
+                    ) : (
+                      <span className="text-orange-600">⏳ Farms (pending)</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {connectionStatus.testResults.testResults.equipment.success ? (
+                      <span className="text-green-600">✅ Equipment ({connectionStatus.testResults.testResults.equipment.count})</span>
+                    ) : (
+                      <span className="text-orange-600">⏳ Equipment (pending)</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {connectionStatus.testResults.testResults.assets.success ? (
+                      <span className="text-green-600">✅ Assets ({connectionStatus.testResults.testResults.assets.count})</span>
+                    ) : (
+                      <span className="text-orange-600">⏳ Assets (pending)</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {connectionStatus.organizations && connectionStatus.organizations.length > 0 && (
+              <div className="org-list">
+                <p className="org-label">Found organizations:</p>
+                {connectionStatus.organizations.map((org: any) => (
+                  <div key={org.id} className="org-item">
+                    • {org.name} ({org.type})
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="org-actions">
+              {connectionStatus.connectionLinks && connectionStatus.connectionLinks.length > 0 && (
+                <button
+                  onClick={() => openConnectionLink(connectionStatus.connectionLinks![0])}
+                  className="connection-btn"
+                >
+                  🔗 Manage Organization Access
+                </button>
+              )}
+              <button
+                onClick={refreshStatus}
+                disabled={refreshing}
+                className="refresh-btn"
+              >
+                {refreshing ? '⟳ Checking...' : '↻ Refresh Status'}
+              </button>
+            </div>
+          </div>
+        )
+
+      case 'connected':
+        return (
+          <div className="org-connection-status connected">
+            <div className="status-header">
+              <span className="status-icon">✅</span>
+              <span>Fully connected and ready!</span>
+            </div>
+            
+            {connectionStatus.organizations && connectionStatus.organizations.length > 0 && (
+              <div className="org-list">
+                <p className="org-label">Connected organizations:</p>
+                {connectionStatus.organizations.map((org: any) => (
+                  <div key={org.id} className="org-item connected">
+                    ✓ {org.name} ({org.type})
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="org-actions">
+              <button
+                onClick={refreshStatus}
+                disabled={refreshing}
+                className="refresh-btn"
+              >
+                {refreshing ? '⟳ Checking...' : '↻ Refresh Status'}
+              </button>
+              <button
+                onClick={() => window.open('/johndeere-connection', '_blank')}
+                className="connection-btn"
+                style={{ background: '#6b7280' }}
+              >
+                🔍 Advanced View
+              </button>
+            </div>
+          </div>
+        )
+
+      case 'error':
+        return (
+          <div className="org-connection-status error">
+            <div className="status-header">
+              <span className="status-icon">❌</span>
+              <span>Connection error</span>
+            </div>
+            <p className="error-message">{connectionStatus.error}</p>
+            <button
+              onClick={refreshStatus}
+              disabled={refreshing}
+              className="refresh-btn"
+            >
+              {refreshing ? '⟳ Retrying...' : '↻ Try Again'}
+            </button>
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="org-connection-manager">
+      <div className="org-section-header">
+        <h4>Organization Access</h4>
+        <p>Manage which farming organizations AgMCP can access</p>
+      </div>
+      {renderOrganizationStatus()}
+    </div>
+  )
+}
+
 export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModalProps) {
   const {
     johnDeereConnection,
@@ -47,14 +244,13 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   } = useAuthStore();
 
   const [isConnecting, setIsConnecting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [connectionStatus, setConnectionStatus] = useState<JohnDeereConnectionStatus>({ status: 'loading' });
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      checkJohnDeereConnection().then(() => {
-        setConnectionStatus(johnDeereConnection.isConnected ? 'connected' : 'disconnected');
-      });
+      checkConnectionStatus();
     } else {
       document.body.style.overflow = 'unset';
     }
@@ -62,63 +258,76 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, checkJohnDeereConnection, johnDeereConnection.isConnected]);
+  }, [isOpen]);
 
-  // Add message event listener for popup communication
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Verify origin for security
-      if (event.origin !== window.location.origin) {
-        return;
-      }
+      if (event.origin !== window.location.origin) return;
 
       if (event.data.type === 'JOHN_DEERE_AUTH_SUCCESS') {
         console.log('John Deere auth success:', event.data);
         setIsConnecting(false);
-        setConnectionStatus('connected');
-        // Refresh the connection status from the server
-        checkJohnDeereConnection();
+        // Check connection status after successful auth
+        setTimeout(() => checkConnectionStatus(), 1000);
       } else if (event.data.type === 'JOHN_DEERE_AUTH_ERROR') {
         console.error('John Deere auth error:', event.data.error);
         setIsConnecting(false);
-        setConnectionStatus('disconnected');
-        // You could show an error message here
+        setConnectionStatus({ status: 'error', error: event.data.error });
         alert(`Authentication failed: ${event.data.error}`);
       }
     };
 
-    if (isOpen) {
-      window.addEventListener('message', handleMessage);
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleJohnDeereConnect = async () => {
+    setIsConnecting(true);
+    try {
+      const response = await fetch('/api/auth/johndeere/authorize', { method: 'POST' });
+      const data = await response.json();
+      
+              if (data.authorizationUrl) {
+          window.open(data.authorizationUrl, 'johndeere-auth', 'width=600,height=700');
+      } else {
+        throw new Error('No auth URL received');
+      }
+    } catch (error) {
+      console.error('Failed to initiate John Deere connection:', error);
+      setIsConnecting(false);
+      setConnectionStatus({ status: 'error', error: error instanceof Error ? error.message : 'Unknown error' });
     }
+  };
 
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
-  }, [isOpen, checkJohnDeereConnection]);
-
-  const handleConnect = async (integrationId: string) => {
-    if (integrationId === 'johndeere') {
-      setIsConnecting(true);
+  const handleJohnDeereDisconnect = async () => {
+    if (confirm('Are you sure you want to disconnect your John Deere account? This will remove access to your farming data.')) {
       try {
-        const authUrl = await connectJohnDeere();
-        window.open(authUrl, 'johndeere-auth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+        const response = await fetch('/api/auth/johndeere/disconnect', { method: 'POST' });
+        if (response.ok) {
+          setConnectionStatus({ status: 'auth_required' });
+        }
       } catch (error) {
-        console.error('Failed to initiate John Deere connection:', error);
-        setIsConnecting(false);
+        console.error('Failed to disconnect John Deere account:', error);
       }
     }
   };
 
-  const handleDisconnect = async (integrationId: string) => {
-    if (integrationId === 'johndeere') {
-      if (confirm('Are you sure you want to disconnect your John Deere account? This will remove access to your farming data.')) {
-        try {
-          await disconnectJohnDeere();
-          setConnectionStatus('disconnected');
-        } catch (error) {
-          console.error('Failed to disconnect John Deere account:', error);
-        }
+  const checkConnectionStatus = async () => {
+    setIsCheckingConnection(true);
+    try {
+      const response = await fetch('/api/johndeere/connection-status');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setConnectionStatus(data);
+      } else {
+        setConnectionStatus({ status: 'error', error: data.error || 'Failed to check connection status' });
       }
+    } catch (error) {
+      console.error('Failed to check connection status:', error);
+      setConnectionStatus({ status: 'error', error: error instanceof Error ? error.message : 'Unknown error' });
+    } finally {
+      setIsCheckingConnection(false);
     }
   };
 
@@ -139,7 +348,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       logo: '/assets/logos/johndeere-logo.png', // Path to the logo in public folder
       logoFallback: '🔗',
       category: 'Equipment & Data',
-      isConnected: connectionStatus === 'connected',
+      isConnected: connectionStatus.status === 'connected' || connectionStatus.status === 'connection_required',
       features: [
         'Access field boundaries and crop data',
         'View equipment location and status',
@@ -206,6 +415,14 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                   </ul>
                 </div>
 
+                {/* Organization Connection Manager for John Deere */}
+                {integration.id === 'johndeere' && (
+                  <JohnDeereConnectionManager 
+                    isConnected={integration.isConnected} 
+                    connectionStatus={connectionStatus}
+                  />
+                )}
+
                 <div className="integration-actions">
                   {integration.isConnected ? (
                     <div className="connected-actions">
@@ -219,7 +436,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                       </div>
                       <button 
                         className="disconnect-btn"
-                        onClick={() => handleDisconnect(integration.id)}
+                        onClick={() => handleJohnDeereDisconnect()}
                       >
                         Disconnect
                       </button>
@@ -227,7 +444,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                   ) : (
                     <button 
                       className="connect-btn"
-                      onClick={() => handleConnect(integration.id)}
+                      onClick={() => handleJohnDeereConnect()}
                       disabled={isConnecting}
                     >
                       {isConnecting && integration.id === 'johndeere' ? 'Connecting...' : 'Connect'}

@@ -226,6 +226,149 @@ export class JohnDeereAPIClient {
   }
 
   /**
+   * Get organizations with connection links for connection setup
+   */
+  async getOrganizationsWithConnectionLinks(): Promise<{
+    organizations: JDOrganization[]
+    connectionLinks: string[]
+  }> {
+    try {
+      const response = await this.axiosInstance.get('/organizations')
+      const organizations = response.data.values || []
+      
+      // Log the full response for debugging
+      console.log('🔍 Full organizations response:', JSON.stringify(response.data, null, 2))
+      
+      // Extract connection links from organization responses
+      const connectionLinks: string[] = []
+      organizations.forEach((org: JDOrganization) => {
+        console.log(`🔗 Checking org ${org.name} for connection links:`, org.links)
+        const connectionLink = org.links?.find(link => link.rel === 'connections')
+        if (connectionLink) {
+          connectionLinks.push(connectionLink.uri)
+          console.log(`✅ Found connection link for ${org.name}: ${connectionLink.uri}`)
+        }
+      })
+      
+      // If no connection links found in individual orgs, check the main response
+      if (connectionLinks.length === 0 && response.data.links) {
+        console.log('🔍 Checking main response links:', response.data.links)
+        const mainConnectionLink = response.data.links.find((link: any) => link.rel === 'connections')
+        if (mainConnectionLink) {
+          connectionLinks.push(mainConnectionLink.uri)
+          console.log(`✅ Found main connection link: ${mainConnectionLink.uri}`)
+        }
+      }
+      
+      console.log('🎯 Final connection links:', connectionLinks)
+      
+      return {
+        organizations,
+        connectionLinks
+      }
+    } catch (error) {
+      console.error('Error fetching organizations with connection links:', error)
+      throw new Error('Failed to fetch organizations')
+    }
+  }
+
+  /**
+   * Test data access for an organization to check if connection is established
+   */
+  async testDataAccess(organizationId: string): Promise<{
+    hasDataAccess: boolean
+    testResults: {
+      fields: { success: boolean; count: number; error?: string }
+      equipment: { success: boolean; count: number; error?: string }
+      farms: { success: boolean; count: number; error?: string }
+      assets: { success: boolean; count: number; error?: string }
+    }
+  }> {
+    const testResults: {
+      fields: { success: boolean; count: number; error?: string }
+      equipment: { success: boolean; count: number; error?: string }
+      farms: { success: boolean; count: number; error?: string }
+      assets: { success: boolean; count: number; error?: string }
+    } = {
+      fields: { success: false, count: 0 },
+      equipment: { success: false, count: 0 },
+      farms: { success: false, count: 0 },
+      assets: { success: false, count: 0 }
+    }
+
+    // Test each endpoint (using connection test methods that don't fall back to mock data)
+    console.log(`🧪 Testing data access for organization ${organizationId}...`)
+    
+    try {
+      const fields = await this.getFieldsForConnectionTest(organizationId)
+      testResults.fields = { success: true, count: fields.length }
+      console.log(`✅ Fields test: SUCCESS (${fields.length} items)`)
+    } catch (error: any) {
+      testResults.fields = { 
+        success: false, 
+        count: 0, 
+        error: `${error.response?.status || 'Unknown'} - ${error instanceof Error ? error.message : 'Unknown error'}` 
+      }
+      console.log(`❌ Fields test: FAILED - ${testResults.fields.error}`)
+    }
+
+    try {
+      const equipment = await this.getEquipmentForConnectionTest(organizationId)
+      testResults.equipment = { success: true, count: equipment.length }
+      console.log(`✅ Equipment test: SUCCESS (${equipment.length} items)`)
+    } catch (error: any) {
+      testResults.equipment = { 
+        success: false, 
+        count: 0, 
+        error: `${error.response?.status || 'Unknown'} - ${error instanceof Error ? error.message : 'Unknown error'}` 
+      }
+      console.log(`❌ Equipment test: FAILED - ${testResults.equipment.error}`)
+    }
+
+    try {
+      const farms = await this.getFarmsForConnectionTest(organizationId)
+      testResults.farms = { success: true, count: farms.length }
+      console.log(`✅ Farms test: SUCCESS (${farms.length} items)`)
+    } catch (error: any) {
+      testResults.farms = { 
+        success: false, 
+        count: 0, 
+        error: `${error.response?.status || 'Unknown'} - ${error instanceof Error ? error.message : 'Unknown error'}` 
+      }
+      console.log(`❌ Farms test: FAILED - ${testResults.farms.error}`)
+    }
+
+    try {
+      const assets = await this.getAssetsForConnectionTest(organizationId)
+      testResults.assets = { success: true, count: assets.length }
+      console.log(`✅ Assets test: SUCCESS (${assets.length} items)`)
+    } catch (error: any) {
+      testResults.assets = { 
+        success: false, 
+        count: 0, 
+        error: `${error.response?.status || 'Unknown'} - ${error instanceof Error ? error.message : 'Unknown error'}` 
+      }
+      console.log(`❌ Assets test: FAILED - ${testResults.assets.error}`)
+    }
+
+    // Check if we have data access (ALL endpoints must succeed for full connection)
+    const hasDataAccess = Object.values(testResults).every(result => result.success)
+    
+    console.log(`🎯 Connection test summary:`, {
+      fields: testResults.fields.success,
+      equipment: testResults.equipment.success, 
+      farms: testResults.farms.success,
+      assets: testResults.assets.success,
+      overallResult: hasDataAccess ? 'CONNECTED' : 'CONNECTION_REQUIRED'
+    })
+
+    return {
+      hasDataAccess,
+      testResults
+    }
+  }
+
+  /**
    * Get fields for a specific organization
    */
   async getFields(organizationId: string): Promise<JDField[]> {
@@ -248,6 +391,19 @@ export class JohnDeereAPIClient {
       }
       
       throw new Error('Failed to fetch fields')
+    }
+  }
+
+  /**
+   * Get fields for a specific organization (for connection testing - no mock fallback)
+   */
+  async getFieldsForConnectionTest(organizationId: string): Promise<JDField[]> {
+    try {
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/fields`)
+      return response.data.values || []
+    } catch (error: any) {
+      // Don't fall back to mock data for connection testing
+      throw error
     }
   }
 
@@ -287,6 +443,19 @@ export class JohnDeereAPIClient {
       }
       
       throw new Error('Failed to fetch equipment')
+    }
+  }
+
+  /**
+   * Get equipment for a specific organization (for connection testing - no mock fallback)
+   */
+  async getEquipmentForConnectionTest(organizationId: string): Promise<JDEquipment[]> {
+    try {
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/equipment`)
+      return response.data.values || []
+    } catch (error: any) {
+      // Don't fall back to mock data for connection testing
+      throw error
     }
   }
 
@@ -477,6 +646,32 @@ export class JohnDeereAPIClient {
         throw authError
       }
       throw new Error('Failed to fetch comprehensive farm data')
+    }
+  }
+
+  /**
+   * Get farms for a specific organization (for connection testing - no mock fallback)
+   */
+  async getFarmsForConnectionTest(organizationId: string): Promise<any[]> {
+    try {
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/farms`)
+      return response.data.values || []
+    } catch (error: any) {
+      // Don't fall back to mock data for connection testing
+      throw error
+    }
+  }
+
+  /**
+   * Get assets for a specific organization (for connection testing - no mock fallback) 
+   */
+  async getAssetsForConnectionTest(organizationId: string): Promise<JDAsset[]> {
+    try {
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/assets`)
+      return response.data.values || []
+    } catch (error: any) {
+      // Don't fall back to mock data for connection testing
+      throw error
     }
   }
 }
