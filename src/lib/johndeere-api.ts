@@ -277,6 +277,7 @@ export class JohnDeereAPIClient {
    */
   async testDataAccess(organizationId: string): Promise<{
     hasDataAccess: boolean
+    hasPartialAccess: boolean
     testResults: {
       fields: { success: boolean; count: number; error?: string }
       equipment: { success: boolean; count: number; error?: string }
@@ -352,18 +353,27 @@ export class JohnDeereAPIClient {
     }
 
     // Check if we have data access (ALL endpoints must succeed for full connection)
-    const hasDataAccess = Object.values(testResults).every(result => result.success)
+    const allEndpointsWorking = Object.values(testResults).every(result => result.success)
+    const someEndpointsWorking = Object.values(testResults).some(result => result.success)
+    
+    // Determine connection status more granularly
+    const hasDataAccess = allEndpointsWorking
+    const hasPartialAccess = someEndpointsWorking && !allEndpointsWorking
     
     console.log(`🎯 Connection test summary:`, {
       fields: testResults.fields.success,
       equipment: testResults.equipment.success, 
       farms: testResults.farms.success,
       assets: testResults.assets.success,
-      overallResult: hasDataAccess ? 'CONNECTED' : 'CONNECTION_REQUIRED'
+      allWorking: allEndpointsWorking,
+      someWorking: someEndpointsWorking,
+      hasPartialAccess,
+      overallResult: allEndpointsWorking ? 'FULLY_CONNECTED' : (someEndpointsWorking ? 'PARTIALLY_CONNECTED' : 'CONNECTION_REQUIRED')
     })
 
     return {
       hasDataAccess,
+      hasPartialAccess,
       testResults
     }
   }

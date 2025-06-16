@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     // Check if we have organizations but no data access (indicating connection needed)
     let connectionRequired = false
     let testResults = null
+    let status = 'connection_required' // Default status
     
     if (organizations.length > 0) {
       // Try to test data access for the first organization
@@ -37,9 +38,20 @@ export async function GET(request: NextRequest) {
         // (All endpoints returning 403/404 indicates no organization connection)
         connectionRequired = !testResults.hasDataAccess
         
+        // Determine the appropriate status
+        if (testResults.hasDataAccess) {
+          status = 'connected'
+        } else if (testResults.hasPartialAccess) {
+          status = 'partially_connected'
+        } else {
+          status = 'connection_required'
+        }
+        
         // Log detailed results for debugging
         console.log('🔍 Connection test results:', {
           hasDataAccess: testResults.hasDataAccess,
+          hasPartialAccess: testResults.hasPartialAccess,
+          status,
           results: testResults.testResults,
           connectionRequired
         })
@@ -49,8 +61,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      status: organizations.length > 0 ? (connectionRequired ? 'connection_required' : 'connected') : 'no_organizations',
+          return NextResponse.json({
+        status: organizations.length > 0 ? status : 'no_organizations',
       organizations: organizations.map((org: any) => ({
         id: org.id,
         name: org.name,
