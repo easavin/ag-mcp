@@ -52,73 +52,82 @@ export interface LLMResponse {
   }
 }
 
-// John Deere function definitions
-const JOHN_DEERE_FUNCTIONS = [
-  {
-    name: 'getOrganizations',
-    description: 'Get all John Deere organizations for the user',
-    parameters: {
-      type: 'object',
-      properties: {},
-      required: []
-    }
-  },
-  {
-    name: 'getFields',
-    description: 'Get fields for a specific organization',
-    parameters: {
-      type: 'object',
-      properties: {
-        orgId: {
-          type: 'string',
-          description: 'Organization ID'
-        }
-      },
-      required: ['orgId']
-    }
-  },
-  {
-    name: 'getEquipment',
-    description: 'Get equipment for a specific organization',
-    parameters: {
-      type: 'object',
-      properties: {
-        orgId: {
-          type: 'string',
-          description: 'Organization ID'
-        }
-      },
-      required: ['orgId']
-    }
-  },
-  {
-    name: 'getOperations',
-    description: 'Get field operations for a specific organization',
-    parameters: {
-      type: 'object',
-      properties: {
-        orgId: {
-          type: 'string',
-          description: 'Organization ID'
-        }
-      },
-      required: ['orgId']
-    }
-  },
-  {
-    name: 'getComprehensiveData',
-    description: 'Get comprehensive farm data including fields, equipment, and operations for an organization',
-    parameters: {
-      type: 'object',
-      properties: {
-        orgId: {
-          type: 'string',
-          description: 'Organization ID'
-        }
-      },
-      required: ['orgId']
-    }
+// John Deere function definitions (temporarily disabled to force data source selector flow)
+const JOHN_DEERE_FUNCTIONS: Array<{
+  name: string
+  description: string
+  parameters: {
+    type: string
+    properties: Record<string, any>
+    required: string[]
   }
+}> = [
+  // Temporarily commenting out John Deere functions to force the LLM to use data source selector approach
+  // {
+  //   name: 'getOrganizations',
+  //   description: 'Get all John Deere organizations for the user',
+  //   parameters: {
+  //     type: 'object',
+  //     properties: {},
+  //     required: []
+  //   }
+  // },
+  // {
+  //   name: 'getFields',
+  //   description: 'Get fields for a specific organization',
+  //   parameters: {
+  //     type: 'object',
+  //     properties: {
+  //       orgId: {
+  //         type: 'string',
+  //         description: 'Organization ID'
+  //       }
+  //     },
+  //     required: ['orgId']
+  //   }
+  // },
+  // {
+  //   name: 'getEquipment',
+  //   description: 'Get equipment for a specific organization',
+  //   parameters: {
+  //     type: 'object',
+  //     properties: {
+  //       orgId: {
+  //         type: 'string',
+  //         description: 'Organization ID'
+  //       }
+  //     },
+  //     required: ['orgId']
+  //   }
+  // },
+  // {
+  //   name: 'getOperations',
+  //   description: 'Get field operations for a specific organization',
+  //   parameters: {
+  //     type: 'object',
+  //     properties: {
+  //       orgId: {
+  //         type: 'string',
+  //         description: 'Organization ID'
+  //       }
+  //     },
+  //     required: ['orgId']
+  //   }
+  // },
+  // {
+  //   name: 'getComprehensiveData',
+  //   description: 'Get comprehensive farm data including fields, equipment, and operations for an organization',
+  //   parameters: {
+  //     type: 'object',
+  //     properties: {
+  //       orgId: {
+  //         type: 'string',
+  //         description: 'Organization ID'
+  //       }
+  //     },
+  //     required: ['orgId']
+  //   }
+  // }
 ]
 
 // Convert MCP tools to function format for LLM
