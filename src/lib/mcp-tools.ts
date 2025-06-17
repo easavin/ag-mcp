@@ -1,6 +1,8 @@
 // MCP Tools for Agricultural Operations
 // These tools allow farmers to perform actions, not just retrieve data
 
+import { getJohnDeereAPIClient } from './johndeere-api';
+
 export interface MCPTool {
   name: string
   description: string
@@ -216,10 +218,65 @@ export const EQUIPMENT_MANAGEMENT_TOOLS: MCPTool[] = [
   }
 ]
 
+// Data Retrieval Tools
+export const DATA_RETRIEVAL_TOOLS: MCPTool[] = [
+  {
+    name: 'get_equipment_details',
+    description: 'Get detailed information for a specific piece of equipment, including engine hours.',
+    parameters: {
+      type: 'object',
+      properties: {
+        equipmentId: {
+          type: 'string',
+          description: 'The ID of the equipment to retrieve details for.'
+        },
+        organizationId: {
+          type: 'string',
+          description: 'The ID of the organization the equipment belongs to.'
+        }
+      },
+      required: ['equipmentId', 'organizationId']
+    }
+  },
+  {
+    name: 'get_field_operation_history',
+    description: 'Get the history of operations for a specific field, such as applications, planting, or harvest.',
+    parameters: {
+      type: 'object',
+      properties: {
+        fieldId: {
+          type: 'string',
+          description: 'The ID of the field to retrieve the operation history for.'
+        },
+        organizationId: {
+          type: 'string',
+          description: 'The ID of the organization the field belongs to.'
+        }
+      },
+      required: ['fieldId', 'organizationId']
+    }
+  },
+  {
+    name: 'list_john_deere_files',
+    description: 'List files available in the connected John Deere account for a specific organization.',
+    parameters: {
+      type: 'object',
+      properties: {
+        organizationId: {
+          type: 'string',
+          description: 'The ID of the organization to list files for.'
+        }
+      },
+      required: ['organizationId']
+    }
+  }
+];
+
 // All MCP Tools combined
 export const ALL_MCP_TOOLS: MCPTool[] = [
   ...FIELD_OPERATION_TOOLS,
-  ...EQUIPMENT_MANAGEMENT_TOOLS
+  ...EQUIPMENT_MANAGEMENT_TOOLS,
+  ...DATA_RETRIEVAL_TOOLS,
 ]
 
 // Tool execution functions
@@ -236,6 +293,11 @@ export class MCPToolExecutor {
     // Equipment Management
     if (EQUIPMENT_MANAGEMENT_TOOLS.find(tool => tool.name === toolName)) {
       return this.executeEquipmentManagement(toolName, parameters)
+    }
+
+    // Data Retrieval
+    if (DATA_RETRIEVAL_TOOLS.find(tool => tool.name === toolName)) {
+      return this.executeDataRetrieval(toolName, parameters);
     }
     
     return {
@@ -273,6 +335,19 @@ export class MCPToolExecutor {
           success: false,
           message: `Unknown equipment management tool: ${toolName}`
         }
+    }
+  }
+
+  private async executeDataRetrieval(toolName: string, parameters: any): Promise<MCPToolResult> {
+    switch (toolName) {
+      case 'get_equipment_details':
+        return this.getEquipmentDetails(parameters);
+      case 'get_field_operation_history':
+        return this.getFieldOperationHistory(parameters);
+      case 'list_john_deere_files':
+        return this.listJohnDeereFiles(parameters);
+      default:
+        return { success: false, message: 'Unknown data retrieval tool' };
     }
   }
 
@@ -377,6 +452,51 @@ export class MCPToolExecutor {
       message: `🚜 Successfully updated equipment **${params.equipmentId}** status to **${params.status}**`,
       data: statusUpdate,
       actionTaken: `Updated equipment status to ${params.status}`
+    }
+  }
+
+  private async getEquipmentDetails(params: { equipmentId: string, organizationId: string }): Promise<MCPToolResult> {
+    try {
+      const apiClient = getJohnDeereAPIClient();
+      const details = await apiClient.getMachineEngineHours(params.equipmentId);
+
+      return {
+        success: true,
+        message: `Retrieved details for equipment ${params.equipmentId}.`,
+        data: details
+      };
+    } catch (error: any) {
+      return { success: false, message: `Failed to get details for equipment ${params.equipmentId}: ${error.message}` };
+    }
+  }
+
+  private async getFieldOperationHistory(params: { fieldId: string, organizationId: string }): Promise<MCPToolResult> {
+    try {
+      const apiClient = getJohnDeereAPIClient();
+      const operations = await apiClient.getFieldOperations(params.organizationId, params.fieldId);
+      
+      return {
+        success: true,
+        message: `Retrieved operation history for field ${params.fieldId}.`,
+        data: operations
+      };
+    } catch (error: any) {
+      return { success: false, message: `Failed to get history for field ${params.fieldId}: ${error.message}` };
+    }
+  }
+
+  private async listJohnDeereFiles(params: { organizationId: string }): Promise<MCPToolResult> {
+    try {
+      const apiClient = getJohnDeereAPIClient();
+      const files = await apiClient.getFiles(params.organizationId);
+      
+      return {
+        success: true,
+        message: `Retrieved ${files.length} files for organization ${params.organizationId}.`,
+        data: files
+      };
+    } catch (error: any) {
+      return { success: false, message: `Failed to list files for organization ${params.organizationId}: ${error.message}` };
     }
   }
 

@@ -111,7 +111,7 @@ export class JohnDeereAPI {
   }
 
   // OAuth Flow Methods
-  generateAuthorizationUrl(scopes: string[] = ['ag1', 'ag2', 'ag3', 'offline_access']): { url: string; state: string } {
+  generateAuthorizationUrl(scopes: string[] = ['ag1', 'ag2', 'ag3', 'eq1', 'eq2', 'work1', 'files', 'offline_access']): { url: string; state: string } {
     const state = uuidv4()
     const config = JOHN_DEERE_CONFIG[this.environment]
     

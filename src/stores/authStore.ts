@@ -12,9 +12,11 @@ export interface User {
 
 export interface JohnDeereConnection {
   isConnected: boolean
-  expiresAt?: Date
+  accessToken?: string
+  refreshToken?: string
+  expiresAt?: string | null
   scope?: string
-  lastSync?: Date
+  organizations?: Array<{ id: string; name: string; type: string; member: boolean }>
 }
 
 interface AuthState {
@@ -163,9 +165,8 @@ export const useAuthStore = create<AuthState>()(
               user,
               johnDeereConnection: {
                 isConnected: true,
-                expiresAt: new Date(connection.expiresAt),
+                expiresAt: new Date(connection.expiresAt).toISOString(),
                 scope: connection.scope,
-                lastSync: new Date(),
               },
               isLoading: false,
             })
@@ -221,9 +222,8 @@ export const useAuthStore = create<AuthState>()(
             set({
               johnDeereConnection: {
                 isConnected: true,
-                expiresAt: new Date(connection.expiresAt),
+                expiresAt: new Date(connection.expiresAt).toISOString(),
                 scope: connection.scope,
-                lastSync: new Date(),
               },
             })
           } catch (error) {
@@ -250,9 +250,9 @@ export const useAuthStore = create<AuthState>()(
               set({
                 johnDeereConnection: {
                   isConnected: true,
-                  expiresAt: connection?.expiresAt ? new Date(connection.expiresAt) : undefined,
-                  scope: connection?.scope,
-                  lastSync: new Date(),
+                  expiresAt: connection?.expiresAt || null,
+                  scope: connection?.scope || '',
+                  organizations: connection?.organizations || [],
                 },
               })
             } else {

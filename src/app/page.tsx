@@ -27,7 +27,7 @@ function ChatInterface() {
     setCurrentDataSource,
   } = useChatStore()
 
-  const { user, loadUser, checkJohnDeereConnection } = useAuthStore()
+  const { user, loadUser, checkJohnDeereConnection, johnDeereConnection } = useAuthStore()
   const { steps, addStep, updateStep, clearSteps } = useProgressIndicator()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLDivElement>(null)
@@ -35,6 +35,9 @@ function ChatInterface() {
   // Get current session and messages
   const currentSession = sessions.find(s => s.id === currentSessionId)
   const messages = currentSession?.messages || []
+
+  // Get the active organization ID
+  const organizationId = johnDeereConnection.organizations?.[0]?.id;
 
   // Load sessions and user data on mount
   useEffect(() => {
@@ -60,7 +63,10 @@ function ChatInterface() {
     }
   }, [isLoading])
 
-  const handleSendMessage = async (content: string, files?: File[]) => {
+  const handleSendMessage = async (
+    content: string, 
+    uploadedFiles?: { name: string; url: string }[]
+  ) => {
     try {
       let sessionId = currentSessionId
 
@@ -72,15 +78,16 @@ function ChatInterface() {
       }
 
       // Process file attachments
-      const fileAttachments = files?.map(file => ({
+      const fileAttachments = uploadedFiles?.map(file => ({
         filename: file.name,
-        fileType: file.type,
-        fileSize: file.size,
+        fileType: 'application/octet-stream', // We don't have the type here, so use a generic one
+        fileSize: 0, // We don't have the size here
+        url: file.url,
       }))
 
       // Show notification for file uploads
-      if (files && files.length > 0) {
-        console.info('Files uploaded', `${files.length} file(s) attached to your message`)
+      if (uploadedFiles && uploadedFiles.length > 0) {
+        console.info('Files uploaded', `${uploadedFiles.length} file(s) attached to your message`)
       }
 
       // Send message and get LLM response
@@ -320,7 +327,7 @@ function ChatInterface() {
                 <p className="welcome-subtitle">Start a conversation to manage your farming operations.</p>
               </div>
               <div className="welcome-chat-input">
-                <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+                <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} organizationId={organizationId} />
               </div>
               <div className="flex-1"></div> {/* Spacer to push everything up */}
             </div>
@@ -381,7 +388,7 @@ function ChatInterface() {
               </div>
               
               <div className="chat-input-container" style={{ flexShrink: 0 }} ref={chatInputRef}>
-                <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+                <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} organizationId={organizationId} />
               </div>
             </div>
           )}

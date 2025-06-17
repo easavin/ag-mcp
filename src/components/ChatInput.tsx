@@ -1,28 +1,71 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, X, Upload } from 'lucide-react'
+import { Send, Paperclip, X, Upload, Loader2 } from 'lucide-react'
 import FileDropZone from './FileDropZone'
 
 interface ChatInputProps {
-  onSendMessage: (message: string, files?: File[]) => void
+  onSendMessage: (message: string, uploadedFiles?: { name: string; url: string }[]) => void;
   disabled?: boolean
+  organizationId?: string | null;
 }
 
-export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, disabled, organizationId }: ChatInputProps) {
   const [message, setMessage] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const [isUploading, setIsUploading] = useState(false);
   const [showFileDropZone, setShowFileDropZone] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!message.trim() && files.length === 0) return
 
-    onSendMessage(message, files)
-    setMessage('')
-    setFiles([])
+    setIsUploading(true);
+    let uploadedFiles: { name: string; url: string }[] = [];
+
+    if (files.length > 0) {
+      if (!organizationId) {
+        alert('An organization must be selected to upload files.');
+        setIsUploading(false);
+        return;
+      }
+
+      try {
+        const uploadPromises = files.map(async (file) => {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('organizationId', organizationId);
+
+          const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'File upload failed');
+          }
+
+          const result = await response.json();
+          return { name: file.name, url: result.fileUrl };
+        });
+
+        uploadedFiles = await Promise.all(uploadPromises);
+
+      } catch (error: any) {
+        console.error('Error uploading files:', error);
+        alert(`Error uploading files: ${error.message}`);
+        setIsUploading(false);
+        return;
+      }
+    }
+
+    onSendMessage(message, uploadedFiles);
+    setMessage('');
+    setFiles([]);
+    setIsUploading(false);
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,9 +117,9 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
         <div className="file-tags">
           {files.map((file, index) => (
             <div key={index} className="file-tag">
-              <Paperclip className="w-4 h-4" />
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
               <span>{file.name}</span>
-              <button onClick={() => removeFile(index)}>
+              <button onClick={() => removeFile(index)} disabled={isUploading}>
                 <X className="w-3 h-3" />
               </button>
             </div>
@@ -154,7 +197,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
                 </button>
                 <button
                     type="submit"
-                    disabled={disabled || (!message.trim() && files.length === 0)}
+                    disabled={disabled || isUploading || (!message.trim() && files.length === 0)}
                     className="input-btn send-btn"
                     title="Send message"
                     style={{
@@ -170,7 +213,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
                       borderRadius: '10px'
                     }}
                 >
-                    <Send className="w-5 h-5" />
+                    {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </button>
             </div>
         </div>

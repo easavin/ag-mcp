@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
 import { prisma } from './prisma'
+import FormData from 'form-data'
 
 // John Deere API Configuration
 const JOHN_DEERE_CONFIG = {
@@ -221,6 +222,28 @@ export class JohnDeereAPIClient {
         throw error
       }
     )
+  }
+
+  /**
+   * Centralized API error handler
+   */
+  private handleApiError(error: any, context: string): void {
+    const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+    const statusCode = error.response?.status;
+    console.error(`❌ Error in ${context} [${statusCode}]:`, errorMessage, {
+      url: error.config?.url,
+      response: error.response?.data
+    });
+
+    if (error instanceof JohnDeereConnectionError || 
+        error instanceof JohnDeereRCAError || 
+        error instanceof JohnDeerePermissionError) {
+      throw error;
+    }
+    
+    if (statusCode === 403) {
+      this.handle403Error(error); // Re-use the existing 403 handler
+    }
   }
 
   /**
@@ -629,113 +652,74 @@ export class JohnDeereAPIClient {
     try {
       const response = await this.axiosInstance.get(`/fields/${fieldId}`)
       return response.data
-    } catch (error) {
-      console.error('Error fetching field details:', error)
-      throw new Error('Failed to fetch field details')
+    } catch (error: any) {
+      this.handleApiError(error, 'getFieldDetails')
+      throw new Error(`Failed to fetch details for field ${fieldId}`)
     }
   }
 
   /**
-   * Get equipment for a specific organization
+   * Get equipment for a specific organization using the Equipment API
    */
   async getEquipment(organizationId: string): Promise<JDEquipment[]> {
     try {
-      // Use the Equipment API with correct endpoint as per documentation
-      console.log(`🔧 Fetching equipment for organization ${organizationId} using Equipment API`)
-      const response = await this.equipmentAxiosInstance.get(`/isg/equipment?organizationIds=${organizationId}`)
-      
-      const equipment = response.data.values || []
-      console.log(`📊 Retrieved ${equipment.length} equipment items`)
+      // Use the equipment-specific API instance with the correct /isg/ path
+      console.log(`🚜 Fetching equipment for organization ${organizationId} using Equipment API`);
+      const response = await this.equipmentAxiosInstance.get(`/isg/equipment`, {
+        params: { organizationIds: organizationId }
+      });
+
+      const equipment = response.data.values || [];
       
       // Transform equipment data to handle make/model objects
       return equipment.map((item: any) => ({
         ...item,
         make: typeof item.make === 'object' ? item.make.name : item.make,
         model: typeof item.model === 'object' ? item.model.name : item.model,
-      }))
+      }));
+
     } catch (error: any) {
-      console.error('Error fetching equipment:', error)
-      
-      // Handle 403 errors by falling back to mock data (equipment permissions may not be granted)
-      if (error.response?.status === 403) {
-        console.log('🔄 Equipment access denied, falling back to mock data...')
-        
-        // Import mock data dynamically
-        const { getMockDataForType } = await import('./johndeere-mock-data')
-        const mockEquipment = getMockDataForType('equipment') as JDEquipment[]
-        
-        console.log('📊 Using mock equipment data:', mockEquipment.length, 'items')
-        return mockEquipment
-      }
-      
-      // Don't fall back to mock data for other errors - throw the actual error
-      if (error instanceof JohnDeereConnectionError || 
-          error instanceof JohnDeereRCAError || 
-          error instanceof JohnDeerePermissionError) {
-        throw error
-      }
-      
-      throw new Error('Failed to fetch equipment: ' + (error.message || 'Unknown error'))
+      this.handleApiError(error, 'getEquipment');
+      return [];
     }
   }
 
   /**
-   * Get equipment for a specific organization (for connection testing - no mock fallback)
+   * Get a small sample of equipment for connection testing
    */
   async getEquipmentForConnectionTest(organizationId: string): Promise<JDEquipment[]> {
     try {
-      // Use the Equipment API with correct endpoint as per documentation
-      console.log(`🔧 Testing equipment access for organization ${organizationId} using Equipment API`)
-      const response = await this.equipmentAxiosInstance.get(`/isg/equipment?organizationIds=${organizationId}`)
-      
-      const equipment = response.data.values || []
-      console.log(`📊 Equipment test retrieved ${equipment.length} items`)
-      
-      // Transform equipment data to handle make/model objects
-      return equipment.map((item: any) => ({
-        ...item,
-        make: typeof item.make === 'object' ? item.make.name : item.make,
-        model: typeof item.model === 'object' ? item.model.name : item.model,
-      }))
-    } catch (error: any) {
-      // Don't fall back to mock data for connection testing
-      throw error
-    }
+      // Use the Equipment API with correct endpoint
+       console.log(`🔧 Testing equipment access for organization ${organizationId} using Equipment API`)
+       const response = await this.equipmentAxiosInstance.get(`/isg/equipment`, {
+        params: { organizationIds: organizationId, limit: 5 }
+       });
+       
+       const equipment = response.data.values || []
+       console.log(`📊 Equipment test retrieved ${equipment.length} items`)
+       
+       // Transform equipment data to handle make/model objects
+       return equipment.map((item: any) => ({
+         ...item,
+         make: typeof item.make === 'object' ? item.make.name : item.make,
+         model: typeof item.model === 'object' ? item.model.name : item.model,
+       }));
+     } catch (error: any) {
+       this.handleApiError(error, 'getEquipmentForConnectionTest');
+       throw error;
+     }
   }
 
   /**
    * Get field operations for a specific organization
    */
-  async getFieldOperations(organizationId: string, options?: {
-    startDate?: string
-    endDate?: string
-    fieldId?: string
-  }): Promise<JDFieldOperation[]> {
+  async getFieldOperations(organizationId: string, fieldId: string): Promise<JDFieldOperation[]> {
     try {
-      let url = `/organizations/${organizationId}/fieldOperations`
-      const params = new URLSearchParams()
-      
-      if (options?.startDate) params.append('startDate', options.startDate)
-      if (options?.endDate) params.append('endDate', options.endDate)
-      if (options?.fieldId) params.append('fieldId', options.fieldId)
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`
-      }
-
-      const response = await this.axiosInstance.get(url)
-      return response.data.values || []
-    } catch (error: any) {
-      console.error('Error fetching field operations:', error)
-      
-      // Don't fall back to mock data - throw the actual error
-      if (error instanceof JohnDeereConnectionError || 
-          error instanceof JohnDeereRCAError || 
-          error instanceof JohnDeerePermissionError) {
-        throw error
-      }
-      
-      throw new Error('Failed to fetch field operations: ' + (error.message || 'Unknown error'))
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/fields/${fieldId}/fieldOperations`);
+      return response.data?.values || [];
+    } catch (error) {
+      this.handleApiError(error, `getFieldOperations for field ${fieldId}`);
+      throw error;
     }
   }
 
@@ -770,24 +754,53 @@ export class JohnDeereAPIClient {
    */
   async getAssets(organizationId: string): Promise<JDAsset[]> {
     try {
-      const response = await this.axiosInstance.get(`/organizations/${organizationId}/assets`)
-      return response.data.values || []
-    } catch (error: any) {
-      console.error('Error fetching assets:', error)
-      
-      // Handle both 403 and 404 errors (both indicate authorization/permission issues in sandbox)
-      if (error.response?.status === 403 || error.response?.status === 404) {
-        console.log('🔄 Assets access denied, falling back to mock data...')
-        
-        // Import mock data dynamically
-        const { getMockDataForType } = await import('./johndeere-mock-data')
-        const mockAssets = getMockDataForType('assets') as JDAsset[]
-        
-        console.log('📊 Using mock assets data:', mockAssets.length, 'items')
-        return mockAssets
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/assets`);
+      return response.data?.values || [];
+    } catch (error) {
+      this.handleApiError(error, 'getAssets');
+      throw error;
+    }
+  }
+
+  async getFiles(organizationId: string): Promise<any[]> {
+    try {
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/files`);
+      return response.data?.values || [];
+    } catch (error) {
+      this.handleApiError(error, 'getFiles');
+      throw error;
+    }
+  }
+
+  async uploadFile(organizationId: string, file: Buffer, fileName: string, contentType: string): Promise<any> {
+    try {
+      const form = new FormData();
+      form.append('file', file, {
+        filename: fileName,
+        contentType: contentType,
+      });
+
+      const response = await this.axiosInstance.post(
+        `/organizations/${organizationId}/files`,
+        form,
+        {
+          headers: {
+            ...form.getHeaders(),
+          },
+        }
+      );
+
+      // After a successful upload, the response is a 204 No Content, 
+      // but the location header contains the URL to the newly created file.
+      if (response.status === 204 && response.headers.location) {
+        return { success: true, fileUrl: response.headers.location };
       }
       
-      throw new Error('Failed to fetch assets')
+      return response.data;
+
+    } catch (error) {
+      this.handleApiError(error, 'uploadFile');
+      throw error;
     }
   }
 
@@ -846,26 +859,13 @@ export class JohnDeereAPIClient {
   /**
    * Get machine engine hours for specific equipment
    */
-  async getMachineEngineHours(equipmentId: string, options?: {
-    startDate?: string
-    endDate?: string
-  }): Promise<any[]> {
+  async getMachineEngineHours(machineId: string): Promise<any> {
     try {
-      let url = `/equipment/${equipmentId}/engineHours`
-      const params = new URLSearchParams()
-      
-      if (options?.startDate) params.append('startDate', options.startDate)
-      if (options?.endDate) params.append('endDate', options.endDate)
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`
-      }
-
-      const response = await this.axiosInstance.get(url)
-      return response.data.values || []
+      const response = await this.axiosInstance.get(`/machines/${machineId}/engineHours`);
+      return response.data;
     } catch (error) {
-      console.error('Error fetching machine engine hours:', error)
-      throw new Error('Failed to fetch machine engine hours')
+      this.handleApiError(error, `getMachineEngineHours for machine ${machineId}`);
+      throw error;
     }
   }
 
@@ -881,23 +881,29 @@ export class JohnDeereAPIClient {
     farms: any[]
   }> {
     try {
-      // Get organization details
-      const organizations = await this.getOrganizations()
-      const organization = organizations.find(org => org.id === organizationId)
-      
-      if (!organization) {
-        throw new Error('Organization not found')
-      }
+      const orgDetails = await this.axiosInstance.get(`/organizations/${organizationId}`)
+      const organization = orgDetails.data
 
-      // Fetch all data in parallel for better performance
-      const [fields, equipment, operations, assets, farms] = await Promise.all([
+      const [fields, equipment, assets, farms] = await Promise.all([
         this.getFields(organizationId),
         this.getEquipment(organizationId),
-        this.getFieldOperations(organizationId),
         this.getAssets(organizationId),
         this.getFarms(organizationId),
       ])
 
+      // Field operations need to be fetched per field, so we'll do that separately
+      // This could be optimized further if needed
+      let operations: JDFieldOperation[] = []
+      if (fields && fields.length > 0) {
+        const operationsPromises = fields.map(field => this.getFieldOperations(organizationId, field.id));
+        const results = await Promise.allSettled(operationsPromises);
+        results.forEach(result => {
+          if (result.status === 'fulfilled' && result.value) {
+            operations.push(...result.value);
+          }
+        });
+      }
+      
       return {
         organization,
         fields,
@@ -907,16 +913,11 @@ export class JohnDeereAPIClient {
         farms,
       }
     } catch (error: any) {
-      console.error('Error fetching comprehensive farm data:', error)
-      // If any of the sub-requests failed due to authorization, propagate that error
-      if (error.name === 'AuthorizationError' || error.status === 403) {
-        const authError = new Error('Failed to fetch comprehensive farm data: authorization denied')
-        authError.name = 'AuthorizationError'
-        ;(authError as any).status = 403
-        ;(authError as any).originalError = error
-        throw authError
-      }
-      throw new Error('Failed to fetch comprehensive farm data')
+      this.handleApiError(error, 'getComprehensiveFarmData')
+      throw new Error(
+        'Failed to fetch comprehensive farm data: ' +
+          (error.message || 'Unknown error')
+      )
     }
   }
 
