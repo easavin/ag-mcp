@@ -297,8 +297,8 @@ export class JohnDeereAPI {
 // Singleton instance
 let johnDeereAPI: JohnDeereAPI | null = null
 
-export function getJohnDeereAPI(): JohnDeereAPI {
-  if (!johnDeereAPI) {
+export function getJohnDeereAPI(forceRecreate: boolean = false): JohnDeereAPI {
+  if (!johnDeereAPI || forceRecreate) {
     const clientId = process.env.JOHN_DEERE_CLIENT_ID
     const clientSecret = process.env.JOHN_DEERE_CLIENT_SECRET
     const environment = (process.env.JOHN_DEERE_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox'

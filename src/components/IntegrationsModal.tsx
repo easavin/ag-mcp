@@ -20,7 +20,7 @@ interface Integration {
 }
 
 interface JohnDeereConnectionStatus {
-  status: 'loading' | 'connected' | 'partially_connected' | 'auth_required' | 'connection_required' | 'error'
+  status: 'loading' | 'connected' | 'partial_connection' | 'auth_required' | 'connection_required' | 'error'
   organizations?: Array<{ id: string; name: string; type: string; member: boolean }>
   connectionLinks?: string[]
   testResults?: {
@@ -94,7 +94,7 @@ const JohnDeereConnectionManager = ({
           </div>
         )
 
-      case 'partially_connected':
+      case 'partial_connection':
         return (
           <div className="org-connection-status partially-connected">
             <div className="status-header">
@@ -431,7 +431,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       logo: '/assets/logos/johndeere-logo.png', // Path to the logo in public folder
       logoFallback: '🔗',
       category: 'Equipment & Data',
-      isConnected: connectionStatus.status === 'connected' || connectionStatus.status === 'partially_connected' || connectionStatus.status === 'connection_required',
+      isConnected: connectionStatus.status === 'connected' || connectionStatus.status === 'partial_connection' || connectionStatus.status === 'connection_required',
       features: [
         'Access field boundaries and crop data',
         'View equipment location and status',
@@ -476,7 +476,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                         <div className="status-dot"></div>
                         Connected
                       </div>
-                    ) : connectionStatus.status === 'partially_connected' ? (
+                    ) : connectionStatus.status === 'partial_connection' ? (
                       <div className="status-badge partially-connected">
                         <div className="status-dot" style={{backgroundColor: '#f59e0b'}}></div>
                         Partially Connected

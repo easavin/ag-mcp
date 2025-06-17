@@ -23,34 +23,50 @@ export async function GET(request: NextRequest) {
       console.log('📋 Using fallback connection link with full access request:', fallbackConnectionLink)
     }
     
-    // Check if we have organizations but no data access (indicating connection needed)
+    // Check connection status based on organization links
     let connectionRequired = false
     let testResults = null
     let status = 'connection_required' // Default status
     
     if (organizations.length > 0) {
-      // Try to test data access for the first organization
+      // Check connection status for the first organization
       const firstOrg = organizations[0]
       try {
-        testResults = await johnDeereClient.testDataAccess(firstOrg.id)
+        const connectionStatus = await johnDeereClient.checkOrganizationConnection(firstOrg.id)
         
-        // Connection is required if we have NO successful data access
-        // (All endpoints returning 403/404 indicates no organization connection)
-        connectionRequired = !testResults.hasDataAccess
+        // If organization is connected (has manage_connection link), it's connected
+        connectionRequired = !connectionStatus.isConnected
         
-        // Determine the appropriate status
-        if (testResults.hasDataAccess) {
-          status = 'connected'
-        } else if (testResults.hasPartialAccess) {
-          status = 'partially_connected'
+        if (connectionStatus.isConnected) {
+          // Actually test the data access instead of hardcoding
+          testResults = await johnDeereClient.testDataAccess(firstOrg.id)
+          
+          // Determine status based on actual test results
+          if (testResults.hasDataAccess) {
+            status = 'connected'
+          } else if (testResults.hasPartialAccess) {
+            status = 'partial_connection'
+          } else {
+            status = 'connection_required'
+          }
         } else {
           status = 'connection_required'
+          testResults = { 
+            hasDataAccess: false, 
+            hasPartialAccess: false,
+            testResults: {
+              fields: { success: false, count: 0 },
+              equipment: { success: false, count: 0 },
+              farms: { success: false, count: 0 },
+              assets: { success: false, count: 0 }
+            }
+          }
         }
         
         // Log detailed results for debugging
         console.log('🔍 Connection test results:', {
-          hasDataAccess: testResults.hasDataAccess,
-          hasPartialAccess: testResults.hasPartialAccess,
+          hasDataAccess: !connectionRequired,
+          hasPartialAccess: false,
           status,
           results: testResults.testResults,
           connectionRequired

@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate John Deere authorization URL
-    const johnDeereAPI = getJohnDeereAPI()
+    // Generate John Deere authorization URL (force recreation to ensure correct redirect URI)
+    const johnDeereAPI = getJohnDeereAPI(true)
     const { url, state } = johnDeereAPI.generateAuthorizationUrl([
       'ag1', // Basic agricultural data
       'ag2', // Field and boundary data

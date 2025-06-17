@@ -23,7 +23,7 @@ if (typeof document !== 'undefined') {
 }
 
 interface ConnectionStatus {
-  status: 'loading' | 'auth_required' | 'connection_required' | 'connected' | 'no_organizations' | 'error'
+  status: 'loading' | 'auth_required' | 'connection_required' | 'connected' | 'partial_connection' | 'no_organizations' | 'error'
   organizations?: Array<{
     id: string
     name: string
@@ -372,7 +372,7 @@ export default function JohnDeereConnectionHelper() {
                     { key: 'farms', label: 'Farms', icon: '🏡' },
                     { key: 'assets', label: 'Assets', icon: '📦' }
                   ].map(({ key, label, icon }) => {
-                    const result = connectionStatus.testResults[key]
+                    const result = connectionStatus.testResults.testResults[key]
                     const isSuccess = result?.success
                     return (
                       <div key={key} className={`p-3 rounded-lg border-2 transition-all ${
@@ -398,6 +398,91 @@ export default function JohnDeereConnectionHelper() {
                       </div>
                     )
                   })}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+
+      case 'partial_connection':
+        return (
+          <div className="bg-yellow-50 border-yellow-200 border rounded-lg p-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-2xl">⚠️</span>
+              <h3 className="text-lg font-semibold text-yellow-800">
+                Partially Connected
+              </h3>
+            </div>
+            <p className="text-yellow-700 mb-3">
+              Your John Deere app is connected but has limited access to some data types. Some APIs may require additional permissions.
+            </p>
+            
+            {connectionStatus.organizations && connectionStatus.organizations.length > 0 && (
+              <div className="bg-white border border-yellow-200 rounded-lg p-4 shadow-sm mb-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <span className="text-lg">🏢</span>
+                  <h4 className="font-bold text-yellow-900">Connected Organizations</h4>
+                </div>
+                <ul className="space-y-2">
+                  {connectionStatus.organizations.map(org => (
+                    <li key={org.id} className="flex items-center space-x-2 text-yellow-700 bg-yellow-50 rounded-lg p-2">
+                      <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
+                      <span className="font-medium">{org.name}</span>
+                      <span className="text-yellow-500 text-sm">({org.type})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {connectionStatus.testResults && (
+              <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm mt-4">
+                <div className="flex items-center space-x-2 mb-4">
+                  <span className="text-lg">📊</span>
+                  <h4 className="font-bold text-gray-900">API Endpoint Status</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { key: 'fields', label: 'Fields', icon: '🌾' },
+                    { key: 'equipment', label: 'Equipment', icon: '🚜' },
+                    { key: 'farms', label: 'Farms', icon: '🏡' },
+                    { key: 'assets', label: 'Assets', icon: '📦' }
+                  ].map(({ key, label, icon }) => {
+                    const result = connectionStatus.testResults.testResults[key]
+                    const isSuccess = result?.success
+                    return (
+                      <div key={key} className={`p-3 rounded-lg border-2 transition-all ${
+                        isSuccess 
+                          ? 'bg-green-50 border-green-200 text-green-800' 
+                          : 'bg-red-50 border-red-200 text-red-800'
+                      }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg">{icon}</span>
+                            <span className="font-semibold">{label}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg">{isSuccess ? '✅' : '❌'}</span>
+                            <span className="text-sm font-medium">({result?.count || 0})</span>
+                          </div>
+                        </div>
+                        {result?.error && (
+                          <div className="text-xs opacity-75 bg-white/50 rounded p-2 mt-2 font-mono">
+                            {result.error}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-lg">💡</span>
+                    <h4 className="font-bold text-yellow-900">Improving Access</h4>
+                  </div>
+                  <p className="text-sm text-yellow-800">
+                    To access all data types, you may need to request additional permissions through the John Deere Operations Center or update your app's scope requirements.
+                  </p>
                 </div>
               </div>
             )}
