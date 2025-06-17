@@ -15,6 +15,40 @@ const JOHN_DEERE_CONFIG = {
   },
 }
 
+// Error types for better error handling
+export class JohnDeereConnectionError extends Error {
+  constructor(
+    message: string,
+    public connectionUrl?: string,
+    public organizationId?: string
+  ) {
+    super(message)
+    this.name = 'JohnDeereConnectionError'
+  }
+}
+
+export class JohnDeereRCAError extends Error {
+  constructor(
+    message: string,
+    public rcaUrl: string,
+    public organizationId?: string
+  ) {
+    super(message)
+    this.name = 'JohnDeereRCAError'
+  }
+}
+
+export class JohnDeerePermissionError extends Error {
+  constructor(
+    message: string,
+    public requiredScopes?: string[],
+    public currentScopes?: string[]
+  ) {
+    super(message)
+    this.name = 'JohnDeerePermissionError'
+  }
+}
+
 // Type definitions for John Deere API responses
 export interface JDOrganization {
   '@type': string
@@ -133,8 +167,63 @@ export class JohnDeereAPIClient {
             return this.axiosInstance.request(error.config)
           }
         }
+        
+        // Handle 403 errors with proper connection management
+        if (error.response?.status === 403) {
+          this.handle403Error(error)
+        }
+        
         throw error
       }
+    )
+  }
+
+  /**
+   * Handle 403 Forbidden errors with proper connection management
+   */
+  private handle403Error(error: any): void {
+    const response = error.response
+    const headers = response.headers || {}
+    const data = response.data || {}
+
+    console.error('🚫 403 Forbidden Error Details:', {
+      status: response.status,
+      headers: headers,
+      data: data,
+      url: error.config?.url
+    })
+
+    // Check for RCA (Required Customer Action) events
+    const rcaWarning = headers['x-deere-warning'] || headers['X-Deere-Warning']
+    const rcaLocation = headers['x-deere-terms-location'] || headers['X-Deere-Terms-Location']
+    
+    if (rcaWarning && rcaLocation) {
+      console.error('🔒 RCA Event detected:', rcaWarning)
+      throw new JohnDeereRCAError(
+        `Required Customer Action: ${rcaWarning}. Please complete the required action.`,
+        rcaLocation
+      )
+    }
+
+    // Check for permission/scope issues
+    if (data.message?.includes('proper access') || data.message?.includes('scope')) {
+      throw new JohnDeerePermissionError(
+        'Insufficient permissions or missing required scopes for this API endpoint.',
+        data.required_scopes,
+        data.current_scopes
+      )
+    }
+
+    // Check for connection issues
+    if (data.message?.includes('Access Denied') || data.message?.includes('connection')) {
+      throw new JohnDeereConnectionError(
+        'No connection established between application and organization. Please establish connection first.'
+      )
+    }
+
+    // Generic 403 error
+    throw new JohnDeereConnectionError(
+      `Access denied: ${data.message || 'Unknown permission error'}`
     )
   }
 
@@ -189,32 +278,48 @@ export class JohnDeereAPIClient {
       }
 
       const config = JOHN_DEERE_CONFIG[this.environment]
-      const response = await axios.post(config.tokenURL, {
+      
+      // Use form-encoded data for OAuth token endpoint
+      const formData = new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: tokenRecord.refreshToken,
-        client_id: process.env.JOHN_DEERE_CLIENT_ID,
-        client_secret: process.env.JOHN_DEERE_CLIENT_SECRET,
+        client_id: process.env.JOHN_DEERE_CLIENT_ID!,
+        client_secret: process.env.JOHN_DEERE_CLIENT_SECRET!,
+      })
+
+      const response = await axios.post(config.tokenURL, formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
       })
 
       const { access_token, expires_in, refresh_token } = response.data
+
+      // Calculate expiry date
+      const expiresAt = new Date()
+      expiresAt.setSeconds(expiresAt.getSeconds() + expires_in)
 
       // Update token in database
       await prisma.johnDeereToken.update({
         where: { userId },
         data: {
           accessToken: access_token,
-          refreshToken: refresh_token || tokenRecord.refreshToken,
-          expiresAt: new Date(Date.now() + expires_in * 1000),
+          refreshToken: refresh_token || tokenRecord.refreshToken, // Keep existing if not provided
+          expiresAt,
+          scope: tokenRecord.scope, // Keep existing scope
         },
       })
-    } catch (error) {
-      console.error('Error refreshing access token:', error)
-      throw error
+
+      console.log('✅ Access token refreshed successfully')
+    } catch (error: any) {
+      console.error('❌ Error refreshing access token:', error.response?.data || error.message)
+      throw new Error('Failed to refresh access token')
     }
   }
 
   /**
-   * Get all organizations for the authenticated user
+   * Get organizations for the authenticated user
    */
   async getOrganizations(): Promise<JDOrganization[]> {
     try {
@@ -222,12 +327,54 @@ export class JohnDeereAPIClient {
       return response.data.values || []
     } catch (error) {
       console.error('Error fetching organizations:', error)
-      throw new Error('Failed to fetch organizations')
+      throw error
     }
   }
 
   /**
-   * Get organizations with connection links for connection setup
+   * Check organization connection status and get connection links if needed
+   */
+  async checkOrganizationConnection(organizationId: string): Promise<{
+    isConnected: boolean
+    connectionUrl?: string
+    manageConnectionUrl?: string
+    organization?: JDOrganization
+  }> {
+    try {
+      const organizations = await this.getOrganizations()
+      const organization = organizations.find(org => org.id === organizationId)
+      
+      if (!organization) {
+        throw new Error(`Organization ${organizationId} not found or user doesn't have access`)
+      }
+
+      // Check for connection links
+      const connectionLink = organization.links?.find(link => link.rel === 'connections')
+      const manageConnectionLink = organization.links?.find(link => link.rel === 'manage_connections')
+      
+      const isConnected = !!manageConnectionLink && !connectionLink
+      
+      console.log(`🔗 Organization ${organizationId} connection status:`, {
+        isConnected,
+        hasConnectionLink: !!connectionLink,
+        hasManageConnectionLink: !!manageConnectionLink,
+        organization: organization.name
+      })
+
+      return {
+        isConnected,
+        connectionUrl: connectionLink?.uri,
+        manageConnectionUrl: manageConnectionLink?.uri,
+        organization
+      }
+    } catch (error) {
+      console.error('Error checking organization connection:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get organizations with connection status information
    */
   async getOrganizationsWithConnectionLinks(): Promise<{
     organizations: JDOrganization[]
@@ -269,7 +416,7 @@ export class JohnDeereAPIClient {
       }
     } catch (error) {
       console.error('Error fetching organizations with connection links:', error)
-      throw new Error('Failed to fetch organizations')
+      throw error
     }
   }
 
@@ -296,6 +443,21 @@ export class JohnDeereAPIClient {
       equipment: { success: false, count: 0 },
       farms: { success: false, count: 0 },
       assets: { success: false, count: 0 }
+    }
+
+    // First check connection status
+    try {
+      const connectionStatus = await this.checkOrganizationConnection(organizationId)
+      if (!connectionStatus.isConnected) {
+        console.log(`❌ Organization ${organizationId} is not connected`)
+        return {
+          hasDataAccess: false,
+          hasPartialAccess: false,
+          testResults
+        }
+      }
+    } catch (error) {
+      console.error('Error checking connection status:', error)
     }
 
     // Test each endpoint (using connection test methods that don't fall back to mock data)
@@ -384,24 +546,29 @@ export class JohnDeereAPIClient {
    */
   async getFields(organizationId: string): Promise<JDField[]> {
     try {
+      // First check if organization is connected
+      const connectionStatus = await this.checkOrganizationConnection(organizationId)
+      if (!connectionStatus.isConnected && connectionStatus.connectionUrl) {
+        throw new JohnDeereConnectionError(
+          `Organization ${organizationId} is not connected to your application.`,
+          connectionStatus.connectionUrl,
+          organizationId
+        )
+      }
+
       const response = await this.axiosInstance.get(`/organizations/${organizationId}/fields`)
       return response.data.values || []
     } catch (error: any) {
       console.error('Error fetching fields:', error)
       
-      // Handle both 403 and 404 errors (both indicate authorization/permission issues in sandbox)
-      if (error.response?.status === 403 || error.response?.status === 404) {
-        console.log('🔄 Fields access denied, falling back to mock data...')
-        
-        // Import mock data dynamically
-        const { getMockDataForType } = await import('./johndeere-mock-data')
-        const mockFields = getMockDataForType('fields') as JDField[]
-        
-        console.log('📊 Using mock fields data:', mockFields.length, 'items')
-        return mockFields
+      // Don't fall back to mock data - throw the actual error
+      if (error instanceof JohnDeereConnectionError || 
+          error instanceof JohnDeereRCAError || 
+          error instanceof JohnDeerePermissionError) {
+        throw error
       }
       
-      throw new Error('Failed to fetch fields')
+      throw new Error('Failed to fetch fields: ' + (error.message || 'Unknown error'))
     }
   }
 
@@ -436,40 +603,36 @@ export class JohnDeereAPIClient {
    */
   async getEquipment(organizationId: string): Promise<JDEquipment[]> {
     try {
-      // Equipment API uses a different domain and headers
-      const token = await this.getValidAccessToken()
-      if (!token) {
-        throw new Error('No valid access token available')
+      // First check if organization is connected
+      const connectionStatus = await this.checkOrganizationConnection(organizationId)
+      if (!connectionStatus.isConnected && connectionStatus.connectionUrl) {
+        throw new JohnDeereConnectionError(
+          `Organization ${organizationId} is not connected to your application.`,
+          connectionStatus.connectionUrl,
+          organizationId
+        )
       }
 
-      const equipmentBaseUrl = this.environment === 'sandbox' 
-        ? 'https://equipmentapi.deere.com' 
-        : 'https://equipmentapi.deere.com'
-
-      const response = await axios.get(`${equipmentBaseUrl}/isg/equipment?organizationIds=${organizationId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
-      })
-      return response.data.values || []
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/equipment`)
+      const equipment = response.data.values || []
+      
+      // Transform equipment data to handle make/model objects
+      return equipment.map((item: any) => ({
+        ...item,
+        make: typeof item.make === 'object' ? item.make.name : item.make,
+        model: typeof item.model === 'object' ? item.model.name : item.model,
+      }))
     } catch (error: any) {
       console.error('Error fetching equipment:', error)
       
-      // Handle both 403 and 404 errors (both indicate authorization/permission issues in sandbox)
-      if (error.response?.status === 403 || error.response?.status === 404) {
-        console.log('🔄 Equipment access denied, falling back to mock data...')
-        
-        // Import mock data dynamically
-        const { getMockDataForType } = await import('./johndeere-mock-data')
-        const mockEquipment = getMockDataForType('equipment') as JDEquipment[]
-        
-        console.log('📊 Using mock equipment data:', mockEquipment.length, 'items')
-        return mockEquipment
+      // Don't fall back to mock data - throw the actual error
+      if (error instanceof JohnDeereConnectionError || 
+          error instanceof JohnDeereRCAError || 
+          error instanceof JohnDeerePermissionError) {
+        throw error
       }
       
-      throw new Error('Failed to fetch equipment')
+      throw new Error('Failed to fetch equipment: ' + (error.message || 'Unknown error'))
     }
   }
 
@@ -478,29 +641,16 @@ export class JohnDeereAPIClient {
    */
   async getEquipmentForConnectionTest(organizationId: string): Promise<JDEquipment[]> {
     try {
-      // Use the same endpoint as the working getEquipment method
-      const token = await this.getValidAccessToken()
-      if (!token) {
-        throw new Error('No valid access token available')
-      }
-
-      const equipmentBaseUrl = this.environment === 'sandbox' 
-        ? 'https://equipmentapi.deere.com' 
-        : 'https://equipmentapi.deere.com'
-
-      console.log(`🔧 Connection test: Using Equipment API endpoint: ${equipmentBaseUrl}/isg/equipment?organizationIds=${organizationId}`)
-
-      const response = await axios.get(`${equipmentBaseUrl}/isg/equipment?organizationIds=${organizationId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
-      })
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/equipment`)
+      const equipment = response.data.values || []
       
-      return response.data.values || []
+      // Transform equipment data to handle make/model objects
+      return equipment.map((item: any) => ({
+        ...item,
+        make: typeof item.make === 'object' ? item.make.name : item.make,
+        model: typeof item.model === 'object' ? item.model.name : item.model,
+      }))
     } catch (error: any) {
-      console.error('Equipment connection test error:', error.response?.status, error.message)
       // Don't fall back to mock data for connection testing
       throw error
     }
@@ -515,6 +665,16 @@ export class JohnDeereAPIClient {
     fieldId?: string
   }): Promise<JDFieldOperation[]> {
     try {
+      // First check if organization is connected
+      const connectionStatus = await this.checkOrganizationConnection(organizationId)
+      if (!connectionStatus.isConnected && connectionStatus.connectionUrl) {
+        throw new JohnDeereConnectionError(
+          `Organization ${organizationId} is not connected to your application.`,
+          connectionStatus.connectionUrl,
+          organizationId
+        )
+      }
+
       let url = `/organizations/${organizationId}/fieldOperations`
       const params = new URLSearchParams()
       
@@ -530,14 +690,15 @@ export class JohnDeereAPIClient {
       return response.data.values || []
     } catch (error: any) {
       console.error('Error fetching field operations:', error)
-      if (error.response?.status === 403) {
-        const authError = new Error('Failed to fetch field operations: authorization denied')
-        authError.name = 'AuthorizationError'
-        ;(authError as any).status = 403
-        ;(authError as any).originalError = error
-        throw authError
+      
+      // Don't fall back to mock data - throw the actual error
+      if (error instanceof JohnDeereConnectionError || 
+          error instanceof JohnDeereRCAError || 
+          error instanceof JohnDeerePermissionError) {
+        throw error
       }
-      throw new Error('Failed to fetch field operations')
+      
+      throw new Error('Failed to fetch field operations: ' + (error.message || 'Unknown error'))
     }
   }
 

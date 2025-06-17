@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getLLMService, AGRICULTURAL_SYSTEM_PROMPT, ChatMessage, FunctionCall } from '@/lib/llm'
 import { prisma } from '@/lib/prisma'
 import { mcpToolExecutor, ALL_MCP_TOOLS } from '@/lib/mcp-tools'
+import { JohnDeereConnectionError, JohnDeereRCAError, JohnDeerePermissionError } from '@/lib/johndeere-api'
 
 // Function to execute John Deere API calls
 async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any> {
@@ -83,6 +84,57 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`❌ API call failed: ${response.status} - ${errorText}`)
+      
+      // Parse error response to check for specific error types
+      let errorData: any = {}
+      try {
+        errorData = JSON.parse(errorText)
+      } catch (e) {
+        // Error text is not JSON, use as-is
+      }
+      
+      // Handle specific error types with user-friendly messages
+      if (response.status === 403) {
+        if (errorData.error?.includes('connection') || errorData.error?.includes('Connection')) {
+          return {
+            error: 'connection_required',
+            message: 'Your John Deere account needs to be connected to access this data. Please reconnect your account.',
+            userMessage: 'I need to reconnect to your John Deere account to access your data. Please go to the John Deere connection page to reestablish the connection.',
+            functionName: name,
+            arguments: args
+          }
+        }
+        
+        if (errorData.error?.includes('RCA') || errorData.error?.includes('Required Customer Action')) {
+          return {
+            error: 'rca_required',
+            message: 'Required Customer Action needed in John Deere Operations Center.',
+            userMessage: 'You need to complete a Required Customer Action in your John Deere Operations Center before I can access your data. Please log into your John Deere account and complete any pending actions.',
+            functionName: name,
+            arguments: args
+          }
+        }
+        
+        if (errorData.error?.includes('permission') || errorData.error?.includes('scope')) {
+          return {
+            error: 'insufficient_permissions',
+            message: 'Insufficient permissions to access this John Deere data.',
+            userMessage: 'I don\'t have sufficient permissions to access this data in your John Deere account. You may need to reconnect with additional permissions.',
+            functionName: name,
+            arguments: args
+          }
+        }
+        
+        // Generic 403 error
+        return {
+          error: 'access_denied',
+          message: 'Access denied to John Deere data.',
+          userMessage: 'I\'m unable to access your John Deere data right now. This might be due to a connection issue or permissions problem. Please try reconnecting your John Deere account.',
+          functionName: name,
+          arguments: args
+        }
+      }
+      
       throw new Error(`API call failed: ${response.status} - ${errorText}`)
     }
 
@@ -92,6 +144,40 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
     return data
   } catch (error) {
     console.error(`❌ Error executing John Deere function ${name}:`, error)
+    
+    // Handle connection errors with user-friendly messages
+    if (error instanceof JohnDeereConnectionError) {
+      return {
+        error: 'connection_required',
+        message: error.message,
+        userMessage: 'I need to connect to your John Deere account to access your data. Please go to the John Deere connection page to establish the connection.',
+        connectionUrl: error.connectionUrl,
+        functionName: name,
+        arguments: args
+      }
+    }
+    
+    if (error instanceof JohnDeereRCAError) {
+      return {
+        error: 'rca_required',
+        message: error.message,
+        userMessage: 'You need to complete a Required Customer Action in your John Deere Operations Center before I can access your data. Please log into your John Deere account and complete any pending actions.',
+        rcaUrl: error.rcaUrl,
+        functionName: name,
+        arguments: args
+      }
+    }
+    
+    if (error instanceof JohnDeerePermissionError) {
+      return {
+        error: 'insufficient_permissions',
+        message: error.message,
+        userMessage: 'I don\'t have sufficient permissions to access this data in your John Deere account. You may need to reconnect with additional permissions.',
+        functionName: name,
+        arguments: args
+      }
+    }
+    
     return { 
       error: `Failed to execute ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       functionName: name,
@@ -189,9 +275,11 @@ export async function POST(request: NextRequest) {
 
     console.log('💬 Chat messages prepared:', chatMessages.length)
 
-    // Prepare context-aware system prompt
+    // Prepare context-aware system prompt based on connection status
     let systemPrompt = AGRICULTURAL_SYSTEM_PROMPT
+    
     if (currentDataSource) {
+      // User has selected a data source - immediately call functions for data requests
       systemPrompt += `\n\n**IMPORTANT CONTEXT:**
 The user has already selected "${currentDataSource}" as their active data source. When they ask about farm data (fields, equipment, organizations, operations), you MUST immediately use the available John Deere API functions to fetch their data.
 
@@ -208,7 +296,7 @@ The user has already selected "${currentDataSource}" as their active data source
 - User: "operations on field X" → IMMEDIATELY call getOperations() → show the operations data
 
 **DO NOT:**
-- Show data source selection options
+- Show data source selection options (they already selected one)
 - Give generic responses without calling functions
 - Ask the user to provide organization IDs manually
 
@@ -217,18 +305,47 @@ The user has already selected "${currentDataSource}" as their active data source
 - Provide specific data-driven responses based on actual API results
 
 Current active data source: ${currentDataSource}`
+    } else {
+      // No data source selected - show selection for data requests
+      systemPrompt += `\n\n**IMPORTANT CONTEXT:**
+The user has NOT selected a data source yet. When they ask about specific farm data (fields, equipment, organizations, operations), you should show them the data source selection options.
+
+**REQUIRED ACTIONS for farm data requests:**
+- For questions about "my fields", "my equipment", "my operations", etc. → Show data source selection
+- For general farming advice → Answer directly without data source selection
+- For MCP tool actions (scheduling, recommendations) → Execute directly without data source selection
+
+**EXAMPLES:** 
+- User: "how many fields do I have" → Show data source selection with John Deere Operations Center
+- User: "what's the best time to plant corn" → Answer directly with farming advice
+- User: "schedule planting for next week" → Use MCP tools directly
+
+**DO:**
+- Show data source selection for specific data requests
+- Provide general farming advice without requiring data source selection
+- Use MCP tools for farming actions without requiring data source selection
+
+**DO NOT:**
+- Call John Deere API functions when no data source is selected
+- Give generic responses to data requests - show the selection instead`
     }
 
-    // Generate completion with function calling enabled
+    // Generate completion with appropriate function calling
     console.log('🎯 Generating LLM completion...')
     console.log('📋 System prompt:', systemPrompt.substring(0, 200) + '...')
     console.log('📝 Chat messages:', chatMessages.map(m => ({ role: m.role, contentLength: m.content.length })))
+    console.log('🔗 Current data source:', currentDataSource || 'none')
+    
+    // Enable functions based on data source selection
+    // - If data source selected: enable all functions (John Deere + MCP tools)
+    // - If no data source: enable only MCP tools (no John Deere functions)
+    const enableFunctions = true // Always enable some functions (at least MCP tools)
     
     let response = await llmService.generateChatCompletion(chatMessages, {
       maxTokens: options?.maxTokens || 4000,
       temperature: options?.temperature || 0.7,
       systemPrompt: systemPrompt,
-      enableFunctions: true, // Enable both John Deere functions and MCP tools
+      enableFunctions: enableFunctions,
     })
 
     console.log('🎯 LLM response received:', {
@@ -242,52 +359,84 @@ Current active data source: ${currentDataSource}`
     if (response.functionCalls && response.functionCalls.length > 0) {
       console.log('🔧 Function calls detected:', response.functionCalls.map(fc => fc.name))
       
-      // Execute all function calls (both John Deere and MCP tools)
-      console.log('⚡ Executing function calls...')
-      const functionResults = await Promise.all(
-        response.functionCalls.map(async (functionCall, index) => {
-          console.log(`🔧 Executing function ${index + 1}/${response.functionCalls!.length}: ${functionCall.name}`)
-          const result = await executeFunction(functionCall)
-          return {
-            name: functionCall.name,
-            result,
-            error: result.error ? result.error : undefined
-          }
-        })
-      )
-
-      console.log('✅ All function calls completed:', functionResults.map(fr => ({ name: fr.name, hasError: !!fr.error })))
-
-      // Add function results to conversation and get final response
-      const messagesWithFunctions: ChatMessage[] = [
-        ...chatMessages,
-        {
-          role: 'assistant',
-          content: response.content,
-          functionCall: response.functionCalls[0], // For simplicity, use first function call
-        },
-        ...functionResults.map(result => ({
-          role: 'function' as const,
-          content: JSON.stringify(result.result),
-          functionResult: result,
-        }))
-      ]
-
-      console.log('🎯 Getting final response with function results...')
-      // Get final response with function results (use the same context-aware system prompt)
-      const finalSystemPrompt = systemPrompt + `\n\n**IMPORTANT: You have just received function results with actual farm data. Use this data to provide a specific, detailed response to the user's question. DO NOT give generic responses.**`
+      // Filter out John Deere functions if no data source is selected
+      const johnDeereFunctions = ['getOrganizations', 'getFields', 'getEquipment', 'getOperations', 'getComprehensiveData']
+      let validFunctionCalls = response.functionCalls
       
-      response = await llmService.generateChatCompletion(messagesWithFunctions, {
-        maxTokens: options?.maxTokens || 4000,
-        temperature: options?.temperature || 0.7,
-        systemPrompt: finalSystemPrompt,
-        enableFunctions: false, // Disable functions for final response
-      })
+      if (!currentDataSource) {
+        const filteredCalls = response.functionCalls.filter(fc => !johnDeereFunctions.includes(fc.name))
+        if (filteredCalls.length !== response.functionCalls.length) {
+          console.log('🚫 Filtered out John Deere functions (no data source selected)')
+          console.log('🔧 Original functions:', response.functionCalls.map(fc => fc.name))
+          console.log('🔧 Filtered functions:', filteredCalls.map(fc => fc.name))
+        }
+        validFunctionCalls = filteredCalls
+      }
+      
+      if (validFunctionCalls.length === 0) {
+        console.log('⚠️  No valid function calls to execute')
+      } else {
+        // Execute valid function calls
+        console.log('⚡ Executing function calls...')
+        const functionResults = await Promise.all(
+          validFunctionCalls.map(async (functionCall, index) => {
+            console.log(`🔧 Executing function ${index + 1}/${validFunctionCalls.length}: ${functionCall.name}`)
+            const result = await executeFunction(functionCall)
+            return {
+              name: functionCall.name,
+              result,
+              error: result.error ? result.error : undefined
+            }
+          })
+        )
 
-      console.log('✅ Final response generated:', {
-        model: response.model,
-        contentLength: response.content?.length
-      })
+        console.log('✅ All function calls completed:', functionResults.map(fr => ({ name: fr.name, hasError: !!fr.error })))
+
+        // Check if any function results contain connection errors
+        const hasConnectionErrors = functionResults.some(result => 
+          result.result?.error === 'connection_required' || 
+          result.result?.error === 'rca_required' || 
+          result.result?.error === 'insufficient_permissions' ||
+          result.result?.error === 'access_denied'
+        )
+
+        // Add function results to conversation and get final response
+        const messagesWithFunctions: ChatMessage[] = [
+          ...chatMessages,
+          {
+            role: 'assistant',
+            content: response.content,
+            functionCall: response.functionCalls[0], // For simplicity, use first function call
+          },
+          ...functionResults.map(result => ({
+            role: 'function' as const,
+            content: JSON.stringify(result.result),
+            functionResult: result,
+          }))
+        ]
+
+        console.log('🎯 Getting final response with function results...')
+        
+        // Prepare enhanced system prompt based on whether there are connection errors
+        let finalSystemPrompt = systemPrompt
+        if (hasConnectionErrors) {
+          finalSystemPrompt += `\n\n**IMPORTANT: Some function calls encountered connection/permission errors. Use the userMessage field from the error results to provide helpful guidance to the user. DO NOT show technical error details - only provide user-friendly explanations and guidance.**`
+        } else {
+          finalSystemPrompt += `\n\n**IMPORTANT: You have just received function results with actual farm data. Use this data to provide a specific, detailed response to the user's question. DO NOT give generic responses.**`
+        }
+        
+        response = await llmService.generateChatCompletion(messagesWithFunctions, {
+          maxTokens: options?.maxTokens || 4000,
+          temperature: options?.temperature || 0.7,
+          systemPrompt: finalSystemPrompt,
+          enableFunctions: false, // Disable functions for final response
+        })
+
+        console.log('✅ Final response generated:', {
+          model: response.model,
+          contentLength: response.content?.length
+        })
+      }
     }
 
     // Save assistant message to database

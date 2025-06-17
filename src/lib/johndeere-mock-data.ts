@@ -181,6 +181,11 @@ export const mockJohnDeereData = {
         "id": "equipment_001",
         "name": "John Deere 8R 370"
       },
+      "prescription": {
+        "applied": true,
+        "type": "Variable Rate Seeding",
+        "seedRate": "32,000-36,000 seeds/acre"
+      },
       "links": [
         {
           "@type": "Link",
@@ -243,11 +248,91 @@ export const mockJohnDeereData = {
         "id": "equipment_001",
         "name": "John Deere 8R 370"
       },
+      "prescription": {
+        "applied": true,
+        "type": "Variable Rate Fertilizer",
+        "product": "28-0-0 UAN",
+        "rate": "120-150 lbs/acre"
+      },
       "links": [
         {
           "@type": "Link",
           "rel": "self",
           "uri": "https://api.deere.com/platform/fieldOperations/operation_003"
+        }
+      ]
+    },
+    {
+      "@type": "FieldOperation",
+      "id": "operation_004",
+      "type": "Spraying",
+      "operationType": "Application",
+      "startTime": "2024-05-22T06:00:00Z",
+      "endTime": "2024-05-22T11:30:00Z",
+      "area": {
+        "measurement": 45.7,
+        "unit": "acres"
+      },
+      "totalDistance": {
+        "measurement": 9.8,
+        "unit": "miles"
+      },
+      "field": {
+        "id": "field_001",
+        "name": "North Field"
+      },
+      "equipment": {
+        "id": "equipment_002",
+        "name": "John Deere R4030"
+      },
+      "prescription": {
+        "applied": true,
+        "type": "Variable Rate Herbicide",
+        "product": "Roundup PowerMAX",
+        "rate": "22-32 oz/acre"
+      },
+      "links": [
+        {
+          "@type": "Link",
+          "rel": "self",
+          "uri": "https://api.deere.com/platform/fieldOperations/operation_004"
+        }
+      ]
+    },
+    {
+      "@type": "FieldOperation",
+      "id": "operation_005",
+      "type": "Lime Application",
+      "operationType": "Application",
+      "startTime": "2024-02-28T09:00:00Z",
+      "endTime": "2024-02-28T14:30:00Z",
+      "area": {
+        "measurement": 32.4,
+        "unit": "acres"
+      },
+      "totalDistance": {
+        "measurement": 7.1,
+        "unit": "miles"
+      },
+      "field": {
+        "id": "field_002",
+        "name": "South Field"
+      },
+      "equipment": {
+        "id": "equipment_001",
+        "name": "John Deere 8R 370"
+      },
+      "prescription": {
+        "applied": true,
+        "type": "Variable Rate Lime",
+        "product": "Agricultural Limestone",
+        "rate": "1.5-2.2 tons/acre"
+      },
+      "links": [
+        {
+          "@type": "Link",
+          "rel": "self",
+          "uri": "https://api.deere.com/platform/fieldOperations/operation_005"
         }
       ]
     }
@@ -367,7 +452,7 @@ ${data.equipment.map((equipment: any, index: number) =>
 
 **📋 Recent Operations:**
 ${data.operations.map((op: any, index: number) => 
-  `${index + 1}. **${op.type}** on ${op.field.name} - ${new Date(op.startTime).toLocaleDateString()}`
+  `${index + 1}. **${op.type}** on ${op.field.name} - ${new Date(op.startTime).toLocaleDateString()}${op.prescription ? ` (${op.prescription.type})` : ''}`
 ).join('\n')}
 
 **📁 Assets:**
@@ -387,6 +472,7 @@ ${data.map((item: any, index: number) => {
   if (item.make && item.model) details.push(`${item.year} ${item.make} ${item.model}`)
   if (item.type) details.push(item.type)
   if (item.operationType) details.push(item.operationType)
+  if (item.prescription) details.push(`Prescription: ${item.prescription.type}`)
   
   return `**${index + 1}. ${name}**${details.length > 0 ? ` - ${details.join(', ')}` : ''}`
 }).join('\n')}`
