@@ -370,8 +370,18 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       const response = await fetch('/api/auth/johndeere/authorize', { method: 'POST' });
       const data = await response.json();
       
-              if (data.authorizationUrl) {
-          window.open(data.authorizationUrl, 'johndeere-auth', 'width=600,height=700');
+      if (data.authorizationUrl) {
+        // Open the authorization URL in a popup window
+        const authWindow = window.open(
+          data.authorizationUrl,
+          'JohnDeereAuth',
+          'width=800,height=600,scrollbars=yes,resizable=yes'
+        );
+
+        if (!authWindow) {
+          alert('Please allow pop-ups for this site to connect with John Deere.');
+          setIsConnecting(false);
+        }
       } else {
         throw new Error('No auth URL received');
       }

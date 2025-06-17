@@ -23,13 +23,6 @@ export async function POST(request: NextRequest) {
     const johnDeereAPI = getJohnDeereAPI()
     const tokens = await johnDeereAPI.exchangeCodeForTokens(code)
 
-    console.log('Received tokens:', { 
-      hasAccessToken: !!tokens.access_token,
-      hasRefreshToken: !!tokens.refresh_token,
-      expiresIn: tokens.expires_in,
-      scope: tokens.scope 
-    })
-
     // Calculate expiration date
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
 
@@ -144,13 +137,6 @@ export async function GET(request: NextRequest) {
     const tokens = await johnDeereAPI.exchangeCodeForTokens(code)
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
 
-    console.log('GET callback - Received tokens:', { 
-      hasAccessToken: !!tokens.access_token,
-      hasRefreshToken: !!tokens.refresh_token,
-      expiresIn: tokens.expires_in,
-      scope: tokens.scope 
-    })
-
     await prisma.johnDeereToken.upsert({
       where: { userId },
       update: {
@@ -183,6 +169,7 @@ export async function GET(request: NextRequest) {
       </head>
       <body>
         <script>
+          // THIS SCRIPT IS NO LONGER USED FOR REDIRECT but is kept for popups if we revert
           if (window.opener) {
             window.opener.postMessage({
               type: 'JOHN_DEERE_AUTH_SUCCESS',
@@ -194,10 +181,11 @@ export async function GET(request: NextRequest) {
             }, window.location.origin);
             window.close();
           } else {
-            window.location.href = '/?john_deere_connected=true';
+            // Main window was redirected, now send it to the connection page
+            window.location.href = '/johndeere-connection';
           }
         </script>
-        <p>Authorization successful! This window should close automatically.</p>
+        <p>Authorization successful! Redirecting...</p>
       </body>
       </html>
     `, {

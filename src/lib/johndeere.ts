@@ -121,6 +121,7 @@ export class JohnDeereAPI {
       scope: scopes.join(' '),
       redirect_uri: this.redirectUri,
       state,
+      prompt: 'consent',
     })
 
     return {
