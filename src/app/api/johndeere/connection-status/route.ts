@@ -1,9 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getJohnDeereAPIClient } from '@/lib/johndeere-api'
+import { getCurrentUser } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
     console.log('🔍 Connection status check started')
+    
+    // First, check if user is authenticated
+    const authUser = await getCurrentUser()
+    if (!authUser?.id) {
+      return NextResponse.json({
+        status: 'auth_required',
+        message: 'User authentication required. Please sign in first.',
+      }, { status: 401 })
+    }
+
+    // Check if user has John Deere tokens
+    const tokenRecord = await prisma.johnDeereToken.findUnique({
+      where: { userId: authUser.id },
+    })
+
+    if (!tokenRecord) {
+      console.log('📋 No John Deere tokens found for user, returning not_connected status')
+      return NextResponse.json({
+        status: 'not_connected',
+        message: 'John Deere account not connected. Please connect your account first.',
+        organizations: [],
+        connectionRequired: true,
+      })
+    }
+
+    // Check if token is expired and can't be refreshed
+    if (new Date() >= tokenRecord.expiresAt && !tokenRecord.refreshToken) {
+      console.log('🔒 John Deere tokens expired and no refresh token available')
+      return NextResponse.json({
+        status: 'token_expired',
+        message: 'John Deere tokens have expired. Please reconnect your account.',
+        organizations: [],
+        connectionRequired: true,
+      })
+    }
+
+    console.log('✅ User has John Deere tokens, checking connection status...')
     const johnDeereClient = getJohnDeereAPIClient()
     
     // Get organizations and their full response to extract connection links

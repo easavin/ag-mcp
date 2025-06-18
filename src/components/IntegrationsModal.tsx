@@ -200,10 +200,10 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
 
   if (!isOpen) return null;
 
-  // Determine if John Deere is connected based on the actual API response
+  // Check if John Deere is connected based on status
   const isJohnDeereConnected = connectionStatus.status === 'connected' || 
                                connectionStatus.status === 'partial_connection' ||
-                               Boolean(connectionStatus.organizations && connectionStatus.organizations.length > 0);
+                               connectionStatus.status === 'connection_required';
 
   // Define available integrations
   const integrations: Integration[] = [
@@ -270,12 +270,52 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       );
     }
 
-    if (connectionStatus.error) {
+    if (connectionStatus.status === 'connection_required') {
+      return (
+        <div className="connection-status partial">
+          <span className="status-icon">🟡</span>
+          <span>Connected - Permissions Required</span>
+          <p className="status-message">Account connected but organization permissions needed.</p>
+        </div>
+      );
+    }
+
+    if (connectionStatus.status === 'not_connected') {
+      return (
+        <div className="connection-status disconnected">
+          <span className="status-icon">⚪</span>
+          <span>Not Connected</span>
+          <p className="status-message">Connect your John Deere account to access data.</p>
+        </div>
+      );
+    }
+
+    if (connectionStatus.status === 'token_expired') {
+      return (
+        <div className="connection-status error">
+          <span className="status-icon">🔄</span>
+          <span>Connection Expired</span>
+          <p className="status-message">Your John Deere connection has expired. Please reconnect.</p>
+        </div>
+      );
+    }
+
+    if (connectionStatus.status === 'auth_required') {
+      return (
+        <div className="connection-status disconnected">
+          <span className="status-icon">🔐</span>
+          <span>Authentication Required</span>
+          <p className="status-message">Please sign in to connect your John Deere account.</p>
+        </div>
+      );
+    }
+
+    if (connectionStatus.error || connectionStatus.status === 'error') {
       return (
         <div className="connection-status error">
           <span className="status-icon">❌</span>
           <span>Connection Error</span>
-          <p className="error-message">{connectionStatus.error}</p>
+          <p className="error-message">{connectionStatus.error || 'Failed to check connection status'}</p>
         </div>
       );
     }
