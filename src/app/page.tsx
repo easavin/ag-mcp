@@ -8,7 +8,6 @@ import MobileMenu from '@/components/MobileMenu'
 import { MessageSkeleton } from '@/components/LoadingStates'
 import ProgressIndicator, { useProgressIndicator } from '@/components/ProgressIndicator'
 import DataSourceIndicator from '@/components/DataSourceIndicator'
-import AuthHeader from '@/components/AuthHeader'
 import AuthModal from '@/components/AuthModal'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -98,9 +97,6 @@ function ChatInterface() {
 
   return (
     <div className="relative">
-      {/* Auth Header */}
-      <AuthHeader />
-      
       <ChatLayout>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {/* Header with data source indicator */}
