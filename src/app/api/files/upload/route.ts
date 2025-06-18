@@ -33,7 +33,10 @@ async function parseForm(req: NextRequest): Promise<{ fields: Record<string, str
         }
         
         const flattenedFields = Object.keys(fields).reduce((acc, key) => {
-            acc[key] = fields[key][0];
+            const fieldValue = fields[key];
+            if (fieldValue && fieldValue.length > 0) {
+                acc[key] = fieldValue[0];
+            }
             return acc;
         }, {} as Record<string, string>);
 
