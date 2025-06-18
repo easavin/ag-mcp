@@ -82,9 +82,6 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
         <div className={`sidebar hidden md:flex ${!sidebarOpen ? 'w-0 overflow-hidden' : ''}`}>
           <div className="sidebar-header">
             <h2>Farm MCP</h2>
-            <button onClick={() => setSidebarOpen(false)}>
-              <MessageSquare className="w-4 h-4" />
-            </button>
           </div>
           
           <div className="sidebar-content">
@@ -166,19 +163,41 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                   bottom: '100%',
                   left: 0,
                   right: 0,
-                  backgroundColor: '#2d2d2d',
-                  border: '1px solid #444',
-                  borderRadius: '8px',
+                  backgroundColor: '#1e1e1e',
+                  border: '1px solid #333',
+                  borderRadius: '12px',
                   marginBottom: '8px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                  zIndex: 1000
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                  zIndex: 1000,
+                  backdropFilter: 'blur(8px)',
+                  padding: '4px'
                 }}>
                   <button
                     onClick={() => {
                       setShowUserMenu(false)
                       signOut()
                     }}
-                    className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 flex items-center space-x-2 transition-colors duration-150 rounded-lg"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '12px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s',
+                      color: '#e5e5e5',
+                      fontSize: '14px',
+                      fontFamily: 'inherit'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#404040'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }}
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Sign out</span>
