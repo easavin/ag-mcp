@@ -334,35 +334,6 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
             </button>
           </div>
         </form>
-
-        {/* Demo credentials */}
-        <div style={{ padding: '0 24px 24px' }}>
-          <div style={{
-            backgroundColor: '#1f2937',
-            border: '1px solid #d97706',
-            borderRadius: '8px',
-            padding: '12px'
-          }}>
-            <h4 style={{
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#f59e0b',
-              margin: 0,
-              marginBottom: '4px'
-            }}>
-              Demo Account
-            </h4>
-            <p style={{
-              fontSize: '12px',
-              color: '#fbbf24',
-              margin: 0,
-              lineHeight: '1.4'
-            }}>
-              Email: <span style={{ fontFamily: 'monospace' }}>admin@farm.com</span><br />
-              Password: <span style={{ fontFamily: 'monospace' }}>admin123</span>
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   )

@@ -175,7 +175,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
                   <button
                     onClick={() => {
                       setShowUserMenu(false)
-                      signOut()
+                      signOut({ callbackUrl: '/' })
                     }}
                     style={{
                       width: '100%',

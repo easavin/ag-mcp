@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import AppSessionProvider from "@/components/SessionProvider";
 import "./globals.css";
 
@@ -24,6 +25,7 @@ export default function RootLayout({
         <AppSessionProvider>
           {children}
         </AppSessionProvider>
+        <Analytics />
       </body>
     </html>
   );

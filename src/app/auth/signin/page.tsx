@@ -99,12 +99,6 @@ export default function SignInPage() {
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
-
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Demo credentials: admin@farm.com / admin123
-            </p>
-          </div>
         </form>
       </div>
     </div>

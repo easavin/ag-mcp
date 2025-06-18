@@ -41,18 +41,24 @@ function ChatInterface() {
   // Get the active organization ID
   const organizationId = johnDeereConnection.organizations?.[0]?.id;
 
-  // Load sessions and user data on mount (but don't block if not authenticated)
+  // Load user data on mount (for all users)
   useEffect(() => {
-    loadSessions().catch(() => {
-      // Ignore errors for unauthenticated users
-    })
     loadUser().catch(() => {
       // Ignore errors for unauthenticated users
     })
-    checkJohnDeereConnection().catch(() => {
-      // Ignore errors for unauthenticated users
-    })
-  }, [loadSessions, loadUser, checkJohnDeereConnection])
+  }, [loadUser])
+
+  // Load sessions and John Deere connection only for authenticated users
+  useEffect(() => {
+    if (user) {
+      loadSessions().catch(() => {
+        // Ignore errors for authenticated users with session issues
+      })
+      checkJohnDeereConnection().catch(() => {
+        // Ignore errors for authenticated users with connection issues
+      })
+    }
+  }, [user, loadSessions, checkJohnDeereConnection])
 
   // Clear auth errors for unauthenticated users (these are expected)
   useEffect(() => {
@@ -163,6 +169,83 @@ function ChatInterface() {
                   }}>
                     Your AI-powered agricultural management assistant for precision Ag apps
                   </p>
+                  
+                  {/* Authentication buttons for non-authenticated users */}
+                  {!user && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                      flexWrap: 'wrap'
+                    }}>
+                      <button
+                        onClick={() => {
+                          setAuthModalMode('signin')
+                          setShowAuthModal(true)
+                        }}
+                        style={{
+                          padding: '12px 20px',
+                          fontSize: '15px',
+                          fontWeight: '500',
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          backgroundColor: 'transparent',
+                          border: '1px solid rgba(255, 255, 255, 0.3)',
+                          borderRadius: '24px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          fontFamily: 'inherit'
+                        }}
+                        onMouseEnter={(e) => {
+                          const target = e.target as HTMLButtonElement
+                          target.style.color = 'white'
+                          target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
+                          target.style.borderColor = 'rgba(255, 255, 255, 0.5)'
+                        }}
+                        onMouseLeave={(e) => {
+                          const target = e.target as HTMLButtonElement
+                          target.style.color = 'rgba(255, 255, 255, 0.9)'
+                          target.style.backgroundColor = 'transparent'
+                          target.style.borderColor = 'rgba(255, 255, 255, 0.3)'
+                        }}
+                      >
+                        Log in
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAuthModalMode('signup')
+                          setShowAuthModal(true)
+                        }}
+                        style={{
+                          padding: '12px 24px',
+                          fontSize: '15px',
+                          fontWeight: '600',
+                          color: '#1f2937',
+                          backgroundColor: 'white',
+                          border: 'none',
+                          borderRadius: '24px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                          fontFamily: 'inherit'
+                        }}
+                        onMouseEnter={(e) => {
+                          const target = e.target as HTMLButtonElement
+                          target.style.backgroundColor = '#f3f4f6'
+                          target.style.transform = 'scale(1.05)'
+                          target.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                        }}
+                        onMouseLeave={(e) => {
+                          const target = e.target as HTMLButtonElement
+                          target.style.backgroundColor = 'white'
+                          target.style.transform = 'scale(1)'
+                          target.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                        }}
+                      >
+                        Sign up for free
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
