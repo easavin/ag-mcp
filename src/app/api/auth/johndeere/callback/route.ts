@@ -161,15 +161,23 @@ export async function GET(request: NextRequest) {
       </head>
       <body>
         <script>
+          console.log('🔧 Popup callback script executing...');
+          console.log('🔧 Code:', '${code}');
+          console.log('🔧 State:', '${state}');
+          console.log('🔧 Window opener exists:', !!window.opener);
+          
           // Send the code and state to the parent window or redirect to complete the flow
           if (window.opener) {
+            console.log('🔧 Sending postMessage to parent...');
             window.opener.postMessage({
               type: 'JOHN_DEERE_AUTH_CALLBACK',
               code: '${code}',
               state: '${state}'
             }, window.location.origin);
+            console.log('🔧 PostMessage sent, closing popup...');
             window.close();
           } else {
+            console.log('🔧 No opener, redirecting to completion page...');
             // Main window was redirected, send to completion page
             window.location.href = '/johndeere-connection?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}';
           }

@@ -3,10 +3,16 @@ import { getJohnDeereAPIClient } from '@/lib/johndeere-api'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('🔍 Connection status check started')
     const johnDeereClient = getJohnDeereAPIClient()
     
     // Get organizations and their full response to extract connection links
+    console.log('📡 Fetching organizations with connection links...')
     const response = await johnDeereClient.getOrganizationsWithConnectionLinks()
+    console.log('✅ Organizations response received:', {
+      organizationsCount: response.organizations?.length || 0,
+      connectionLinksCount: response.connectionLinks?.length || 0
+    })
     
     const organizations = response.organizations || []
     const connectionLinks = response.connectionLinks || []

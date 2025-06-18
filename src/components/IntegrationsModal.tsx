@@ -57,6 +57,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
     connectJohnDeere,
     disconnectJohnDeere,
     checkJohnDeereConnection,
+    handleJohnDeereCallback,
   } = useAuthStore();
 
   const [isConnecting, setIsConnecting] = useState(false);
@@ -78,13 +79,43 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
 
   // Listen for auth completion
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data.type === 'JOHNDEERE_AUTH_SUCCESS') {
-        setIsConnecting(false);
-        checkConnectionStatus();
-      } else if (event.data.type === 'JOHNDEERE_AUTH_ERROR') {
-        setIsConnecting(false);
-        setConnectionStatus({ status: 'error', error: event.data.error });
+    const handleMessage = async (event: MessageEvent) => {
+      console.log('📨 IntegrationsModal - Received message:', event.data, 'from origin:', event.origin)
+      
+      // Ensure the message is from our domain
+      if (event.origin !== window.location.origin) {
+        console.warn('⚠️ IntegrationsModal - Ignoring message from different origin:', event.origin)
+        return
+      }
+
+      if (event.data.type === 'JOHN_DEERE_AUTH_CALLBACK') {
+        const { code, state } = event.data
+        console.log('✅ IntegrationsModal - Received OAuth callback with code:', code?.substring(0, 10) + '...', 'state:', state)
+        
+        try {
+          console.log('🔄 IntegrationsModal - Exchanging code for tokens...')
+          // Use the auth store's callback handler
+          await handleJohnDeereCallback(code, state)
+          console.log('🎉 IntegrationsModal - OAuth flow completed successfully!')
+          
+          // Refresh connection status
+          await checkConnectionStatus()
+          setIsConnecting(false)
+        } catch (error) {
+          console.error('❌ IntegrationsModal - Error during token exchange:', error)
+          setIsConnecting(false)
+          setConnectionStatus({ 
+            status: 'error', 
+            error: error instanceof Error ? error.message : 'Failed to complete connection'
+          })
+        }
+      } else if (event.data.type === 'JOHN_DEERE_AUTH_ERROR') {
+        console.error('❌ IntegrationsModal - OAuth error:', event.data.error)
+        setIsConnecting(false)
+        setConnectionStatus({ 
+          status: 'error', 
+          error: event.data.error || 'OAuth authentication failed'
+        })
       }
     };
 
@@ -94,11 +125,15 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
 
   const handleJohnDeereConnect = async () => {
     setIsConnecting(true);
+    console.log('🚀 IntegrationsModal - Starting John Deere OAuth flow...')
+    
     try {
+      console.log('📡 IntegrationsModal - Fetching authorization URL...')
       const response = await fetch('/api/auth/johndeere/authorize', { method: 'POST' });
       const data = await response.json();
       
       if (data.authorizationUrl) {
+        console.log('🔗 IntegrationsModal - Opening popup with URL:', data.authorizationUrl)
         const authWindow = window.open(
           data.authorizationUrl,
           'JohnDeereAuth',
@@ -106,8 +141,11 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         );
 
         if (!authWindow) {
+          console.error('❌ IntegrationsModal - Failed to open popup window')
           alert('Please allow pop-ups for this site to connect with John Deere.');
           setIsConnecting(false);
+        } else {
+          console.log('✅ IntegrationsModal - Popup opened successfully, waiting for OAuth callback...')
         }
       } else {
         throw new Error('No authorization URL received');

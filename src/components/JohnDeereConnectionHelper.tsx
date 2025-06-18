@@ -92,6 +92,7 @@ export default function JohnDeereConnectionHelper() {
     setConnecting(true)
     console.log('🚀 Starting John Deere OAuth flow...')
     const url = '/api/auth/johndeere/authorize'
+    console.log('🔗 Opening popup with URL:', url)
     const popup = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes')
     
     if (!popup) {
@@ -105,11 +106,15 @@ export default function JohnDeereConnectionHelper() {
       return
     }
     
-    console.log('✅ Popup opened, waiting for OAuth callback...')
+    console.log('✅ Popup opened successfully, popup object:', popup)
+    console.log('✅ Popup URL:', popup.location?.href || 'Cannot access (different origin)')
+    console.log('✅ Waiting for OAuth callback...')
     
     // Listen for messages from the popup
     const messageListener = async (event: MessageEvent) => {
       console.log('📨 Received message:', event.data, 'from origin:', event.origin)
+      console.log('📨 Expected origin:', window.location.origin)
+      console.log('📨 Message type:', event.data?.type)
       
       // Ensure the message is from our domain
       if (event.origin !== window.location.origin) {
@@ -177,7 +182,7 @@ export default function JohnDeereConnectionHelper() {
 
     // Add the message listener
     window.addEventListener('message', messageListener)
-    console.log('👂 Message listener added')
+    console.log('👂 Message listener added, waiting for messages...')
     
     // Clean up if popup is closed manually
     const checkClosed = setInterval(() => {
@@ -188,6 +193,19 @@ export default function JohnDeereConnectionHelper() {
         clearInterval(checkClosed)
       }
     }, 1000)
+    
+    // Also log popup status periodically for debugging
+    const statusCheck = setInterval(() => {
+      if (!popup?.closed) {
+        try {
+          console.log('🔍 Popup status check - still open, URL:', popup.location?.href || 'Cannot access (different origin)')
+        } catch (e) {
+          console.log('🔍 Popup status check - still open, cannot access URL (cross-origin)')
+        }
+      } else {
+        clearInterval(statusCheck)
+      }
+    }, 5000)
   }
 
   const renderStatusItem = (label: string, result: TestResult, icon: string) => {
