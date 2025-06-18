@@ -11,19 +11,26 @@
     "precision-ag"
   ],
   "scripts": {
-    "dev": "next dev",
+    "dev": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true && next dev -p 3000",
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:api": "jest --testPathPattern=api --setupFilesAfterEnv=<rootDir>/jest.setup.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:all": "npm run test && npm run test:e2e",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

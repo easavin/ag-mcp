@@ -153,7 +153,7 @@ function ChatInterface() {
                     color: '#f5f5f5', 
                     marginBottom: '16px' 
                   }}>
-                    Welcome to Ag MCP
+                    Welcome to Farm MCP
                   </h1>
                   <p style={{ 
                     color: '#a0a0a0', 

@@ -88,20 +88,43 @@ export default function JohnDeereConnectionHelper() {
     checkConnectionStatus()
   }
   
-  const handleJohnDeereConnect = () => {
+  const handleJohnDeereConnect = async () => {
     setConnecting(true)
     console.log('🚀 Starting John Deere OAuth flow...')
-    const url = '/api/auth/johndeere/authorize'
-    console.log('🔗 Opening popup with URL:', url)
-    const popup = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes')
     
-    if (!popup) {
-      console.error('❌ Failed to open popup window')
+    let popup: Window | null = null
+    
+    try {
+      // First, make a POST request to get the authorization URL
+      console.log('📡 Fetching authorization URL...')
+      const response = await fetch('/api/auth/johndeere/authorize', { method: 'POST' })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get authorization URL: ${response.status}`)
+      }
+      
+      const { authorizationUrl } = await response.json()
+      console.log('🔗 Opening popup with URL:', authorizationUrl)
+      
+      popup = window.open(authorizationUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes')
+      
+      if (!popup) {
+        console.error('❌ Failed to open popup window')
+        setConnecting(false)
+        setConnectionStatus({ 
+          status: 'error', 
+          message: 'Failed to open OAuth popup. Please allow popups for this site.', 
+          error: 'Popup blocked'
+        })
+        return
+      }
+    } catch (error) {
+      console.error('❌ Error starting OAuth flow:', error)
       setConnecting(false)
       setConnectionStatus({ 
         status: 'error', 
-        message: 'Failed to open OAuth popup. Please allow popups for this site.', 
-        error: 'Popup blocked'
+        message: 'Failed to start OAuth flow', 
+        error: error instanceof Error ? error.message : 'Unknown error'
       })
       return
     }
