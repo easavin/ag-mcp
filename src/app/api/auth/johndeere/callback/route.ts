@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getJohnDeereAPI } from '@/lib/johndeere'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,11 +14,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Verify state parameter matches what we stored
-    // For now, we'll skip state verification in development
-
-    // TODO: Get user ID from authentication session
-    const userId = 'user_placeholder'
+    // Get current authenticated user
+    const authUser = await getCurrentUser(request)
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
 
     // Exchange authorization code for tokens
     const johnDeereAPI = getJohnDeereAPI()
@@ -28,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Store tokens in database - handle missing refresh_token
     await prisma.johnDeereToken.upsert({
-      where: { userId },
+      where: { userId: authUser.id },
       update: {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token || null,
@@ -37,7 +42,7 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       },
       create: {
-        userId,
+        userId: authUser.id,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token || null,
         expiresAt,
@@ -47,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     // Update user's John Deere connection status
     const updatedUser = await prisma.user.update({
-      where: { id: userId },
+      where: { id: authUser.id },
       data: { johnDeereConnected: true },
     })
 
@@ -131,36 +136,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Process the callback using the same logic as POST
-    const userId = 'user_placeholder'
-    const johnDeereAPI = getJohnDeereAPI()
-    const tokens = await johnDeereAPI.exchangeCodeForTokens(code)
-    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
-
-    await prisma.johnDeereToken.upsert({
-      where: { userId },
-      update: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token || null,
-        expiresAt,
-        scope: tokens.scope,
-        updatedAt: new Date(),
-      },
-      create: {
-        userId,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token || null,
-        expiresAt,
-        scope: tokens.scope,
-      },
-    })
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { johnDeereConnected: true },
-    })
-
-    // Return HTML page that closes popup and sends success message to parent
+    // For GET requests (browser redirects), we can't easily get the authenticated user
+    // So we'll redirect to a success page that will handle the completion client-side
     return new NextResponse(`
       <!DOCTYPE html>
       <html>
@@ -169,30 +146,27 @@ export async function GET(request: NextRequest) {
       </head>
       <body>
         <script>
-          // THIS SCRIPT IS NO LONGER USED FOR REDIRECT but is kept for popups if we revert
+          // Send the code and state to the parent window or redirect to complete the flow
           if (window.opener) {
             window.opener.postMessage({
-              type: 'JOHN_DEERE_AUTH_SUCCESS',
-              connection: {
-                isConnected: true,
-                expiresAt: '${expiresAt.toISOString()}',
-                scope: '${tokens.scope}'
-              }
+              type: 'JOHN_DEERE_AUTH_CALLBACK',
+              code: '${code}',
+              state: '${state}'
             }, window.location.origin);
             window.close();
           } else {
-            // Main window was redirected, now send it to the connection page
-            window.location.href = '/johndeere-connection';
+            // Main window was redirected, send to completion page
+            window.location.href = '/johndeere-connection?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}';
           }
         </script>
-        <p>Authorization successful! Redirecting...</p>
+        <p>Authorization successful! Completing connection...</p>
       </body>
       </html>
     `, {
       headers: { 'Content-Type': 'text/html' },
     })
   } catch (error) {
-    console.error('Error handling John Deere GET callback:', error)
+    console.error('Error handling John Deere callback:', error)
     return new NextResponse(`
       <!DOCTYPE html>
       <html>

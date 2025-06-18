@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get user ID from authentication session
-    // For now, we'll use the placeholder user
-    const userId = 'user_placeholder'
+    // Get current authenticated user
+    const authUser = await getCurrentUser(request)
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
 
-    // Get user data
+    // Get user data from database
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: authUser.id },
     })
 
     if (!user) {

@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 
 // GET /api/chat/sessions - Get all chat sessions for the user
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get user ID from authentication
-    // For now, we'll use a placeholder user ID
-    const userId = 'user_placeholder'
+    // Get current authenticated user
+    const authUser = await getCurrentUser(request)
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
 
     const sessions = await prisma.chatSession.findMany({
-      where: { userId },
+      where: { userId: authUser.id },
       include: {
         messages: {
           orderBy: { createdAt: 'asc' },
@@ -40,13 +47,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Get user ID from authentication
-    // For now, we'll use a placeholder user ID
-    const userId = 'user_placeholder'
+    // Get current authenticated user
+    const authUser = await getCurrentUser(request)
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
 
     const session = await prisma.chatSession.create({
       data: {
-        userId,
+        userId: authUser.id,
         title,
       },
       include: {

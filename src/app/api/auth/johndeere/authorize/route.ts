@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getJohnDeereAPI } from '@/lib/johndeere'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
-    // TODO: Get user ID from authentication session
-    // For now, we'll use the placeholder user
-    const userId = 'user_placeholder'
+    // Get current authenticated user
+    const authUser = await getCurrentUser(request)
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
 
     // Check if user exists
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: authUser.id },
     })
 
     if (!user) {
@@ -41,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Store the state parameter temporarily (in a real app, you'd use Redis or similar)
     // For now, we'll store it in the database
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: authUser.id },
       data: {
         // We'll add a temporary field for OAuth state
         // In production, use a separate table or cache

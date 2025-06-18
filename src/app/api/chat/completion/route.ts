@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLLMService, AGRICULTURAL_SYSTEM_PROMPT, ChatMessage, FunctionCall } from '@/lib/llm'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 import { mcpToolExecutor, ALL_MCP_TOOLS } from '@/lib/mcp-tools'
 import { JohnDeereConnectionError, JohnDeereRCAError, JohnDeerePermissionError } from '@/lib/johndeere-api'
 
@@ -230,8 +231,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Get user ID from authentication session
-    const userId = 'user_placeholder'
+    // Get current authenticated user
+    const authUser = await getCurrentUser(request)
+    
+    if (!authUser) {
+      console.error('❌ Authentication required')
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    
+    const userId = authUser.id
 
     // Verify session belongs to user
     console.log('🔍 Verifying session:', sessionId)

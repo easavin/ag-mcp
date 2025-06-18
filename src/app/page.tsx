@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import AuthProvider from '@/components/AuthProvider'
 import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
@@ -400,7 +401,9 @@ function ChatInterface() {
 
 export default function Home() {
   return (
-    <ChatInterface />
+    <AuthProvider>
+      <ChatInterface />
+    </AuthProvider>
   )
 }
 

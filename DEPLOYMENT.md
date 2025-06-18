@@ -1,6 +1,6 @@
 # AgMCP Deployment Guide
 
-This guide covers deploying the AgMCP (Agricultural Model Context Protocol) application to production environments.
+This guide covers deploying the Agricultural Management & Chat Platform (AgMCP) to production with proper authentication and John Deere integration.
 
 ## 🚀 Quick Start
 
@@ -10,37 +10,40 @@ This guide covers deploying the AgMCP (Agricultural Model Context Protocol) appl
 - Node.js 18+ (for local development)
 - PostgreSQL 15+ (if not using Docker)
 - Redis (optional, for production caching)
+- John Deere Developer Account
+- LLM API keys (OpenAI and/or Google)
+- Domain name and SSL certificate
 
 ### Environment Variables
 
 Create a `.env.local` file with the following variables:
 
 ```bash
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/agmcp"
-
 # Authentication
-NEXTAUTH_URL="https://your-domain.com"
-NEXTAUTH_SECRET="your-super-secret-key-change-this-in-production"
+NEXTAUTH_URL=https://yourdomain.com
+NEXTAUTH_SECRET=your-super-secret-jwt-key-here
+
+# Database
+DATABASE_URL=postgresql://username:password@host:port/database
 
 # John Deere API
-JOHN_DEERE_CLIENT_ID="your-john-deere-client-id"
-JOHN_DEERE_CLIENT_SECRET="your-john-deere-client-secret"
-JOHN_DEERE_ENVIRONMENT="sandbox" # or "production"
+JOHN_DEERE_CLIENT_ID=your_client_id
+JOHN_DEERE_CLIENT_SECRET=your_client_secret
+JOHN_DEERE_ENVIRONMENT=production
 
-# LLM APIs (at least one required)
-GOOGLE_API_KEY="your-google-api-key"
-OPENAI_API_KEY="your-openai-api-key"
+# LLM APIs
+OPENAI_API_KEY=your_openai_key
+GOOGLE_API_KEY=your_google_key
 
 # File Upload
-MAX_FILE_SIZE=10485760 # 10MB
-UPLOAD_DIR="./uploads"
+MAX_FILE_SIZE=10485760
+UPLOAD_DIR=/app/uploads
 
 # Redis (optional)
 REDIS_URL="redis://localhost:6379"
 ```
 
-## 🐳 Docker Deployment
+## �� Docker Deployment
 
 ### Option 1: Docker Compose (Recommended)
 
@@ -408,4 +411,145 @@ For deployment issues:
 4. Check database connectivity
 5. Ensure all required services are running
 
-For additional help, refer to the project documentation or create an issue in the repository. 
+For additional help, refer to the project documentation or create an issue in the repository.
+
+## Authentication System
+
+The application uses NextAuth.js with credentials provider:
+
+### Demo User (Development)
+- **Email**: admin@farm.com
+- **Password**: admin123
+
+### Production Setup
+
+1. **Update Password Authentication**: Replace the hardcoded password check in `src/app/api/auth/[...nextauth]/route.ts` with proper password hashing:
+
+```typescript
+// Replace this line:
+const isPasswordValid = credentials.password === 'admin123'
+
+// With proper bcrypt verification:
+const isPasswordValid = await compare(credentials.password, user.hashedPassword)
+```
+
+2. **Add User Registration**: Create a registration endpoint to allow new users to sign up.
+
+3. **Add Password Reset**: Implement password reset functionality.
+
+## John Deere Integration Setup
+
+1. **John Deere Developer Portal**:
+   - Go to https://developer.deere.com/
+   - Create application
+   - Set redirect URI: `https://yourdomain.com/api/auth/johndeere/callback`
+   - Request scopes: `ag1`, `ag2`, `ag3`, `eq1`, `files`, `offline_access`
+
+2. **Environment Configuration**:
+   - Set `JOHN_DEERE_ENVIRONMENT=production`
+   - Update redirect URI in production
+
+## Vercel Deployment
+
+### 1. Connect Repository
+- Connect your GitHub repository to Vercel
+- Set environment variables in Vercel dashboard
+
+### 2. Database Setup
+```bash
+# Use a managed PostgreSQL service like Neon, Supabase, or PlanetScale
+# Update DATABASE_URL in Vercel environment variables
+```
+
+### 3. Build Configuration
+The application includes proper `next.config.js` and builds automatically.
+
+## Security Considerations
+
+### 1. Environment Variables
+- Never commit `.env.local` or `.env` files
+- Use strong, unique secrets for `NEXTAUTH_SECRET`
+- Rotate API keys regularly
+
+### 2. Authentication
+- Implement proper password hashing
+- Add rate limiting for auth endpoints
+- Use HTTPS in production
+
+### 3. Database
+- Use connection pooling
+- Regular backups
+- Restrict database access
+
+### 4. API Security
+- Validate all inputs
+- Implement proper error handling
+- Monitor API usage
+
+## Monitoring and Maintenance
+
+### 1. Health Checks
+- `/api/health` endpoint included
+- Monitor database connectivity
+- Check John Deere API status
+
+### 2. Logging
+- Application logs to console
+- Set up log aggregation (e.g., Datadog, LogRocket)
+- Monitor error rates
+
+### 3. Performance
+- Monitor LLM API usage
+- Database query optimization
+- CDN for static assets
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Authentication Errors**:
+   - Check `NEXTAUTH_SECRET` is set
+   - Verify `NEXTAUTH_URL` matches domain
+   - Ensure user exists in database
+
+2. **John Deere Connection**:
+   - Verify redirect URI matches exactly
+   - Check API credentials
+   - Confirm required scopes
+
+3. **LLM Integration**:
+   - Validate API keys
+   - Check rate limits
+   - Monitor token usage
+
+### Database Issues
+```bash
+# Reset database if needed
+npx prisma migrate reset
+npm run db:seed
+```
+
+### Logs
+```bash
+# Docker logs
+docker-compose logs -f app
+
+# Application logs
+npm run dev # for development debugging
+```
+
+## Scaling Considerations
+
+- Use Redis for session storage
+- Implement database read replicas
+- CDN for file uploads
+- Load balancing for multiple instances
+- Queue system for heavy operations
+
+## Support
+
+For issues or questions:
+1. Check the troubleshooting section
+2. Review application logs
+3. Verify environment configuration
+4. Check John Deere Developer Portal status 

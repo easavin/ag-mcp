@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Get user ID from authentication session
-    const userId = 'user_placeholder'
+    // Get current authenticated user
+    const authUser = await getCurrentUser(request)
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
 
     // Get user and token information
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: authUser.id },
       include: {
         johnDeereTokens: true,
       },
@@ -35,7 +43,7 @@ export async function GET(request: NextRequest) {
     if (isExpired) {
       // Mark user as disconnected if token is expired
       await prisma.user.update({
-        where: { id: userId },
+        where: { id: authUser.id },
         data: { johnDeereConnected: false },
       })
 
