@@ -684,6 +684,63 @@ export class JohnDeereAPIClient {
   }
 
   /**
+   * Get all field operations for an organization (across all fields)
+   */
+  async getFieldOperationsForOrganization(organizationId: string, options?: {
+    startDate?: string
+    endDate?: string
+    fieldId?: string
+  }): Promise<JDFieldOperation[]> {
+    try {
+      // If a specific field is requested, use the field-specific method
+      if (options?.fieldId) {
+        return await this.getFieldOperations(organizationId, options.fieldId);
+      }
+
+      // Otherwise, get operations for all fields in the organization
+      const fields = await this.getFields(organizationId);
+      let allOperations: JDFieldOperation[] = [];
+
+      // Fetch operations for each field
+      const operationsPromises = fields.map(async (field) => {
+        try {
+          const fieldOperations = await this.getFieldOperations(organizationId, field.id);
+          return fieldOperations;
+        } catch (error) {
+          console.warn(`Failed to get operations for field ${field.id}:`, error);
+          return [];
+        }
+      });
+
+      const results = await Promise.allSettled(operationsPromises);
+      results.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+          allOperations.push(...result.value);
+        }
+      });
+
+      // Apply date filtering if provided
+      if (options?.startDate || options?.endDate) {
+        allOperations = allOperations.filter(operation => {
+          const operationDate = new Date(operation.startTime);
+          if (options.startDate && operationDate < new Date(options.startDate)) {
+            return false;
+          }
+          if (options.endDate && operationDate > new Date(options.endDate)) {
+            return false;
+          }
+          return true;
+        });
+      }
+
+      return allOperations;
+    } catch (error) {
+      this.handleApiError(error, 'getFieldOperationsForOrganization');
+      throw error;
+    }
+  }
+
+  /**
    * Get machine locations for specific equipment
    */
   async getMachineLocations(equipmentId: string, options?: {
@@ -851,18 +908,8 @@ export class JohnDeereAPIClient {
         this.getFarms(organizationId),
       ])
 
-      // Field operations need to be fetched per field, so we'll do that separately
-      // This could be optimized further if needed
-      let operations: JDFieldOperation[] = []
-      if (fields && fields.length > 0) {
-        const operationsPromises = fields.map(field => this.getFieldOperations(organizationId, field.id));
-        const results = await Promise.allSettled(operationsPromises);
-        results.forEach(result => {
-          if (result.status === 'fulfilled' && result.value) {
-            operations.push(...result.value);
-          }
-        });
-      }
+      // Get all field operations for the organization
+      const operations = await this.getFieldOperationsForOrganization(organizationId);
       
       return {
         organization,

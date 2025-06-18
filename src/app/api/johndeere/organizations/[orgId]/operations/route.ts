@@ -15,7 +15,7 @@ export async function GET(
     const fieldId = searchParams.get('fieldId') || undefined
 
     const johnDeereClient = getJohnDeereAPIClient()
-    const operations = await johnDeereClient.getFieldOperations(orgId, {
+    const operations = await johnDeereClient.getFieldOperationsForOrganization(orgId, {
       startDate,
       endDate,
       fieldId,

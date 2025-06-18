@@ -392,6 +392,9 @@ The user has NOT selected a data source yet. When they ask about specific farm d
 
         console.log('✅ All function calls completed:', functionResults.map(fr => ({ name: fr.name, hasError: !!fr.error })))
 
+        // Preserve the original function calls before getting final response
+        const originalFunctionCalls = response.functionCalls
+
         // Check if any function results contain connection errors
         const hasConnectionErrors = functionResults.some(result => 
           result.result?.error === 'connection_required' || 
@@ -431,6 +434,9 @@ The user has NOT selected a data source yet. When they ask about specific farm d
           systemPrompt: finalSystemPrompt,
           enableFunctions: false, // Disable functions for final response
         })
+
+        // Restore the original function calls to the response
+        response.functionCalls = originalFunctionCalls
 
         console.log('✅ Final response generated:', {
           model: response.model,
