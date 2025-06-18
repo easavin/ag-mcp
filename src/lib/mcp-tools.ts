@@ -258,16 +258,16 @@ export const DATA_RETRIEVAL_TOOLS: MCPTool[] = [
   },
   {
     name: 'list_john_deere_files',
-    description: 'List files available in the connected John Deere account for a specific organization.',
+    description: 'List files available in the connected John Deere account for a specific organization. If no organization ID is provided, it will automatically use the first available organization.',
     parameters: {
       type: 'object',
       properties: {
         organizationId: {
           type: 'string',
-          description: 'The ID of the organization to list files for.'
+          description: 'The ID of the organization to list files for. This is optional - if not provided, the first available organization will be used.'
         }
       },
-      required: ['organizationId']
+      required: []
     }
   },
   {
@@ -505,18 +505,31 @@ export class MCPToolExecutor {
     }
   }
 
-  private async listJohnDeereFiles(params: { organizationId: string }): Promise<MCPToolResult> {
+  private async listJohnDeereFiles(params: { organizationId?: string }): Promise<MCPToolResult> {
     try {
       const apiClient = getJohnDeereAPIClient();
-      const files = await apiClient.getFiles(params.organizationId);
+      let orgId = params.organizationId;
+
+      // If orgId is not provided, fetch the default one
+      if (!orgId) {
+        const orgs = await apiClient.getOrganizations();
+        if (orgs && orgs.length > 0) {
+          orgId = orgs[0].id;
+          console.log(`🏢 Auto-detected organization ID for files: ${orgId}`);
+        } else {
+          return { success: false, message: 'Could not find any John Deere organizations.' };
+        }
+      }
+      
+      const files = await apiClient.getFiles(orgId);
       
       return {
         success: true,
-        message: `Retrieved ${files.length} files for organization ${params.organizationId}.`,
+        message: `Retrieved ${files.length} files for organization ${orgId}.`,
         data: files
       };
     } catch (error: any) {
-      return { success: false, message: `Failed to list files for organization ${params.organizationId}: ${error.message}` };
+      return { success: false, message: `Failed to list files: ${error.message}` };
     }
   }
 
