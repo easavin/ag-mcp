@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { MessageSquare, Settings, Plus, Trash2 } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { MessageSquare, Settings, Plus, Trash2, LogOut, ChevronUp } from 'lucide-react'
+import { signOut } from 'next-auth/react'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
@@ -17,6 +18,25 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [showIntegrations, setShowIntegrations] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false)
+      }
+    }
+
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showUserMenu])
   
   const {
     currentSessionId,
@@ -137,18 +157,71 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
               Settings
             </button>
             
-            {/* User Information */}
-            <div className="user-info">
-              <div className="user-avatar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-              </div>
-              <div className="user-details">
-                <div className="user-name">{user.name || 'User'}</div>
-                <div className="user-email">{user.email}</div>
-              </div>
+            {/* User Information with Dropdown */}
+            <div ref={userMenuRef} className="user-info-container" style={{ position: 'relative' }}>
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <div className="user-dropdown" style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: '#2d2d2d',
+                  border: '1px solid #444',
+                  borderRadius: '8px',
+                  marginBottom: '8px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                  zIndex: 1000
+                }}>
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false)
+                      signOut()
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 flex items-center space-x-2 transition-colors duration-150 rounded-lg"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sign out</span>
+                  </button>
+                </div>
+              )}
+              
+              {/* User Info Button */}
+              <button 
+                className="user-info"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                  color: 'inherit'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#333'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                }}
+              >
+                <div className="user-avatar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+                <div className="user-details" style={{ flex: 1, textAlign: 'left' }}>
+                  <div className="user-name">{user.name || 'User'}</div>
+                  <div className="user-email">{user.email}</div>
+                </div>
+                <ChevronUp className={`w-4 h-4 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`} />
+              </button>
             </div>
           </div>
         </div>
