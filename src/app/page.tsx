@@ -122,16 +122,16 @@ function ChatInterface() {
               {messages.length === 0 && !isLoading && (
                 <div className="text-center py-12">
                   <h1 className="text-2xl font-semibold text-gray-900 mb-4">
-                    Welcome to Ag Assistant
+                    Welcome to Ag MCP
                   </h1>
                   <p className="text-gray-600 mb-8">
-                    Your AI-powered agricultural management assistant with John Deere integration
+                    Your AI-powered agricultural management assistant for precision Ag apps
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <h3 className="font-medium text-green-900 mb-2">Farm Data Access</h3>
                       <p className="text-sm text-green-700">
-                        Connect your John Deere account to access field data, equipment status, and operations history
+                        Connect your FMS accounts to access field data, equipment status, and operations history
                       </p>
                     </div>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

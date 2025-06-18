@@ -69,13 +69,13 @@ export default function AuthHeader() {
         <button
           onClick={() => setShowAuthModal(true)}
           style={{
-            padding: '8px 16px',
-            fontSize: '14px',
+            padding: '12px 20px',
+            fontSize: '15px',
             fontWeight: '500',
-            color: 'rgba(255, 255, 255, 0.8)',
+            color: 'rgba(255, 255, 255, 0.9)',
             backgroundColor: 'transparent',
-            border: 'none',
-            borderRadius: '8px',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '10px',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
             fontFamily: 'inherit'
@@ -84,11 +84,13 @@ export default function AuthHeader() {
             const target = e.target as HTMLButtonElement
             target.style.color = 'white'
             target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
+            target.style.borderColor = 'rgba(255, 255, 255, 0.5)'
           }}
           onMouseLeave={(e) => {
             const target = e.target as HTMLButtonElement
-            target.style.color = 'rgba(255, 255, 255, 0.8)'
+            target.style.color = 'rgba(255, 255, 255, 0.9)'
             target.style.backgroundColor = 'transparent'
+            target.style.borderColor = 'rgba(255, 255, 255, 0.3)'
           }}
         >
           Log in
@@ -96,13 +98,13 @@ export default function AuthHeader() {
         <button
           onClick={() => setShowAuthModal(true)}
           style={{
-            padding: '8px 20px',
-            fontSize: '14px',
+            padding: '12px 24px',
+            fontSize: '15px',
             fontWeight: '600',
             color: '#1f2937',
             backgroundColor: 'white',
             border: 'none',
-            borderRadius: '20px',
+            borderRadius: '24px',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
