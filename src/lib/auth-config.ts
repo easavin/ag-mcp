@@ -25,9 +25,18 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // For now, we'll create a simple password check
-        // In production, you'd hash passwords with bcrypt
-        const isPasswordValid = credentials.password === 'admin123'
+        // Validate password
+        let isPasswordValid = false
+        
+        if (user.password) {
+          // For users with stored passwords, validate against their password
+          // In production, you'd use bcrypt.compare(credentials.password, user.password)
+          isPasswordValid = credentials.password === user.password
+        } else {
+          // For backward compatibility with existing users (like admin@farm.com)
+          // who don't have passwords stored, use the hardcoded password
+          isPasswordValid = credentials.password === 'admin123'
+        }
 
         if (!isPasswordValid) {
           return null

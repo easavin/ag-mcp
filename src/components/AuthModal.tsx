@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
 import { X, Sprout, Shield, Zap } from 'lucide-react'
 
@@ -17,6 +17,14 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
   const [error, setError] = useState('')
   const [isSignUp, setIsSignUp] = useState(defaultMode === 'signup')
 
+  // Update isSignUp when defaultMode changes or when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setIsSignUp(defaultMode === 'signup')
+      setError('') // Clear any previous errors when modal opens
+    }
+  }, [isOpen, defaultMode])
+
   if (!isOpen) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,20 +33,53 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
     setError('')
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
+      if (isSignUp) {
+        // Handle sign-up
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        })
 
-      if (result?.error) {
-        setError('Invalid email or password')
+        const data = await response.json()
+
+        if (!response.ok) {
+          setError(data.error || 'Failed to create account')
+          return
+        }
+
+        // After successful registration, automatically sign in
+        const signInResult = await signIn('credentials', {
+          email,
+          password,
+          redirect: false,
+        })
+
+        if (signInResult?.error) {
+          setError('Account created but sign-in failed. Please try signing in manually.')
+        } else {
+          onClose()
+          window.location.reload() // Refresh to update auth state
+        }
       } else {
-        onClose()
-        window.location.reload() // Refresh to update auth state
+        // Handle sign-in
+        const result = await signIn('credentials', {
+          email,
+          password,
+          redirect: false,
+        })
+
+        if (result?.error) {
+          setError('Invalid email or password')
+        } else {
+          onClose()
+          window.location.reload() // Refresh to update auth state
+        }
       }
     } catch (err) {
-      setError('An error occurred during sign in')
+      setError(isSignUp ? 'An error occurred during account creation' : 'An error occurred during sign in')
     } finally {
       setIsLoading(false)
     }
@@ -307,7 +348,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
               }
             }}
           >
-            {isLoading ? 'Signing in...' : (isSignUp ? 'Create Account' : 'Sign In')}
+            {isLoading ? (isSignUp ? 'Creating Account...' : 'Signing in...') : (isSignUp ? 'Create Account' : 'Sign In')}
           </button>
 
           <div style={{ textAlign: 'center' }}>
