@@ -206,6 +206,7 @@ export const useChatStore = create<ChatState>()(
       },
 
       sendMessage: async (sessionId, content, fileAttachments) => {
+        console.log('📤 sendMessage called with sessionId:', sessionId)
         set({ isLoading: true, error: null })
         try {
           // First, save the user message
@@ -240,10 +241,17 @@ export const useChatStore = create<ChatState>()(
           }))
 
           // Get all messages for the session to send to LLM
-          const currentSession = get().sessions.find(s => s.id === sessionId)
+          const state = get()
+          console.log('🔍 Looking for session:', sessionId, 'in sessions:', state.sessions.map(s => s.id))
+          let currentSession = state.sessions.find(s => s.id === sessionId)
+          
           if (!currentSession) {
-            throw new Error('Session not found')
+            console.error('❌ Session not found:', sessionId)
+            console.error('Available sessions:', state.sessions.map(s => ({ id: s.id, title: s.title })))
+            throw new Error(`Session not found: ${sessionId}`)
           }
+          
+          console.log('✅ Found session:', currentSession.id, 'with', currentSession.messages.length, 'messages')
 
           const allMessages = [...currentSession.messages, userMessage]
 

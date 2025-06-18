@@ -85,13 +85,22 @@ function ChatInterface() {
       return
     }
 
-    if (!currentSessionId) {
-      const newSession = await createSession('New Chat')
-      if (newSession?.id) {
-        await sendMessage(newSession.id, content, fileAttachments)
+    try {
+      let sessionId = currentSessionId
+
+      // Create a new session if none exists
+      if (!sessionId) {
+        const newSession = await createSession('New Chat')
+        sessionId = newSession.id
       }
-    } else {
-      await sendMessage(currentSessionId, content, fileAttachments)
+
+      // Send the message to the session
+      if (sessionId) {
+        await sendMessage(sessionId, content, fileAttachments)
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      // The error will be handled by the chat store and displayed in the UI
     }
   }
 
@@ -120,12 +129,27 @@ function ChatInterface() {
           </div>
 
           {/* Messages area */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
-            <div style={{ maxWidth: '768px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            padding: '16px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: messages.length === 0 ? 'center' : 'flex-start'
+          }}>
+            <div style={{ 
+              maxWidth: '768px', 
+              margin: '0 auto', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '24px',
+              width: '100%',
+              ...(messages.length === 0 ? { justifyContent: 'center', alignItems: 'center', flex: 1 } : {})
+            }}>
               {messages.length === 0 && !isLoading && (
                 <div style={{ textAlign: 'center', padding: '48px 0' }}>
                   <h1 style={{ 
-                    fontSize: '24px', 
+                    fontSize: '32px', 
                     fontWeight: '600', 
                     color: '#f5f5f5', 
                     marginBottom: '16px' 
@@ -135,40 +159,10 @@ function ChatInterface() {
                   <p style={{ 
                     color: '#a0a0a0', 
                     marginBottom: '32px',
-                    fontSize: '16px'
+                    fontSize: '18px'
                   }}>
                     Your AI-powered agricultural management assistant for precision Ag apps
                   </p>
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-                    gap: '16px', 
-                    maxWidth: '640px', 
-                    margin: '0 auto' 
-                  }}>
-                    <div style={{
-                      backgroundColor: '#2a3f2a',
-                      border: '1px solid #4a6741',
-                      borderRadius: '8px',
-                      padding: '16px'
-                    }}>
-                      <h3 style={{ fontWeight: '500', color: '#90c695', marginBottom: '8px' }}>Farm Data Access</h3>
-                      <p style={{ fontSize: '14px', color: '#a0c4a5' }}>
-                        Connect your FMS accounts to access field data, equipment status, and operations history
-                      </p>
-                    </div>
-                    <div style={{
-                      backgroundColor: '#2a3a4f',
-                      border: '1px solid #4167a1',
-                      borderRadius: '8px',
-                      padding: '16px'
-                    }}>
-                      <h3 style={{ fontWeight: '500', color: '#9bb4d4', marginBottom: '8px' }}>AI-Powered Insights</h3>
-                      <p style={{ fontSize: '14px', color: '#a5b8d1' }}>
-                        Get intelligent recommendations for planting, harvesting, and field management
-                      </p>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -180,6 +174,11 @@ function ChatInterface() {
                   content={message.content}
                   timestamp={message.createdAt}
                   fileAttachments={message.fileAttachments}
+                  onDataSourceSelect={async (sourceId: string, dataType: string) => {
+                    console.log('🔧 Data source selected:', sourceId, 'for', dataType)
+                    setCurrentDataSource(sourceId)
+                  }}
+                  currentDataSource={currentDataSource}
                 />
               ))}
 

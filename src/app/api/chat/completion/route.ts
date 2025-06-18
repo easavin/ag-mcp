@@ -286,13 +286,13 @@ export async function POST(request: NextRequest) {
 
     console.log('💬 Chat messages prepared:', chatMessages.length)
 
-    // Prepare context-aware system prompt based on connection status
+    // Prepare context-aware system prompt based on data source selection
     let systemPrompt = AGRICULTURAL_SYSTEM_PROMPT
     
     if (currentDataSource) {
       // User has selected a data source - immediately call functions for data requests
       systemPrompt += `\n\n**IMPORTANT CONTEXT:**
-The user has already selected "${currentDataSource}" as their active data source. When they ask about farm data (fields, equipment, organizations, operations), you MUST immediately use the available John Deere API functions to fetch their data.
+The user has selected "${currentDataSource}" as their active data source. When they ask about farm data (fields, equipment, organizations, operations), you MUST immediately use the available John Deere API functions to fetch their data.
 
 **REQUIRED ACTIONS for John Deere data requests:**
 - For field questions (count, list, details): Call getFields() - it will auto-fetch organization
@@ -306,39 +306,48 @@ The user has already selected "${currentDataSource}" as their active data source
 - User: "how many machines do I have" → IMMEDIATELY call getEquipment() → count the returned equipment
 - User: "operations on field X" → IMMEDIATELY call getOperations() → show the operations data
 
-**DO NOT:**
-- Show data source selection options (they already selected one)
-- Give generic responses without calling functions
-- Ask the user to provide organization IDs manually
-
 **DO:**
 - Automatically fetch the organization first, then use its ID for subsequent calls
 - Provide specific data-driven responses based on actual API results
 
+**DO NOT:**
+- Give generic responses without calling functions
+- Ask the user to provide organization IDs manually
+
 Current active data source: ${currentDataSource}`
     } else {
-      // No data source selected - show selection for data requests
+      // No data source selected - offer selection for data requests
       systemPrompt += `\n\n**IMPORTANT CONTEXT:**
-The user has NOT selected a data source yet. When they ask about specific farm data (fields, equipment, organizations, operations), you should show them the data source selection options.
+The user has NOT selected a data source yet. When they ask about specific farm data (fields, equipment, organizations, operations), you should offer them data source selection options in a helpful way.
 
 **REQUIRED ACTIONS for farm data requests:**
-- For questions about "my fields", "my equipment", "my operations", etc. → Show data source selection
+- For questions about "my fields", "my equipment", "my operations", etc. → Offer data source selection
 - For general farming advice → Answer directly without data source selection
 - For MCP tool actions (scheduling, recommendations) → Execute directly without data source selection
 
 **EXAMPLES:** 
-- User: "how many fields do I have" → Show data source selection with John Deere Operations Center
+- User: "how many fields do I have" → "I can help you check your field count! To access your field data, please select a data source. You can connect to your John Deere Operations Center to view your fields, equipment, and operations data."
 - User: "what's the best time to plant corn" → Answer directly with farming advice
 - User: "schedule planting for next week" → Use MCP tools directly
 
+**DATA SOURCE SELECTION RESPONSE FORMAT:**
+When user asks for farm data without selecting a source, respond with:
+"I can help you with [their request]! To access your farm data, you'll need to select a data source first. 
+
+**Available Data Sources:**
+🚜 **John Deere Operations Center** - Access your fields, equipment, operations, and farm management data
+
+You can select a data source using the dropdown in the top-left corner of the interface, or let me know which data source you'd like to use."
+
 **DO:**
-- Show data source selection for specific data requests
+- Offer helpful data source selection for specific data requests
 - Provide general farming advice without requiring data source selection
 - Use MCP tools for farming actions without requiring data source selection
+- Be encouraging and helpful about the data source selection process
 
 **DO NOT:**
 - Call John Deere API functions when no data source is selected
-- Give generic responses to data requests - show the selection instead`
+- Give generic responses without explaining the data source selection`
     }
 
     // Generate completion with appropriate function calling
