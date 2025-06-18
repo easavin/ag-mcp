@@ -86,7 +86,7 @@ export default function AuthHeader() {
             color: 'rgba(255, 255, 255, 0.9)',
             backgroundColor: 'transparent',
             border: '1px solid rgba(255, 255, 255, 0.3)',
-            borderRadius: '10px',
+            borderRadius: '24px',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
             fontFamily: 'inherit'
