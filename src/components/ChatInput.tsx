@@ -8,9 +8,10 @@ interface ChatInputProps {
   onSendMessage: (message: string, uploadedFiles?: { name: string; url: string }[]) => void;
   disabled?: boolean
   organizationId?: string | null;
+  placeholder?: string;
 }
 
-export default function ChatInput({ onSendMessage, disabled, organizationId }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, disabled, organizationId, placeholder }: ChatInputProps) {
   const [message, setMessage] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false);
@@ -142,7 +143,7 @@ export default function ChatInput({ onSendMessage, disabled, organizationId }: C
                 ref={textareaRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Ask about your fields, equipment, or upload a prescription file..."
+                placeholder={placeholder || "Ask about your fields, equipment, or upload a prescription file..."}
                 className="chat-input-field"
                 rows={1}
                 disabled={disabled}

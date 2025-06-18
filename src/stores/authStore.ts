@@ -72,6 +72,11 @@ export const useAuthStore = create<AuthState>()(
             const response = await fetch('/api/auth/user')
 
             if (!response.ok) {
+              // For 401 errors (unauthenticated), don't set error state
+              if (response.status === 401) {
+                set({ isLoading: false, user: null, isAuthenticated: false })
+                return
+              }
               throw new Error('Failed to load user')
             }
 
@@ -79,8 +84,13 @@ export const useAuthStore = create<AuthState>()(
             get().setUser(user)
             set({ isLoading: false })
           } catch (error) {
+            // Only set error for unexpected failures, not authentication failures
             const errorMessage = error instanceof Error ? error.message : 'Failed to load user'
-            set({ error: errorMessage, isLoading: false })
+            set({ isLoading: false, user: null, isAuthenticated: false })
+            // Don't set error for expected authentication failures
+            if (errorMessage !== 'Failed to load user') {
+              set({ error: errorMessage })
+            }
           }
         },
 

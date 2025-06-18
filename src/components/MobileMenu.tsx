@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Menu, X, MessageSquare, Settings, Plus, Trash2, Layers } from 'lucide-react'
 import { useChatStore } from '@/stores/chatStore'
+import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
 import SettingsModal from './SettingsModal'
 import IntegrationsModal from './IntegrationsModal'
@@ -24,6 +25,13 @@ export default function MobileMenu({ className = '' }: MobileMenuProps) {
     setCurrentSession,
     isLoading,
   } = useChatStore()
+
+  const { user } = useAuthStore()
+
+  // Don't show mobile menu for non-authenticated users
+  if (!user) {
+    return null
+  }
 
   const handleNewChat = async () => {
     try {
