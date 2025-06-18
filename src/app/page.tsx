@@ -31,6 +31,7 @@ function ChatInterface() {
   const { user, loadUser, checkJohnDeereConnection, johnDeereConnection } = useAuthStore()
   const { steps, addStep, updateStep, clearSteps } = useProgressIndicator()
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLDivElement>(null)
 
@@ -81,6 +82,7 @@ function ChatInterface() {
     if (!user) {
       // Show authentication modal instead of blocking
       setShowAuthModal(true)
+      setAuthModalMode('signin')
       return
     }
 
@@ -189,6 +191,7 @@ function ChatInterface() {
       <AuthModal 
         isOpen={showAuthModal} 
         onClose={() => setShowAuthModal(false)} 
+        defaultMode={authModalMode}
       />
     </div>
   )

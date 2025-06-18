@@ -8,7 +8,18 @@ import AuthModal from './AuthModal'
 export default function AuthHeader() {
   const { data: session, status } = useSession()
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin')
   const [showUserMenu, setShowUserMenu] = useState(false)
+
+  const openSignIn = () => {
+    setAuthModalMode('signin')
+    setShowAuthModal(true)
+  }
+
+  const openSignUp = () => {
+    setAuthModalMode('signup')
+    setShowAuthModal(true)
+  }
 
   if (status === 'loading') {
     return (
@@ -67,7 +78,7 @@ export default function AuthHeader() {
         gap: '12px'
       }}>
         <button
-          onClick={() => setShowAuthModal(true)}
+          onClick={openSignIn}
           style={{
             padding: '12px 20px',
             fontSize: '15px',
@@ -96,7 +107,7 @@ export default function AuthHeader() {
           Log in
         </button>
         <button
-          onClick={() => setShowAuthModal(true)}
+          onClick={openSignUp}
           style={{
             padding: '12px 24px',
             fontSize: '15px',
@@ -130,6 +141,7 @@ export default function AuthHeader() {
       <AuthModal 
         isOpen={showAuthModal} 
         onClose={() => setShowAuthModal(false)} 
+        defaultMode={authModalMode}
       />
     </>
   )
