@@ -20,19 +20,16 @@ interface Integration {
 }
 
 interface JohnDeereConnectionStatus {
-  status: 'loading' | 'connected' | 'partial_connection' | 'auth_required' | 'connection_required' | 'error'
-  organizations?: Array<{ id: string; name: string; type: string; member: boolean }>
-  connectionLinks?: string[]
+  status: string;
+  message?: string;
+  organizations?: Array<{ id: string; name: string; type: string; member?: boolean }>;
   testResults?: {
-    hasDataAccess: boolean
-    testResults: {
-      fields: { success: boolean; count: number; error?: string }
-      equipment: { success: boolean; count: number; error?: string }
-      farms: { success: boolean; count: number; error?: string }
-      assets: { success: boolean; count: number; error?: string }
-    }
-  }
-  error?: string
+    fields: { success: boolean; count: number; error?: string };
+    equipment: { success: boolean; count: number; error?: string };
+    farms: { success: boolean; count: number; error?: string };
+    files: { success: boolean; count: number; error?: string };
+  };
+  error?: string;
 }
 
 // Logo component with fallback
@@ -53,270 +50,6 @@ const LogoImage = ({ src, alt, fallback }: { src: string; alt: string; fallback?
     </>
   );
 };
-
-// John Deere Organization Connection Component
-const JohnDeereConnectionManager = ({ 
-  isConnected, 
-  connectionStatus,
-  onRefreshStatus
-}: { 
-  isConnected: boolean
-  connectionStatus: JohnDeereConnectionStatus
-  onRefreshStatus: () => Promise<void>
-}) => {
-  const [refreshing, setRefreshing] = useState(false)
-
-  const refreshStatus = async () => {
-    setRefreshing(true)
-    try {
-      await onRefreshStatus()
-    } catch (error) {
-      console.error('Failed to refresh status:', error)
-    }
-    setRefreshing(false)
-  }
-
-  const openConnectionLink = (url: string) => {
-    window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes')
-  }
-
-  if (!isConnected) return null
-
-  const renderOrganizationStatus = () => {
-    switch (connectionStatus.status) {
-      case 'loading':
-        return (
-          <div className="org-connection-status loading">
-            <div className="status-header">
-              <span className="status-icon">⏳</span>
-              <span>Checking organization access...</span>
-            </div>
-          </div>
-        )
-
-      case 'partial_connection':
-        return (
-          <div className="org-connection-status partially-connected">
-            <div className="status-header">
-              <span className="status-icon">🟡</span>
-              <span>Partially connected - Core data available</span>
-            </div>
-            
-            {connectionStatus.testResults && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">✅ <strong>Working:</strong> You have access to core farming data</p>
-                <p className="text-sm text-gray-600 mb-3">⏳ <strong>Pending:</strong> Some advanced features are still being activated</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    {connectionStatus.testResults.testResults.fields.success ? (
-                      <span className="text-green-600">✅ Fields ({connectionStatus.testResults.testResults.fields.count})</span>
-                    ) : (
-                      <span className="text-orange-600">⏳ Fields (pending)</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {connectionStatus.testResults.testResults.farms.success ? (
-                      <span className="text-green-600">✅ Farms ({connectionStatus.testResults.testResults.farms.count})</span>
-                    ) : (
-                      <span className="text-orange-600">⏳ Farms (pending)</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {connectionStatus.testResults.testResults.equipment.success ? (
-                      <span className="text-green-600">✅ Equipment ({connectionStatus.testResults.testResults.equipment.count})</span>
-                    ) : (
-                      <span className="text-orange-600">⏳ Equipment (pending)</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {connectionStatus.testResults.testResults.assets.success ? (
-                      <span className="text-green-600">✅ Assets ({connectionStatus.testResults.testResults.assets.count})</span>
-                    ) : (
-                      <span className="text-orange-600">⏳ Assets (pending)</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {connectionStatus.organizations && connectionStatus.organizations.length > 0 && (
-              <div className="org-list">
-                <p className="org-label">Connected organizations:</p>
-                {connectionStatus.organizations.map((org: any) => (
-                  <div key={org.id} className="org-item">
-                    ✓ {org.name} ({org.type})
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="org-actions">
-              {connectionStatus.connectionLinks && connectionStatus.connectionLinks.length > 0 && (
-                <button
-                  onClick={() => openConnectionLink(connectionStatus.connectionLinks![0])}
-                  className="connection-btn"
-                  style={{ background: '#f59e0b' }}
-                >
-                  🔗 Request Full Access
-                </button>
-              )}
-              <button
-                onClick={refreshStatus}
-                disabled={refreshing}
-                className="refresh-btn"
-              >
-                {refreshing ? '⟳ Checking...' : '↻ Refresh Status'}
-              </button>
-            </div>
-          </div>
-        )
-
-      case 'connection_required':
-        return (
-          <div className="org-connection-status required">
-            <div className="status-header">
-              <span className="status-icon">⚠️</span>
-              <span>Organization connection required</span>
-            </div>
-            
-            {connectionStatus.testResults && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-3">Data Access Status:</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    {connectionStatus.testResults.testResults.fields.success ? (
-                      <span className="text-green-600">✅ Fields ({connectionStatus.testResults.testResults.fields.count})</span>
-                    ) : (
-                      <span className="text-orange-600">⏳ Fields (pending)</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {connectionStatus.testResults.testResults.farms.success ? (
-                      <span className="text-green-600">✅ Farms ({connectionStatus.testResults.testResults.farms.count})</span>
-                    ) : (
-                      <span className="text-orange-600">⏳ Farms (pending)</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {connectionStatus.testResults.testResults.equipment.success ? (
-                      <span className="text-green-600">✅ Equipment ({connectionStatus.testResults.testResults.equipment.count})</span>
-                    ) : (
-                      <span className="text-orange-600">⏳ Equipment (pending)</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {connectionStatus.testResults.testResults.assets.success ? (
-                      <span className="text-green-600">✅ Assets ({connectionStatus.testResults.testResults.assets.count})</span>
-                    ) : (
-                      <span className="text-orange-600">⏳ Assets (pending)</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {connectionStatus.organizations && connectionStatus.organizations.length > 0 && (
-              <div className="org-list">
-                <p className="org-label">Found organizations:</p>
-                {connectionStatus.organizations.map((org: any) => (
-                  <div key={org.id} className="org-item">
-                    • {org.name} ({org.type})
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="org-actions">
-              {connectionStatus.connectionLinks && connectionStatus.connectionLinks.length > 0 && (
-                <button
-                  onClick={() => openConnectionLink(connectionStatus.connectionLinks![0])}
-                  className="connection-btn"
-                >
-                  🔗 Manage Organization Access
-                </button>
-              )}
-              <button
-                onClick={refreshStatus}
-                disabled={refreshing}
-                className="refresh-btn"
-              >
-                {refreshing ? '⟳ Checking...' : '↻ Refresh Status'}
-              </button>
-            </div>
-          </div>
-        )
-
-      case 'connected':
-        return (
-          <div className="org-connection-status connected">
-            <div className="status-header">
-              <span className="status-icon">✅</span>
-              <span>Fully connected and ready!</span>
-            </div>
-            
-            {connectionStatus.organizations && connectionStatus.organizations.length > 0 && (
-              <div className="org-list">
-                <p className="org-label">Connected organizations:</p>
-                {connectionStatus.organizations.map((org: any) => (
-                  <div key={org.id} className="org-item connected">
-                    ✓ {org.name} ({org.type})
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="org-actions">
-              <button
-                onClick={refreshStatus}
-                disabled={refreshing}
-                className="refresh-btn"
-              >
-                {refreshing ? '⟳ Checking...' : '↻ Refresh Status'}
-              </button>
-              <button
-                onClick={() => window.open('/johndeere-connection', '_blank')}
-                className="connection-btn"
-                style={{ background: '#6b7280' }}
-              >
-                🔍 Advanced View
-              </button>
-            </div>
-          </div>
-        )
-
-      case 'error':
-        return (
-          <div className="org-connection-status error">
-            <div className="status-header">
-              <span className="status-icon">❌</span>
-              <span>Connection error</span>
-            </div>
-            <p className="error-message">{connectionStatus.error}</p>
-            <button
-              onClick={refreshStatus}
-              disabled={refreshing}
-              className="refresh-btn"
-            >
-              {refreshing ? '⟳ Retrying...' : '↻ Try Again'}
-            </button>
-          </div>
-        )
-
-      default:
-        return null
-    }
-  }
-
-  return (
-    <div className="org-connection-manager">
-      <div className="org-section-header">
-        <h4>Organization Access</h4>
-        <p>Manage which farming organizations AgMCP can access</p>
-      </div>
-      {renderOrganizationStatus()}
-    </div>
-  )
-}
 
 export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModalProps) {
   const {
@@ -343,20 +76,15 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
     };
   }, [isOpen]);
 
+  // Listen for auth completion
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-
-      if (event.data.type === 'JOHN_DEERE_AUTH_SUCCESS') {
-        console.log('John Deere auth success:', event.data);
+      if (event.data.type === 'JOHNDEERE_AUTH_SUCCESS') {
         setIsConnecting(false);
-        // Check connection status after successful auth
-        setTimeout(() => checkConnectionStatus(), 1000);
-      } else if (event.data.type === 'JOHN_DEERE_AUTH_ERROR') {
-        console.error('John Deere auth error:', event.data.error);
+        checkConnectionStatus();
+      } else if (event.data.type === 'JOHNDEERE_AUTH_ERROR') {
         setIsConnecting(false);
         setConnectionStatus({ status: 'error', error: event.data.error });
-        alert(`Authentication failed: ${event.data.error}`);
       }
     };
 
@@ -371,7 +99,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       const data = await response.json();
       
       if (data.authorizationUrl) {
-        // Open the authorization URL in a popup window
         const authWindow = window.open(
           data.authorizationUrl,
           'JohnDeereAuth',
@@ -383,7 +110,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
           setIsConnecting(false);
         }
       } else {
-        throw new Error('No auth URL received');
+        throw new Error('No authorization URL received');
       }
     } catch (error) {
       console.error('Failed to initiate John Deere connection:', error);
@@ -411,8 +138,11 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       const response = await fetch('/api/johndeere/connection-status');
       const data = await response.json();
       
+      console.log('🔍 IntegrationsModal - Connection status response:', data);
+      
       if (response.ok) {
         setConnectionStatus(data);
+        console.log('✅ IntegrationsModal - Updated connection status:', data);
       } else {
         setConnectionStatus({ status: 'error', error: data.error || 'Failed to check connection status' });
       }
@@ -432,16 +162,21 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
 
   if (!isOpen) return null;
 
+  // Determine if John Deere is connected based on the actual API response
+  const isJohnDeereConnected = connectionStatus.status === 'connected' || 
+                               connectionStatus.status === 'partial_connection' ||
+                               Boolean(connectionStatus.organizations && connectionStatus.organizations.length > 0);
+
   // Define available integrations
   const integrations: Integration[] = [
     {
       id: 'johndeere',
       name: 'John Deere Operations Center',
       description: 'Connect your John Deere account to access field data, equipment status, and upload prescription files.',
-      logo: '/assets/logos/johndeere-logo.png', // Path to the logo in public folder
+      logo: '/assets/logos/johndeere-logo.png',
       logoFallback: '🔗',
       category: 'Equipment & Data',
-      isConnected: connectionStatus.status === 'connected' || connectionStatus.status === 'partial_connection' || connectionStatus.status === 'connection_required',
+      isConnected: isJohnDeereConnected,
       features: [
         'Access field boundaries and crop data',
         'View equipment location and status',
@@ -449,8 +184,71 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         'Analyze work records and yield data'
       ]
     }
-    // Future integrations can be added here
   ];
+
+  const renderConnectionStatus = () => {
+    if (connectionStatus.status === 'loading' || isCheckingConnection) {
+      return (
+        <div className="connection-status loading">
+          <span className="status-icon">⏳</span>
+          <span>Checking connection...</span>
+        </div>
+      );
+    }
+
+    if (connectionStatus.status === 'connected') {
+      return (
+        <div className="connection-status connected">
+          <span className="status-icon">✅</span>
+          <span>Fully Connected</span>
+          {connectionStatus.organizations && connectionStatus.organizations.length > 0 && (
+            <div className="org-info">
+              <p>Organizations: {connectionStatus.organizations.map(org => org.name).join(', ')}</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (connectionStatus.status === 'partial_connection') {
+      return (
+        <div className="connection-status partial">
+          <span className="status-icon">🟡</span>
+          <span>Connected - Core data available</span>
+          {connectionStatus.organizations && connectionStatus.organizations.length > 0 && (
+            <div className="org-info">
+              <p>Organizations: {connectionStatus.organizations.map(org => org.name).join(', ')}</p>
+              {connectionStatus.testResults && (
+                <div className="test-results">
+                  <p>✅ Fields: {connectionStatus.testResults.fields.success ? connectionStatus.testResults.fields.count : 'No access'}</p>
+                  <p>✅ Equipment: {connectionStatus.testResults.equipment.success ? connectionStatus.testResults.equipment.count : 'No access'}</p>
+                  <p>✅ Farms: {connectionStatus.testResults.farms.success ? connectionStatus.testResults.farms.count : 'No access'}</p>
+                  <p>{connectionStatus.testResults.files.success ? '✅' : '⏳'} Files: {connectionStatus.testResults.files.success ? connectionStatus.testResults.files.count : 'Pending permissions'}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (connectionStatus.error) {
+      return (
+        <div className="connection-status error">
+          <span className="status-icon">❌</span>
+          <span>Connection Error</span>
+          <p className="error-message">{connectionStatus.error}</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="connection-status disconnected">
+        <span className="status-icon">⚪</span>
+        <span>Not Connected</span>
+      </div>
+    );
+  };
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
@@ -481,17 +279,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                     <span className="integration-category">{integration.category}</span>
                   </div>
                   <div className="integration-status">
-                    {connectionStatus.status === 'connected' ? (
-                      <div className="status-badge connected">
-                        <div className="status-dot"></div>
-                        Connected
-                      </div>
-                    ) : connectionStatus.status === 'partial_connection' ? (
-                      <div className="status-badge partially-connected">
-                        <div className="status-dot" style={{backgroundColor: '#f59e0b'}}></div>
-                        Partially Connected
-                      </div>
-                    ) : integration.isConnected ? (
+                    {integration.isConnected ? (
                       <div className="status-badge connected">
                         <div className="status-dot"></div>
                         Connected
@@ -518,32 +306,35 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                   </ul>
                 </div>
 
-                {/* Organization Connection Manager for John Deere */}
-                {integration.id === 'johndeere' && (
-                  <JohnDeereConnectionManager 
-                    isConnected={integration.isConnected} 
-                    connectionStatus={connectionStatus}
-                    onRefreshStatus={checkConnectionStatus}
-                  />
-                )}
+                {/* Connection Status for John Deere */}
+                {integration.id === 'johndeere' && renderConnectionStatus()}
 
                 <div className="integration-actions">
                   {integration.isConnected ? (
                     <div className="connected-actions">
                       <div className="connection-info">
-                        {integration.id === 'johndeere' && johnDeereConnection.expiresAt && (
+                        {integration.id === 'johndeere' && johnDeereConnection?.expiresAt && (
                           <div className="connection-details">
                             <p>Scope: {johnDeereConnection.scope || 'ag1, ag2, ag3'}</p>
                             <p>Expires: {new Date(johnDeereConnection.expiresAt).toLocaleDateString()}</p>
                           </div>
                         )}
                       </div>
-                      <button 
-                        className="disconnect-btn"
-                        onClick={() => handleJohnDeereDisconnect()}
-                      >
-                        Disconnect
-                      </button>
+                      <div className="action-buttons">
+                        <button 
+                          className="refresh-btn"
+                          onClick={checkConnectionStatus}
+                          disabled={isCheckingConnection}
+                        >
+                          {isCheckingConnection ? '↻ Refreshing...' : '↻ Refresh Status'}
+                        </button>
+                        <button 
+                          className="disconnect-btn"
+                          onClick={() => handleJohnDeereDisconnect()}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button 

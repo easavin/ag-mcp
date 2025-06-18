@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       'ag2', // Field and boundary data
       'ag3', // Equipment and work records
       'eq1', // Equipment access (required for Assets API)
+      'files', // Files API access
       'offline_access', // Request refresh token
     ])
 

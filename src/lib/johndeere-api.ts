@@ -131,6 +131,27 @@ export interface JDAsset {
   links: Array<{ rel: string; uri: string }>
 }
 
+export interface JDBoundaryPoint {
+  '@type': 'Point'
+  lat: number
+  lon: number
+}
+
+export interface JDBoundaryRing {
+  '@type': 'Ring'
+  points: JDBoundaryPoint[]
+}
+
+export interface JDBoundaryPolygon {
+  '@type': 'Polygon'
+  rings: JDBoundaryRing[]
+}
+
+export interface JDBoundary {
+  '@type': 'Boundary'
+  multipolygons: JDBoundaryPolygon[]
+}
+
 export class JohnDeereAPIClient {
   private axiosInstance: AxiosInstance
   private equipmentAxiosInstance: AxiosInstance
@@ -500,114 +521,53 @@ export class JohnDeereAPIClient {
       fields: { success: boolean; count: number; error?: string }
       equipment: { success: boolean; count: number; error?: string }
       farms: { success: boolean; count: number; error?: string }
-      assets: { success: boolean; count: number; error?: string }
+      files: { success: boolean; count: number; error?: string }
     }
   }> {
-    const testResults: {
-      fields: { success: boolean; count: number; error?: string }
-      equipment: { success: boolean; count: number; error?: string }
-      farms: { success: boolean; count: number; error?: string }
-      assets: { success: boolean; count: number; error?: string }
-    } = {
-      fields: { success: false, count: 0 },
-      equipment: { success: false, count: 0 },
-      farms: { success: false, count: 0 },
-      assets: { success: false, count: 0 }
-    }
-
-    // First check connection status
-    try {
-      const connectionStatus = await this.checkOrganizationConnection(organizationId)
-      if (!connectionStatus.isConnected) {
-        console.log(`❌ Organization ${organizationId} is not connected`)
-        return {
-          hasDataAccess: false,
-          hasPartialAccess: false,
-          testResults
-        }
-      }
-    } catch (error) {
-      console.error('Error checking connection status:', error)
-    }
-
-    // Test each endpoint (using connection test methods that don't fall back to mock data)
     console.log(`🧪 Testing data access for organization ${organizationId}...`)
     
-    try {
-      const fields = await this.getFieldsForConnectionTest(organizationId)
-      testResults.fields = { success: true, count: fields.length }
-      console.log(`✅ Fields test: SUCCESS (${fields.length} items)`)
-    } catch (error: any) {
-      testResults.fields = { 
-        success: false, 
-        count: 0, 
-        error: `${error.response?.status || 'Unknown'} - ${error instanceof Error ? error.message : 'Unknown error'}` 
-      }
-      console.log(`❌ Fields test: FAILED - ${testResults.fields.error}`)
-    }
+    // Test access to key endpoints
+    const [fieldsResult, equipmentResult, farmsResult, filesResult] = await Promise.allSettled([
+      this.getFieldsForConnectionTest(organizationId),
+      this.getEquipmentForConnectionTest(organizationId),
+      this.getFarmsForConnectionTest(organizationId),
+      this.getFilesForConnectionTest(organizationId),
+    ]);
 
-    try {
-      const equipment = await this.getEquipmentForConnectionTest(organizationId)
-      testResults.equipment = { success: true, count: equipment.length }
-      console.log(`✅ Equipment test: SUCCESS (${equipment.length} items)`)
-    } catch (error: any) {
-      testResults.equipment = { 
-        success: false, 
-        count: 0, 
-        error: `${error.response?.status || 'Unknown'} - ${error instanceof Error ? error.message : 'Unknown error'}` 
-      }
-      console.log(`❌ Equipment test: FAILED - ${testResults.equipment.error}`)
-    }
-
-    try {
-      const farms = await this.getFarmsForConnectionTest(organizationId)
-      testResults.farms = { success: true, count: farms.length }
-      console.log(`✅ Farms test: SUCCESS (${farms.length} items)`)
-    } catch (error: any) {
-      testResults.farms = { 
-        success: false, 
-        count: 0, 
-        error: `${error.response?.status || 'Unknown'} - ${error instanceof Error ? error.message : 'Unknown error'}` 
-      }
-      console.log(`❌ Farms test: FAILED - ${testResults.farms.error}`)
-    }
-
-    try {
-      const assets = await this.getAssetsForConnectionTest(organizationId)
-      testResults.assets = { success: true, count: assets.length }
-      console.log(`✅ Assets test: SUCCESS (${assets.length} items)`)
-    } catch (error: any) {
-      testResults.assets = { 
-        success: false, 
-        count: 0, 
-        error: `${error.response?.status || 'Unknown'} - ${error instanceof Error ? error.message : 'Unknown error'}` 
-      }
-      console.log(`❌ Assets test: FAILED - ${testResults.assets.error}`)
-    }
-
-    // Check if we have data access (ALL endpoints must succeed for full connection)
-    const allEndpointsWorking = Object.values(testResults).every(result => result.success)
-    const someEndpointsWorking = Object.values(testResults).some(result => result.success)
+    const fields = fieldsResult.status === 'fulfilled' ? { success: true, count: fieldsResult.value.length } : { success: false, count: 0, error: this.formatError(fieldsResult.reason) };
+    const equipment = equipmentResult.status === 'fulfilled' ? { success: true, count: equipmentResult.value.length } : { success: false, count: 0, error: this.formatError(equipmentResult.reason) };
+    const farms = farmsResult.status === 'fulfilled' ? { success: true, count: farmsResult.value.length } : { success: false, count: 0, error: this.formatError(farmsResult.reason) };
+    const files = filesResult.status === 'fulfilled' ? { success: true, count: filesResult.value.length } : { success: false, count: 0, error: this.formatError(filesResult.reason) };
     
-    // Determine connection status more granularly
-    const hasDataAccess = allEndpointsWorking
-    const hasPartialAccess = someEndpointsWorking && !allEndpointsWorking
-    
-    console.log(`🎯 Connection test summary:`, {
-      fields: testResults.fields.success,
-      equipment: testResults.equipment.success, 
-      farms: testResults.farms.success,
-      assets: testResults.assets.success,
-      allWorking: allEndpointsWorking,
-      someWorking: someEndpointsWorking,
-      hasPartialAccess,
-      overallResult: allEndpointsWorking ? 'FULLY_CONNECTED' : (someEndpointsWorking ? 'PARTIALLY_CONNECTED' : 'CONNECTION_REQUIRED')
-    })
+    const allWorking = fields.success && equipment.success && farms.success && files.success;
+    const someWorking = fields.success || equipment.success || farms.success || files.success;
+
+    const summary = {
+      fields: fields.success,
+      equipment: equipment.success,
+      farms: farms.success,
+      files: files.success,
+      allWorking: allWorking,
+      someWorking: someWorking,
+      hasPartialAccess: someWorking && !allWorking,
+      overallResult: allWorking ? 'CONNECTED' : someWorking ? 'PARTIALLY_CONNECTED' : 'ERROR',
+    }
+    console.log('🎯 Connection test summary:', summary)
 
     return {
-      hasDataAccess,
-      hasPartialAccess,
-      testResults
+      hasDataAccess: someWorking,
+      hasPartialAccess: someWorking && !allWorking,
+      testResults: { fields, equipment, farms, files },
+    };
+  }
+
+  private formatError(error: any): string {
+    if (error instanceof Error) {
+      return error.message;
+    } else if (typeof error === 'string') {
+      return error;
+    } else {
+      return 'Unknown error';
     }
   }
 
@@ -944,6 +904,86 @@ export class JohnDeereAPIClient {
     } catch (error: any) {
       // Don't fall back to mock data for connection testing
       throw error
+    }
+  }
+
+  async getBoundariesForField(boundaryLink: string): Promise<JDBoundary | null> {
+    try {
+      if (!boundaryLink) {
+        console.warn(`No boundary link provided.`);
+        return null;
+      }
+
+      // The link is a full URL, so we need to make a request to it directly
+      const response = await this.axiosInstance.get(boundaryLink);
+      return response.data;
+    } catch (error) {
+      this.handleApiError(error, `getBoundariesForField`);
+      throw error;
+    }
+  }
+
+  async getFilesForConnectionTest(organizationId: string): Promise<any[]> {
+    try {
+      console.log(`🔍 Testing Files API access for organization ${organizationId}`);
+      
+      // First check if we have the files scope in our token
+      const token = await this.getValidAccessToken();
+      if (token) {
+        try {
+          const payload = token.split('.')[1];
+          const paddedPayload = payload + '='.repeat(4 - payload.length % 4);
+          const decoded = JSON.parse(Buffer.from(paddedPayload, 'base64').toString());
+          const scopes = decoded.scp || [];
+          
+          if (!scopes.includes('files')) {
+            console.log(`❌ Files scope not present in token. Available scopes:`, scopes);
+            throw new Error('MISSING_FILES_SCOPE');
+          }
+          
+          console.log(`✅ Files scope is present in token`);
+        } catch (decodeError) {
+          if (decodeError instanceof Error && decodeError.message === 'MISSING_FILES_SCOPE') {
+            throw decodeError;
+          }
+          console.log(`⚠️ Could not decode token to check scopes:`, decodeError);
+        }
+      }
+      
+      // Try the standard files endpoint
+      const response = await this.axiosInstance.get(`/organizations/${organizationId}/files`, {
+        params: { limit: 5 },
+        headers: {
+          'Accept': 'application/vnd.deere.axiom.v3+json',
+          'Content-Type': 'application/vnd.deere.axiom.v3+json',
+        }
+      });
+      
+      console.log(`✅ Files API successful, response:`, response.data);
+      return response.data?.values || [];
+    } catch (error: any) {
+      // Handle specific case where files scope is missing
+      if (error.message === 'MISSING_FILES_SCOPE') {
+        console.log(`❌ Files scope missing from token - need to re-authorize`);
+        throw new Error('Files scope not granted. Please re-authorize with files permissions.');
+      }
+      
+      console.log(`❌ Files API failed:`, {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        headers: error.response?.headers,
+        data: error.response?.data,
+        url: error.config?.url,
+        message: error.message
+      });
+      
+      // Check if this is a scope/permission issue
+      if (error.response?.status === 403 && error.response?.headers?.['response-code-details'] === 'ext_authz_denied') {
+        throw new Error('Files API access denied. Missing files scope or organization permissions.');
+      }
+      
+      this.handleApiError(error, 'getFilesForConnectionTest');
+      throw error;
     }
   }
 }

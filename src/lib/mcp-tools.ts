@@ -269,6 +269,24 @@ export const DATA_RETRIEVAL_TOOLS: MCPTool[] = [
       },
       required: ['organizationId']
     }
+  },
+  {
+    name: 'get_field_boundary',
+    description: 'Gets the boundary coordinate data for a specific field. If the organization ID is not known, it will be automatically determined.',
+    parameters: {
+      type: 'object',
+      properties: {
+        organizationId: {
+          type: 'string',
+          description: 'The ID of the organization the field belongs to. This is optional.'
+        },
+        fieldName: {
+          type: 'string',
+          description: 'The name of the field to get the boundary for.'
+        }
+      },
+      required: ['fieldName']
+    }
   }
 ];
 
@@ -346,6 +364,8 @@ export class MCPToolExecutor {
         return this.getFieldOperationHistory(parameters);
       case 'list_john_deere_files':
         return this.listJohnDeereFiles(parameters);
+      case 'get_field_boundary':
+        return this.getFieldBoundary(parameters);
       default:
         return { success: false, message: 'Unknown data retrieval tool' };
     }
@@ -497,6 +517,47 @@ export class MCPToolExecutor {
       };
     } catch (error: any) {
       return { success: false, message: `Failed to list files for organization ${params.organizationId}: ${error.message}` };
+    }
+  }
+
+  private async getFieldBoundary(params: { organizationId?: string, fieldName: string }): Promise<MCPToolResult> {
+    try {
+      const apiClient = getJohnDeereAPIClient();
+      let orgId = params.organizationId;
+
+      // If orgId is not provided, fetch the default one
+      if (!orgId) {
+        const orgs = await apiClient.getOrganizations();
+        if (orgs && orgs.length > 0) {
+          orgId = orgs[0].id;
+          console.log(`🏢 Auto-detected organization ID: ${orgId}`);
+        } else {
+          return { success: false, message: 'Could not find any John Deere organizations.' };
+        }
+      }
+      
+      const fields = await apiClient.getFields(orgId);
+      const field = fields.find(f => f.name.toLowerCase() === params.fieldName.toLowerCase());
+
+      if (!field) {
+        return { success: false, message: `Could not find a field named "${params.fieldName}".` };
+      }
+
+      const boundaryLink = field.links.find(link => link.rel === 'boundaries')?.uri;
+
+      if (!boundaryLink) {
+        return { success: false, message: `No boundary data link found for field "${params.fieldName}".` };
+      }
+
+      const boundaryData = await apiClient.getBoundariesForField(boundaryLink);
+
+      return {
+        success: true,
+        message: `Successfully retrieved boundary data for field "${params.fieldName}".`,
+        data: boundaryData
+      };
+    } catch (error: any) {
+      return { success: false, message: `Failed to get boundary for field "${params.fieldName}": ${error.message}` };
     }
   }
 

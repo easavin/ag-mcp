@@ -39,71 +39,57 @@ export async function GET(request: NextRequest) {
         
         if (connectionStatus.isConnected) {
           // Actually test the data access instead of hardcoding
-          testResults = await johnDeereClient.testDataAccess(firstOrg.id)
+          const testSummary = await johnDeereClient.testDataAccess(firstOrg.id)
+          testResults = testSummary.testResults
+          status = testSummary.hasDataAccess ? (testSummary.hasPartialAccess ? 'partial_connection' : 'connected') : 'connection_required'
           
-          // Determine status based on actual test results
-          if (testResults.hasDataAccess) {
-            status = 'connected'
-          } else if (testResults.hasPartialAccess) {
-            status = 'partial_connection'
-          } else {
-            status = 'connection_required'
-          }
+          // Log detailed results for debugging
+          console.log('🔍 Connection test results:', {
+            hasDataAccess: !connectionRequired,
+            hasPartialAccess: false,
+            status,
+            testResults: testResults,
+            connectionRequired
+          })
         } else {
           status = 'connection_required'
           testResults = { 
-            hasDataAccess: false, 
-            hasPartialAccess: false,
-            testResults: {
-              fields: { success: false, count: 0 },
-              equipment: { success: false, count: 0 },
-              farms: { success: false, count: 0 },
-              assets: { success: false, count: 0 }
-            }
+            fields: { success: false, count: 0, error: null },
+            farms: { success: false, count: 0, error: null },
+            equipment: { success: false, count: 0, error: null },
+            files: { success: false, count: 0, error: null },
           }
         }
-        
-        // Log detailed results for debugging
-        console.log('🔍 Connection test results:', {
-          hasDataAccess: !connectionRequired,
-          hasPartialAccess: false,
-          status,
-          results: testResults.testResults,
-          connectionRequired
-        })
       } catch (error) {
         connectionRequired = true
-        testResults = { hasDataAccess: false, error: error instanceof Error ? error.message : 'Unknown error' }
+        testResults = { fields: { success: false, count: 0, error: error instanceof Error ? error.message : 'Unknown error' }, farms: { success: false, count: 0, error: error instanceof Error ? error.message : 'Unknown error' }, equipment: { success: false, count: 0, error: error instanceof Error ? error.message : 'Unknown error' }, files: { success: false, count: 0, error: error instanceof Error ? error.message : 'Unknown error' } }
       }
     }
 
-          return NextResponse.json({
-        status: organizations.length > 0 ? status : 'no_organizations',
-      organizations: organizations.map((org: any) => ({
-        id: org.id,
-        name: org.name,
-        type: org.type,
-        member: org.member,
-      })),
-      connectionLinks: (connectionLinks.length > 0 ? connectionLinks : (fallbackConnectionLink ? [fallbackConnectionLink] : [])).map(link => {
-        // Add full access parameters to all connection links
-        const url = new URL(link)
-        url.searchParams.set('requestFullAccess', 'true')
-        url.searchParams.set('scopes', 'ag1,ag2,ag3,eq1,offline_access')
-        return url.toString()
-      }),
-      connectionRequired,
-      testResults,
-      instructions: connectionRequired ? {
-        step1: 'Your app is authenticated but not connected to any organizations.',
-        step2: 'Open the connection link below in your browser.',
-        step3: 'Select the checkbox next to your organization name and grant full access to all data types.',
-        step4: 'Once connected, you\'ll have access to your complete farming data.',
-        connectionUrl: connectionLinks.length > 0 ? connectionLinks[0] : fallbackConnectionLink
-      } : null
-    })
-  } catch (error) {
-    console.error('Error checking connection status:', error)
+    if (!testResults) {
+      return NextResponse.json({
+        status: 'no_organizations',
+        message: 'No organizations found for this account.',
+        organizations: [],
+      });
+    }
+
+    if (connectionRequired) {
+      return NextResponse.json({
+        status: 'connection_required',
+        message: 'Connection with John Deere organization is required to access data.',
+        organizations,
+      });
+    }
+
+    return NextResponse.json({
+      status: status, // 'connected' or 'partial_connection'
+      message: status === 'connected' ? 'Successfully connected.' : 'Partially connected, some endpoints failed.',
+      organizations,
+      testResults: testResults,
+    });
+  } catch (error: any) {
+    console.error('Error in John Deere connection status:', error);
     
     if (error instanceof Error) {
       if (error.message.includes('token') || error.message.includes('auth')) {

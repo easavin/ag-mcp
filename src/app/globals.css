@@ -1612,3 +1612,88 @@ input[type="file"] {
   border-radius: 4px;
   border: 1px solid #ef4444;
 }
+
+/* John Deere Connection Status Component Styles */
+.jd-connection-wrapper {
+  @apply w-full max-w-4xl mx-auto p-4 sm:p-6;
+}
+
+.jd-connection-header {
+  @apply flex justify-between items-center mb-6;
+}
+
+.jd-connection-title {
+  @apply text-2xl font-bold text-gray-800;
+}
+
+.jd-refresh-button {
+  @apply px-4 py-2 bg-white text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50 flex items-center space-x-2 border border-gray-300 text-sm font-medium transition-colors;
+}
+
+.jd-status-card {
+  @apply bg-white rounded-lg p-6 shadow-sm border;
+}
+
+.jd-status-card-header {
+  @apply flex items-center space-x-4 mb-5;
+}
+
+.jd-status-icon-wrapper {
+  @apply w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0;
+}
+
+.jd-status-title {
+  @apply text-xl font-bold text-gray-800;
+}
+
+.jd-status-message {
+  @apply font-medium;
+}
+
+.jd-status-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6;
+}
+
+.jd-status-section-title {
+  @apply font-bold text-gray-700 text-base mb-3;
+}
+
+.jd-status-item-grid {
+  @apply space-y-3;
+}
+
+.jd-status-item {
+  @apply flex items-start space-x-3 p-3 bg-gray-50/70 rounded-lg border border-gray-200;
+}
+
+.jd-status-item-icon {
+  @apply text-xl pt-px;
+}
+
+.jd-status-item-content {
+  @apply flex-1;
+}
+
+.jd-status-item-header {
+  @apply flex justify-between items-center;
+}
+
+.jd-status-item-label {
+  @apply font-semibold text-gray-800;
+}
+
+.jd-status-item-check {
+  @apply text-lg;
+}
+
+.jd-status-item-count {
+  @apply text-sm text-gray-500;
+}
+
+.jd-status-item-error {
+  @apply text-xs text-red-600 mt-1 font-mono bg-red-50 p-2 rounded-md;
+}
+
+.jd-org-list {
+  @apply list-disc list-inside text-gray-700 bg-white p-4 rounded-lg border border-gray-200;
+}
