@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
           break
         
         case 'operations':
-          data = await johnDeereApi.getFieldOperations(finalOrganizationId!, {
+          data = await johnDeereApi.getFieldOperationsForOrganization(finalOrganizationId!, {
             startDate: filters?.startDate,
             endDate: filters?.endDate,
             fieldId: filters?.fieldId
