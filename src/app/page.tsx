@@ -102,11 +102,16 @@ function ChatInterface() {
       <AuthHeader />
       
       <ChatLayout>
-        <div className="flex flex-col h-full">
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {/* Header with data source indicator */}
-          <div className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+          <div style={{
+            flexShrink: 0,
+            borderBottom: '1px solid #333',
+            backgroundColor: '#1c1c1c',
+            padding: '12px 16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <MobileMenu />
                 {user && (
                   <DataSourceIndicator 
@@ -119,26 +124,51 @@ function ChatInterface() {
           </div>
 
           {/* Messages area */}
-          <div className="flex-1 overflow-y-auto px-4 py-6">
-            <div className="max-w-3xl mx-auto space-y-6">
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+            <div style={{ maxWidth: '768px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {messages.length === 0 && !isLoading && (
-                <div className="text-center py-12">
-                  <h1 className="text-2xl font-semibold text-gray-900 mb-4">
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <h1 style={{ 
+                    fontSize: '24px', 
+                    fontWeight: '600', 
+                    color: '#f5f5f5', 
+                    marginBottom: '16px' 
+                  }}>
                     Welcome to Ag MCP
                   </h1>
-                  <p className="text-gray-600 mb-8">
+                  <p style={{ 
+                    color: '#a0a0a0', 
+                    marginBottom: '32px',
+                    fontSize: '16px'
+                  }}>
                     Your AI-powered agricultural management assistant for precision Ag apps
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h3 className="font-medium text-green-900 mb-2">Farm Data Access</h3>
-                      <p className="text-sm text-green-700">
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+                    gap: '16px', 
+                    maxWidth: '640px', 
+                    margin: '0 auto' 
+                  }}>
+                    <div style={{
+                      backgroundColor: '#2a3f2a',
+                      border: '1px solid #4a6741',
+                      borderRadius: '8px',
+                      padding: '16px'
+                    }}>
+                      <h3 style={{ fontWeight: '500', color: '#90c695', marginBottom: '8px' }}>Farm Data Access</h3>
+                      <p style={{ fontSize: '14px', color: '#a0c4a5' }}>
                         Connect your FMS accounts to access field data, equipment status, and operations history
                       </p>
                     </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h3 className="font-medium text-blue-900 mb-2">AI-Powered Insights</h3>
-                      <p className="text-sm text-blue-700">
+                    <div style={{
+                      backgroundColor: '#2a3a4f',
+                      border: '1px solid #4167a1',
+                      borderRadius: '8px',
+                      padding: '16px'
+                    }}>
+                      <h3 style={{ fontWeight: '500', color: '#9bb4d4', marginBottom: '8px' }}>AI-Powered Insights</h3>
+                      <p style={{ fontSize: '14px', color: '#a5b8d1' }}>
                         Get intelligent recommendations for planting, harvesting, and field management
                       </p>
                     </div>
@@ -161,7 +191,7 @@ function ChatInterface() {
 
               {/* Progress indicator */}
               {steps.length > 0 && (
-                <div className="mt-4">
+                <div style={{ marginTop: '16px' }}>
                   <ProgressIndicator steps={steps} />
                 </div>
               )}
@@ -171,15 +201,19 @@ function ChatInterface() {
           </div>
 
           {/* Input area */}
-          <div className="flex-shrink-0 border-t border-gray-200 bg-white">
-            <div className="max-w-3xl mx-auto">
+          <div style={{
+            flexShrink: 0,
+            borderTop: '1px solid #333',
+            backgroundColor: '#1c1c1c'
+          }}>
+            <div style={{ maxWidth: '768px', margin: '0 auto' }}>
               <ChatInput
                 onSendMessage={handleSendMessage}
                 disabled={isLoading}
                 organizationId={organizationId}
                 placeholder={user 
                   ? "Ask about your farm data or agricultural insights..." 
-                  : "Ask anything about agriculture... (Sign in to connect your John Deere account)"
+                  : "Ask anything about agriculture... (Sign in to connect to your FMS accounts)"
                 }
               />
             </div>

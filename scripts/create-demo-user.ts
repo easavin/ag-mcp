@@ -14,9 +14,14 @@ async function createDemoUser() {
       return existingUser
     }
 
-    // Create demo user
-    const user = await prisma.user.create({
-      data: {
+    // Create demo user (or update existing one)
+    const user = await prisma.user.upsert({
+      where: { id: 'user_placeholder' },
+      update: {
+        email: 'admin@farm.com',
+        name: 'Farm Administrator',
+      },
+      create: {
         id: 'user_placeholder', // Keep the same ID for backward compatibility
         email: 'admin@farm.com',
         name: 'Farm Administrator',

@@ -6,8 +6,8 @@ const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
 // Rate limiting configuration
 const RATE_LIMIT_CONFIG = {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 100, // limit each IP to 100 requests per windowMs
-  apiMaxRequests: 50, // stricter limit for API routes
+  maxRequests: process.env.NODE_ENV === 'development' ? 1000 : 100, // higher limit in development
+  apiMaxRequests: process.env.NODE_ENV === 'development' ? 500 : 50, // higher limit in development
 }
 
 function getRateLimitKey(request: NextRequest): string {
