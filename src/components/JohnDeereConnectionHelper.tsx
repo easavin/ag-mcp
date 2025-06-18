@@ -47,6 +47,7 @@ type ConnectionStatus = {
 export default function JohnDeereConnectionHelper() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({ status: 'loading', message: 'Checking connection status...' })
   const [refreshing, setRefreshing] = useState(false)
+  const [connecting, setConnecting] = useState(false)
   const user = useAuthStore(state => state.user)
   const router = useRouter()
 
@@ -88,8 +89,105 @@ export default function JohnDeereConnectionHelper() {
   }
   
   const handleJohnDeereConnect = () => {
+    setConnecting(true)
+    console.log('🚀 Starting John Deere OAuth flow...')
     const url = '/api/auth/johndeere/authorize'
-    window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes')
+    const popup = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes')
+    
+    if (!popup) {
+      console.error('❌ Failed to open popup window')
+      setConnecting(false)
+      setConnectionStatus({ 
+        status: 'error', 
+        message: 'Failed to open OAuth popup. Please allow popups for this site.', 
+        error: 'Popup blocked'
+      })
+      return
+    }
+    
+    console.log('✅ Popup opened, waiting for OAuth callback...')
+    
+    // Listen for messages from the popup
+    const messageListener = async (event: MessageEvent) => {
+      console.log('📨 Received message:', event.data, 'from origin:', event.origin)
+      
+      // Ensure the message is from our domain
+      if (event.origin !== window.location.origin) {
+        console.warn('⚠️ Ignoring message from different origin:', event.origin)
+        return
+      }
+
+      if (event.data.type === 'JOHN_DEERE_AUTH_CALLBACK') {
+        const { code, state } = event.data
+        console.log('✅ Received OAuth callback with code:', code?.substring(0, 10) + '...', 'state:', state)
+        
+        try {
+          console.log('🔄 Exchanging code for tokens...')
+          // Exchange the code for tokens via our API
+          const response = await fetch('/api/auth/johndeere/callback', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code, state }),
+          })
+
+          const responseData = await response.json()
+          console.log('📝 Callback response:', response.status, responseData)
+
+          if (response.ok) {
+            console.log('🎉 OAuth flow completed successfully!')
+            // Success! Refresh the connection status
+            await checkConnectionStatus()
+          } else {
+            console.error('❌ Callback failed:', responseData)
+            setConnectionStatus({ 
+              status: 'error', 
+              message: 'Failed to complete connection', 
+              error: responseData.error 
+            })
+          }
+        } catch (error) {
+          console.error('❌ Error during token exchange:', error)
+          setConnectionStatus({ 
+            status: 'error', 
+            message: 'Failed to complete connection', 
+            error: error instanceof Error ? error.message : 'Unknown error'
+          })
+        }
+        
+        // Clean up
+        setConnecting(false)
+        window.removeEventListener('message', messageListener)
+        popup?.close()
+      } else if (event.data.type === 'JOHN_DEERE_AUTH_ERROR') {
+        console.error('❌ OAuth error:', event.data.error)
+        setConnectionStatus({ 
+          status: 'error', 
+          message: 'OAuth authentication failed', 
+          error: event.data.error 
+        })
+        
+        // Clean up
+        setConnecting(false)
+        window.removeEventListener('message', messageListener)
+        popup?.close()
+      }
+    }
+
+    // Add the message listener
+    window.addEventListener('message', messageListener)
+    console.log('👂 Message listener added')
+    
+    // Clean up if popup is closed manually
+    const checkClosed = setInterval(() => {
+      if (popup?.closed) {
+        console.log('🚪 Popup was closed manually')
+        setConnecting(false)
+        window.removeEventListener('message', messageListener)
+        clearInterval(checkClosed)
+      }
+    }, 1000)
   }
 
   const renderStatusItem = (label: string, result: TestResult, icon: string) => {
@@ -146,9 +244,11 @@ export default function JohnDeereConnectionHelper() {
             <p className="text-orange-700 mb-4">{connectionStatus.message}</p>
             <button
               onClick={handleJohnDeereConnect}
-              className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-semibold"
+              disabled={connecting}
+              className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 font-semibold flex items-center space-x-2"
             >
-              Connect to John Deere
+              {connecting && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+              <span>{connecting ? 'Connecting...' : 'Connect to John Deere'}</span>
             </button>
           </div>
         )

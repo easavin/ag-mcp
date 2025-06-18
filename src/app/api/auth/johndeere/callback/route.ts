@@ -5,9 +5,12 @@ import { getCurrentUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔄 POST callback route called')
     const { code, state } = await request.json()
+    console.log('📝 Received code:', code?.substring(0, 10) + '...', 'state:', state)
 
     if (!code || !state) {
+      console.error('❌ Missing code or state parameter')
       return NextResponse.json(
         { error: 'Missing authorization code or state parameter' },
         { status: 400 }
@@ -16,8 +19,10 @@ export async function POST(request: NextRequest) {
 
     // Get current authenticated user
     const authUser = await getCurrentUser(request)
+    console.log('👤 Current user:', authUser ? `${authUser.email} (${authUser.id})` : 'null')
     
     if (!authUser) {
+      console.error('❌ No authenticated user found')
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -25,13 +30,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Exchange authorization code for tokens
+    console.log('🔄 Exchanging code for tokens...')
     const johnDeereAPI = getJohnDeereAPI()
     const tokens = await johnDeereAPI.exchangeCodeForTokens(code)
+    console.log('✅ Received tokens:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiresIn: tokens.expires_in,
+      scope: tokens.scope
+    })
 
     // Calculate expiration date
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000)
 
     // Store tokens in database - handle missing refresh_token
+    console.log('💾 Storing tokens in database for user:', authUser.id)
     await prisma.johnDeereToken.upsert({
       where: { userId: authUser.id },
       update: {
@@ -51,11 +64,13 @@ export async function POST(request: NextRequest) {
     })
 
     // Update user's John Deere connection status
+    console.log('📝 Updating user connection status...')
     const updatedUser = await prisma.user.update({
       where: { id: authUser.id },
       data: { johnDeereConnected: true },
     })
 
+    console.log('🎉 OAuth flow completed successfully!')
     return NextResponse.json({
       user: updatedUser,
       connection: {
@@ -65,7 +80,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error handling John Deere callback:', error)
+    console.error('❌ Error handling John Deere callback:', error)
     return NextResponse.json(
       { error: 'Failed to complete John Deere authorization' },
       { status: 500 }

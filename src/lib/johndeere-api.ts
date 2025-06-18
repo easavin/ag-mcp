@@ -201,13 +201,19 @@ export class JohnDeereAPIClient {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
-          // Token expired, try to refresh
-          await this.refreshAccessToken()
-          // Retry the original request
-          const token = await this.getValidAccessToken()
-          if (token) {
-            error.config.headers.Authorization = `Bearer ${token}`
-            return this.axiosInstance.request(error.config)
+          try {
+            // Token expired, try to refresh
+            await this.refreshAccessToken()
+            // Retry the original request
+            const token = await this.getValidAccessToken()
+            if (token) {
+              error.config.headers.Authorization = `Bearer ${token}`
+              return this.axiosInstance.request(error.config)
+            }
+          } catch (refreshError) {
+            // If refresh fails (e.g., no refresh token), throw the original 401 error
+            console.log('Token refresh failed:', refreshError instanceof Error ? refreshError.message : 'Unknown error')
+            throw error
           }
         }
         
@@ -225,13 +231,19 @@ export class JohnDeereAPIClient {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
-          // Token expired, try to refresh
-          await this.refreshAccessToken()
-          // Retry the original request
-          const token = await this.getValidAccessToken()
-          if (token) {
-            error.config.headers.Authorization = `Bearer ${token}`
-            return this.equipmentAxiosInstance.request(error.config)
+          try {
+            // Token expired, try to refresh
+            await this.refreshAccessToken()
+            // Retry the original request
+            const token = await this.getValidAccessToken()
+            if (token) {
+              error.config.headers.Authorization = `Bearer ${token}`
+              return this.equipmentAxiosInstance.request(error.config)
+            }
+          } catch (refreshError) {
+            // If refresh fails (e.g., no refresh token), throw the original 401 error
+            console.log('Token refresh failed:', refreshError instanceof Error ? refreshError.message : 'Unknown error')
+            throw error
           }
         }
         
@@ -321,11 +333,17 @@ export class JohnDeereAPIClient {
    */
   private async getValidAccessToken(): Promise<string | null> {
     try {
-      // TODO: Get user ID from authentication session
-      const userId = 'user_placeholder'
+      // Get current authenticated user
+      const { getCurrentUser } = await import('./auth')
+      const authUser = await getCurrentUser()
+      
+      if (!authUser?.id) {
+        console.error('No authenticated user found')
+        return null
+      }
       
       const tokenRecord = await prisma.johnDeereToken.findUnique({
-        where: { userId },
+        where: { userId: authUser.id },
       })
 
       if (!tokenRecord) {
@@ -334,13 +352,19 @@ export class JohnDeereAPIClient {
 
       // Check if token is expired
       if (new Date() >= tokenRecord.expiresAt) {
-        // Try to refresh token
-        await this.refreshAccessToken()
-        // Get the refreshed token
-        const refreshedToken = await prisma.johnDeereToken.findUnique({
-          where: { userId },
-        })
-        return refreshedToken?.accessToken || null
+        try {
+          // Try to refresh token
+          await this.refreshAccessToken()
+          // Get the refreshed token
+          const refreshedToken = await prisma.johnDeereToken.findUnique({
+            where: { userId: authUser.id },
+          })
+          return refreshedToken?.accessToken || null
+        } catch (refreshError) {
+          // If refresh fails, return null (token is expired and can't be refreshed)
+          console.log('Token refresh failed in getValidAccessToken:', refreshError instanceof Error ? refreshError.message : 'Unknown error')
+          return null
+        }
       }
 
       return tokenRecord.accessToken
@@ -355,11 +379,16 @@ export class JohnDeereAPIClient {
    */
   private async refreshAccessToken(): Promise<void> {
     try {
-      // TODO: Get user ID from authentication session
-      const userId = 'user_placeholder'
+      // Get current authenticated user
+      const { getCurrentUser } = await import('./auth')
+      const authUser = await getCurrentUser()
+      
+      if (!authUser?.id) {
+        throw new Error('No authenticated user found')
+      }
       
       const tokenRecord = await prisma.johnDeereToken.findUnique({
-        where: { userId },
+        where: { userId: authUser.id },
       })
 
       if (!tokenRecord?.refreshToken) {
@@ -391,7 +420,7 @@ export class JohnDeereAPIClient {
 
       // Update token in database
       await prisma.johnDeereToken.update({
-        where: { userId },
+        where: { userId: authUser.id },
         data: {
           accessToken: access_token,
           refreshToken: refresh_token || tokenRecord.refreshToken, // Keep existing if not provided
