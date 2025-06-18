@@ -75,13 +75,6 @@ function ChatInterface() {
     }
   }, [messages, isLoading])
 
-  // Create initial session if none exists and user is authenticated
-  useEffect(() => {
-    if (!currentSessionId && sessions.length === 0 && user) {
-      createSession('New Chat')
-    }
-  }, [currentSessionId, sessions.length, createSession, user])
-
   // Handle sending messages
   const handleSendMessage = async (content: string, fileAttachments: any[] = []) => {
     if (!user) {
@@ -94,7 +87,7 @@ function ChatInterface() {
     try {
       let sessionId = currentSessionId
 
-      // Create a new session if none exists
+      // Create a new session if none exists (only when user actually sends a message)
       if (!sessionId) {
         const newSession = await createSession('New Chat')
         sessionId = newSession.id
