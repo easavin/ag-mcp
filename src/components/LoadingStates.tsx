@@ -232,4 +232,89 @@ export function PulsingDot({ color = 'green', size = 'md', className = '' }: Pul
   return (
     <div className={`${sizeClasses[size]} ${colorClasses[color]} rounded-full animate-pulse ${className}`}></div>
   )
+}
+
+interface ThinkingBubblesProps {
+  className?: string
+}
+
+export function ThinkingBubbles({ className = '' }: ThinkingBubblesProps) {
+  return (
+    <div className={`message assistant ${className}`}>
+      <div className="message-avatar avatar-assistant">
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      </div>
+      
+      <div className="message-content">
+        <div className="message-header">
+          <span className="username">Ag Assistant</span>
+          <span className="timestamp">thinking...</span>
+        </div>
+        
+        <div className="message-text" style={{ 
+          backgroundColor: '#2a2a2a', 
+          border: '1px solid #444',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          position: 'relative',
+          minHeight: '60px',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          {/* Thinking dots animation */}
+          <div className="thinking-dots" style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <div 
+              className="thinking-dot"
+              style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#a0a0a0',
+                borderRadius: '50%',
+                animation: 'thinkingBounce 1.4s infinite ease-in-out both',
+                animationDelay: '0s'
+              }}
+            ></div>
+            <div 
+              className="thinking-dot"
+              style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#a0a0a0',
+                borderRadius: '50%',
+                animation: 'thinkingBounce 1.4s infinite ease-in-out both',
+                animationDelay: '0.2s'
+              }}
+            ></div>
+            <div 
+              className="thinking-dot"
+              style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#a0a0a0',
+                borderRadius: '50%',
+                animation: 'thinkingBounce 1.4s infinite ease-in-out both',
+                animationDelay: '0.4s'
+              }}
+            ></div>
+          </div>
+          
+          {/* Optional: Add a subtle typing indicator text */}
+          <span style={{
+            marginLeft: '12px',
+            color: '#888',
+            fontSize: '14px',
+            fontStyle: 'italic'
+          }}>
+            AI is thinking...
+          </span>
+        </div>
+      </div>
+    </div>
+  )
 } 

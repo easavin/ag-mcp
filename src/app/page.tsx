@@ -5,7 +5,7 @@ import ChatLayout from '@/components/ChatLayout'
 import MessageBubble from '@/components/MessageBubble'
 import ChatInput from '@/components/ChatInput'
 import MobileMenu from '@/components/MobileMenu'
-import { MessageSkeleton } from '@/components/LoadingStates'
+import { ThinkingBubbles } from '@/components/LoadingStates'
 import ProgressIndicator, { useProgressIndicator } from '@/components/ProgressIndicator'
 import DataSourceIndicator from '@/components/DataSourceIndicator'
 import AuthModal from '@/components/AuthModal'
@@ -275,7 +275,7 @@ function ChatInterface() {
                 />
               ))}
 
-              {isLoading && <MessageSkeleton />}
+              {isLoading && <ThinkingBubbles />}
 
               {/* Progress indicator */}
               {steps.length > 0 && (

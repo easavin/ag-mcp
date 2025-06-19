@@ -1363,6 +1363,32 @@ input[type="file"] {
   100% { transform: rotate(360deg); }
 }
 
+/* Thinking bubbles animation */
+@keyframes thinkingBounce {
+  0%, 80%, 100% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.thinking-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.thinking-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #a0a0a0;
+  border-radius: 50%;
+  animation: thinkingBounce 1.4s infinite ease-in-out both;
+}
+
 .selector-note {
   padding-top: 16px;
   border-top: 1px solid #333;
