@@ -6,7 +6,7 @@ import { mcpToolExecutor, ALL_MCP_TOOLS } from '@/lib/mcp-tools'
 import { JohnDeereConnectionError, JohnDeereRCAError, JohnDeerePermissionError } from '@/lib/johndeere-api'
 
 // Function to execute John Deere API calls
-async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any> {
+async function executeJohnDeereFunction(functionCall: FunctionCall, request: NextRequest): Promise<any> {
   const { name, arguments: args } = functionCall
   
   console.log(`🔧 Executing John Deere function: ${name}`, args)
@@ -14,6 +14,18 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
   try {
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
     let url: string
+    
+    // Helper function to make authenticated internal API calls
+    const makeAuthenticatedCall = async (apiUrl: string) => {
+      return await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // Forward the original request cookies for authentication
+          'Cookie': request.headers.get('cookie') || '',
+        },
+      })
+    }
     
     switch (name) {
       case 'getOrganizations':
@@ -23,7 +35,7 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
         if (!args.orgId) {
           // Auto-fetch organization first
           console.log('🔄 No orgId provided, fetching organizations first...')
-          const orgResponse = await fetch(`${baseUrl}/api/johndeere/organizations`)
+          const orgResponse = await makeAuthenticatedCall(`${baseUrl}/api/johndeere/organizations`)
           if (orgResponse.ok) {
             const orgData = await orgResponse.json()
             if (orgData.organizations && orgData.organizations.length > 0) {
@@ -38,7 +50,7 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
         if (!args.orgId) {
           // Auto-fetch organization first
           console.log('🔄 No orgId provided, fetching organizations first...')
-          const orgResponse = await fetch(`${baseUrl}/api/johndeere/organizations`)
+          const orgResponse = await makeAuthenticatedCall(`${baseUrl}/api/johndeere/organizations`)
           if (orgResponse.ok) {
             const orgData = await orgResponse.json()
             if (orgData.organizations && orgData.organizations.length > 0) {
@@ -53,7 +65,7 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
         if (!args.orgId) {
           // Auto-fetch organization first
           console.log('🔄 No orgId provided, fetching organizations first...')
-          const orgResponse = await fetch(`${baseUrl}/api/johndeere/organizations`)
+          const orgResponse = await makeAuthenticatedCall(`${baseUrl}/api/johndeere/organizations`)
           if (orgResponse.ok) {
             const orgData = await orgResponse.json()
             if (orgData.organizations && orgData.organizations.length > 0) {
@@ -73,12 +85,7 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
 
     console.log(`📡 Making API call to: ${url}`)
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+    const response = await makeAuthenticatedCall(url)
 
     console.log(`📡 API response status: ${response.status}`)
     
@@ -188,7 +195,7 @@ async function executeJohnDeereFunction(functionCall: FunctionCall): Promise<any
 }
 
 // Unified function executor that handles both John Deere functions and MCP tools
-async function executeFunction(functionCall: FunctionCall): Promise<any> {
+async function executeFunction(functionCall: FunctionCall, request: NextRequest): Promise<any> {
   const { name, arguments: args } = functionCall
   
   console.log(`🔧 Executing function: ${name}`, args)
@@ -213,7 +220,7 @@ async function executeFunction(functionCall: FunctionCall): Promise<any> {
   }
   
   // Otherwise, it's a John Deere function
-  return executeJohnDeereFunction(functionCall)
+  return executeJohnDeereFunction(functionCall, request)
 }
 
 export async function POST(request: NextRequest) {
@@ -301,18 +308,30 @@ The user has selected "${currentDataSource}" as their active data source. When t
 - For comprehensive data: Call getComprehensiveData() with the organization ID
 - ALWAYS call the appropriate function when user asks about farm data
 
+**SPECIAL REPROCESSING CONTEXT:**
+If you see previous messages in the conversation where the user asked about farm data (fields, equipment, machines, operations) but you couldn't access the data due to no data source being selected, you should now immediately process those requests with the current data source.
+
+Look for patterns like:
+- "my machines", "my equipment", "how many machines"
+- "my fields", "how many fields"  
+- "my operations", "recent operations"
+- Any previous farm data questions
+
 **EXAMPLES:** 
 - User: "how many fields do I have" → IMMEDIATELY call getFields() → count the returned fields
 - User: "how many machines do I have" → IMMEDIATELY call getEquipment() → count the returned equipment
+- User: "tell me about my machines" → IMMEDIATELY call getEquipment() → provide detailed equipment information
 - User: "operations on field X" → IMMEDIATELY call getOperations() → show the operations data
 
 **DO:**
 - Automatically fetch the organization first, then use its ID for subsequent calls
 - Provide specific data-driven responses based on actual API results
+- Process any previous farm data questions in the conversation now that you have data source access
 
 **DO NOT:**
 - Give generic responses without calling functions
 - Ask the user to provide organization IDs manually
+- Ignore previous farm data questions in the conversation
 
 Current active data source: ${currentDataSource}`
     } else {
@@ -401,7 +420,7 @@ You can select a data source using the dropdown in the top-left corner of the in
         const functionResults = await Promise.all(
           validFunctionCalls.map(async (functionCall, index) => {
             console.log(`🔧 Executing function ${index + 1}/${validFunctionCalls.length}: ${functionCall.name}`)
-            const result = await executeFunction(functionCall)
+            const result = await executeFunction(functionCall, request)
             return {
               name: functionCall.name,
               result,

@@ -51,6 +51,7 @@ interface ChatState {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setCurrentDataSource: (sourceId: string) => void
+  reprocessLastFarmDataQuestion: (sessionId: string) => Promise<void>
 }
 
 // Helper function to convert API response dates
@@ -362,6 +363,93 @@ export const useChatStore = create<ChatState>()(
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
       setCurrentDataSource: (sourceId) => set({ currentDataSource: sourceId }),
+      
+      reprocessLastFarmDataQuestion: async (sessionId) => {
+        const state = get()
+        const currentSession = state.sessions.find(s => s.id === sessionId)
+        
+        if (!currentSession || currentSession.messages.length === 0) {
+          console.log('❌ No session or messages found for reprocessing')
+          return
+        }
+
+        // Helper function to check if a message is asking about farm data
+        const isFarmDataQuestion = (content: string) => {
+          const farmDataPatterns = [
+            /my (fields?|equipment|machines?|operations?|organizations?|farms?)/i,
+            /how many (fields?|machines?|equipment|operations?)/i,
+            /tell me about my (fields?|equipment|machines?|operations?|farms?)/i,
+            /show me my (fields?|equipment|machines?|operations?|farms?)/i,
+            /list my (fields?|equipment|machines?|operations?|farms?)/i,
+            /what (fields?|equipment|machines?|operations?|farms?) do I have/i,
+            /my farm data/i,
+            /field count/i,
+            /equipment count/i,
+            /machine count/i
+          ]
+          return farmDataPatterns.some(pattern => pattern.test(content))
+        }
+
+        // Find the most recent user message that was about farm data
+        const userMessages = currentSession.messages.filter(m => m.role === 'user')
+        const lastFarmDataQuestion = userMessages.reverse().find(msg => isFarmDataQuestion(msg.content))
+        
+        if (!lastFarmDataQuestion) {
+          console.log('❌ No farm data question found to reprocess')
+          return
+        }
+
+        console.log('🔄 Reprocessing farm data question:', lastFarmDataQuestion.content)
+        set({ isLoading: true, error: null })
+
+        try {
+          // Get all messages including the question we want to reprocess
+          const allMessages = currentSession.messages
+
+          // Generate LLM response with the new data source context
+          const completionResponse = await fetch('/api/chat/completion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              currentDataSource: state.currentDataSource,
+              messages: allMessages.map(msg => ({
+                role: msg.role,
+                content: msg.content,
+                fileAttachments: msg.fileAttachments
+              }))
+            }),
+          })
+
+          if (!completionResponse.ok) {
+            const errorData = await completionResponse.json()
+            throw new Error(errorData.error || 'Failed to reprocess farm data question')
+          }
+
+          const completionData = await completionResponse.json()
+          const assistantMessage: Message = convertDates(completionData.message)
+
+          // Update state with the new assistant message
+          set((state) => ({
+            sessions: state.sessions.map((session) =>
+              session.id === sessionId
+                ? {
+                    ...session,
+                    messages: [...session.messages, assistantMessage],
+                    updatedAt: new Date(),
+                  }
+                : session
+            ),
+            isLoading: false,
+          }))
+
+          console.log('✅ Farm data question reprocessed successfully')
+        } catch (error) {
+          console.error('❌ Error reprocessing farm data question:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          set({ error: errorMessage, isLoading: false })
+        }
+      },
     }),
     {
       name: 'chat-store',

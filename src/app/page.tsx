@@ -25,6 +25,7 @@ function ChatInterface() {
     loadSessions,
     setCurrentSession,
     setCurrentDataSource,
+    reprocessLastFarmDataQuestion,
   } = useChatStore()
 
   const { user, loadUser, checkJohnDeereConnection, johnDeereConnection } = useAuthStore()
@@ -100,6 +101,25 @@ function ChatInterface() {
     } catch (error) {
       console.error('Error sending message:', error)
       // The error will be handled by the chat store and displayed in the UI
+    }
+  }
+
+
+
+  // Enhanced data source selection handler that re-processes last farm data question
+  const handleDataSourceSelect = async (sourceId: string, dataType: string) => {
+    console.log('🔧 Data source selected:', sourceId, 'for', dataType)
+    
+    // Set the data source first
+    setCurrentDataSource(sourceId)
+    
+    // Re-process the last farm data question if there is one
+    if (currentSessionId) {
+      try {
+        await reprocessLastFarmDataQuestion(currentSessionId)
+      } catch (error) {
+        console.error('Error re-processing farm data question:', error)
+      }
     }
   }
 
@@ -250,10 +270,7 @@ function ChatInterface() {
                   content={message.content}
                   timestamp={message.createdAt}
                   fileAttachments={message.fileAttachments}
-                  onDataSourceSelect={async (sourceId: string, dataType: string) => {
-                    console.log('🔧 Data source selected:', sourceId, 'for', dataType)
-                    setCurrentDataSource(sourceId)
-                  }}
+                  onDataSourceSelect={handleDataSourceSelect}
                   currentDataSource={currentDataSource}
                 />
               ))}
