@@ -52,6 +52,7 @@ interface ChatState {
   setError: (error: string | null) => void
   setCurrentDataSource: (sourceId: string) => void
   reprocessLastFarmDataQuestion: (sessionId: string) => Promise<void>
+  generateChatTitle: (sessionId: string, firstUserMessage: string) => Promise<void>
 }
 
 // Helper function to convert API response dates
@@ -293,6 +294,16 @@ export const useChatStore = create<ChatState>()(
             isLoading: false,
           }))
 
+          // Check if this is the first user message (session has only 2 messages: user + assistant)
+          const updatedSession = get().sessions.find(s => s.id === sessionId)
+          if (updatedSession && updatedSession.messages.length === 2 && updatedSession.title === 'New Chat') {
+            // Generate a smart title based on the first user message
+            console.log('🏷️ First message exchange complete, generating title...')
+            get().generateChatTitle(sessionId, content).catch(error => {
+              console.error('❌ Failed to generate title:', error)
+            })
+          }
+
           return assistantMessage
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -448,6 +459,37 @@ export const useChatStore = create<ChatState>()(
           console.error('❌ Error reprocessing farm data question:', error)
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
           set({ error: errorMessage, isLoading: false })
+        }
+      },
+
+      generateChatTitle: async (sessionId, firstUserMessage) => {
+        try {
+          console.log('🏷️ Generating title for session:', sessionId, 'based on message:', firstUserMessage.substring(0, 50) + '...')
+          
+          // Call the completion API to generate a title
+          const response = await fetch('/api/chat/generate-title', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              message: firstUserMessage 
+            }),
+          })
+
+          if (!response.ok) {
+            console.error('❌ Failed to generate title:', response.status)
+            return // Silently fail, keep the default "New Chat" title
+          }
+
+          const { title } = await response.json()
+          
+          if (title) {
+            console.log('✅ Generated title:', title)
+            // Update the session title
+            await get().updateSessionTitle(sessionId, title)
+          }
+        } catch (error) {
+          console.error('❌ Error generating chat title:', error)
+          // Silently fail, keep the default "New Chat" title
         }
       },
     }),
