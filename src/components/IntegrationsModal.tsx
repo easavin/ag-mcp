@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { useChatStore } from '@/stores/chatStore';
 import AuravantConnectionHelper from './AuravantConnectionHelper';
 
 interface IntegrationsModalProps {
@@ -69,12 +70,34 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
     handleJohnDeereCallback,
   } = useAuthStore();
 
+  const { selectedDataSources, toggleDataSource } = useChatStore();
+
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<JohnDeereConnectionStatus>({ status: 'loading' });
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   
   // Auravant state
   const [auravantStatus, setAuravantStatus] = useState<AuravantConnectionStatus>({ connected: false });
+  
+  // EU Commission state - check if it's in selected data sources
+  const [euCommissionConnected, setEuCommissionConnected] = useState(
+    selectedDataSources.includes('eu-commission')
+  );
+
+  // EU Commission handlers
+  const handleEuCommissionConnect = () => {
+    setEuCommissionConnected(true);
+    if (!selectedDataSources.includes('eu-commission')) {
+      toggleDataSource('eu-commission');
+    }
+  };
+
+  const handleEuCommissionDisconnect = () => {
+    setEuCommissionConnected(false);
+    if (selectedDataSources.includes('eu-commission')) {
+      toggleDataSource('eu-commission');
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -89,6 +112,11 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
+
+  // Sync EU Commission connection state with chat store
+  useEffect(() => {
+    setEuCommissionConnected(selectedDataSources.includes('eu-commission'));
+  }, [selectedDataSources]);
 
   // Check Auravant connection status
   const checkAuravantStatus = async () => {
@@ -295,6 +323,23 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         'Labour operation tracking',
         'Multi-language support (ES/PT/EN)'
       ]
+    },
+    {
+      id: 'eu-commission',
+      name: 'EU Agricultural Markets',
+      description: 'Access European Commission agricultural market data including prices, production statistics, and trade information.',
+      logo: '/assets/logos/ec-logo.png',
+      logoFallback: '🇪🇺',
+      category: 'Market Data',
+      isConnected: euCommissionConnected,
+      features: [
+        'Agricultural market prices across EU',
+        'Production statistics by member state',
+        'Import/export trade data',
+        'Market dashboards and reports',
+        'Beef, dairy, cereals, and more sectors',
+        'Historical and current market trends'
+      ]
     }
   ];
 
@@ -492,20 +537,30 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                               <p>Expires: {new Date(johnDeereConnection.expiresAt).toLocaleDateString()}</p>
                             </div>
                           )}
+                          {integration.id === 'eu-commission' && (
+                            <div className="connection-details">
+                              <p>No authentication required</p>
+                              <p>Direct access to EU agricultural data</p>
+                            </div>
+                          )}
                         </div>
                         <div className="action-buttons">
-                          <button 
-                            className="refresh-btn"
-                            onClick={integration.id === 'johndeere' ? checkConnectionStatus : checkAuravantStatus}
-                            disabled={isCheckingConnection}
-                          >
-                            {isCheckingConnection ? '↻ Refreshing...' : '↻ Refresh Status'}
-                          </button>
+                          {integration.id !== 'eu-commission' && (
+                            <button 
+                              className="refresh-btn"
+                              onClick={integration.id === 'johndeere' ? checkConnectionStatus : checkAuravantStatus}
+                              disabled={isCheckingConnection}
+                            >
+                              {isCheckingConnection ? '↻ Refreshing...' : '↻ Refresh Status'}
+                            </button>
+                          )}
                           <button 
                             className="disconnect-btn"
                             onClick={() => {
                               if (integration.id === 'johndeere') {
                                 handleJohnDeereDisconnect();
+                              } else if (integration.id === 'eu-commission') {
+                                handleEuCommissionDisconnect();
                               }
                             }}
                           >
@@ -519,6 +574,8 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                         onClick={() => {
                           if (integration.id === 'johndeere') {
                             handleJohnDeereConnect();
+                          } else if (integration.id === 'eu-commission') {
+                            handleEuCommissionConnect();
                           }
                         }}
                         disabled={isConnecting}

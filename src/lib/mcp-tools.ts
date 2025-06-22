@@ -3,6 +3,7 @@
 
 import { getJohnDeereAPIClient } from './johndeere-api';
 import { getWeatherAPIClient } from './weather-api';
+import { euAgriAPI, MARKET_SECTORS } from './eu-agri-api';
 
 export interface MCPTool {
   name: string
@@ -345,12 +346,120 @@ export const WEATHER_TOOLS: MCPTool[] = [
   }
 ]
 
+// EU Commission Agricultural Market Tools
+export const EU_COMMISSION_TOOLS: MCPTool[] = [
+  {
+    name: 'getEUMarketPrices',
+    description: 'Get current agricultural market prices from the EU Commission for specific sectors and member states.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sector: {
+          type: 'string',
+          enum: ['beef', 'pigmeat', 'dairy', 'eggs-poultry', 'sheep-goat', 'cereals', 'rice', 'oilseeds', 'fruits-vegetables', 'sugar', 'olive-oil', 'wine', 'fertilizer', 'organic'],
+          description: 'Agricultural market sector'
+        },
+        memberState: {
+          type: 'string',
+          description: 'EU member state code (e.g., "DE", "FR", "IT") or "EU" for aggregate data'
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of price records to return',
+          minimum: 1,
+          maximum: 50
+        }
+      },
+      required: ['sector']
+    }
+  },
+  {
+    name: 'getEUProductionData',
+    description: 'Get agricultural production statistics from the EU Commission for specific sectors and member states.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sector: {
+          type: 'string',
+          enum: ['beef', 'pigmeat', 'dairy', 'eggs-poultry', 'sheep-goat', 'cereals', 'rice', 'oilseeds', 'fruits-vegetables', 'sugar', 'olive-oil', 'wine', 'fertilizer', 'organic'],
+          description: 'Agricultural market sector'
+        },
+        memberState: {
+          type: 'string',
+          description: 'EU member state code (e.g., "DE", "FR", "IT") or "EU" for aggregate data'
+        },
+        year: {
+          type: 'number',
+          description: 'Year for production data (defaults to current year)'
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of production records to return',
+          minimum: 1,
+          maximum: 50
+        }
+      },
+      required: ['sector']
+    }
+  },
+  {
+    name: 'getEUTradeData',
+    description: 'Get agricultural trade statistics (imports/exports) from the EU Commission for specific sectors.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sector: {
+          type: 'string',
+          enum: ['beef', 'pigmeat', 'dairy', 'eggs-poultry', 'sheep-goat', 'cereals', 'rice', 'oilseeds', 'fruits-vegetables', 'sugar', 'olive-oil', 'wine', 'fertilizer', 'organic'],
+          description: 'Agricultural market sector'
+        },
+        tradeType: {
+          type: 'string',
+          enum: ['import', 'export', 'both'],
+          description: 'Type of trade data to retrieve'
+        },
+        memberState: {
+          type: 'string',
+          description: 'EU member state code (e.g., "DE", "FR", "IT") or "EU" for aggregate data'
+        },
+        partnerCountry: {
+          type: 'string',
+          description: 'Partner country for trade data (e.g., "US", "BR", "AR")'
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of trade records to return',
+          minimum: 1,
+          maximum: 50
+        }
+      },
+      required: ['sector']
+    }
+  },
+  {
+    name: 'getEUMarketDashboard',
+    description: 'Get comprehensive market dashboard with key indicators, trends, and highlights for a specific agricultural sector.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sector: {
+          type: 'string',
+          enum: ['beef', 'pigmeat', 'dairy', 'eggs-poultry', 'sheep-goat', 'cereals', 'rice', 'oilseeds', 'fruits-vegetables', 'sugar', 'olive-oil', 'wine', 'fertilizer', 'organic'],
+          description: 'Agricultural market sector'
+        }
+      },
+      required: ['sector']
+    }
+  }
+]
+
 // All MCP Tools combined
 export const ALL_MCP_TOOLS: MCPTool[] = [
   ...FIELD_OPERATION_TOOLS,
   ...EQUIPMENT_MANAGEMENT_TOOLS,
   ...DATA_RETRIEVAL_TOOLS,
   ...WEATHER_TOOLS,
+  ...EU_COMMISSION_TOOLS,
 ]
 
 // Tool execution functions
@@ -377,6 +486,11 @@ export class MCPToolExecutor {
     // Weather
     if (WEATHER_TOOLS.find(tool => tool.name === toolName)) {
       return this.executeWeather(toolName, parameters);
+    }
+    
+    // EU Commission
+    if (EU_COMMISSION_TOOLS.find(tool => tool.name === toolName)) {
+      return this.executeEUCommission(toolName, parameters);
     }
     
     return {
@@ -440,6 +554,21 @@ export class MCPToolExecutor {
         return this.getWeatherForecast(parameters);
       default:
         return { success: false, message: 'Unknown weather tool' };
+    }
+  }
+
+  private async executeEUCommission(toolName: string, parameters: any): Promise<MCPToolResult> {
+    switch (toolName) {
+      case 'getEUMarketPrices':
+        return this.getEUMarketPrices(parameters);
+      case 'getEUProductionData':
+        return this.getEUProductionData(parameters);
+      case 'getEUTradeData':
+        return this.getEUTradeData(parameters);
+      case 'getEUMarketDashboard':
+        return this.getEUMarketDashboard(parameters);
+      default:
+        return { success: false, message: 'Unknown EU Commission tool' };
     }
   }
 
@@ -733,6 +862,91 @@ export class MCPToolExecutor {
         success: false,
         message: `Failed to get weather forecast: ${error.message}`
       }
+    }
+  }
+
+  // EU Commission Tool Implementations
+  private async getEUMarketPrices(params: any): Promise<MCPToolResult> {
+    try {
+      const response = await euAgriAPI.getMarketPrices(params.sector, {
+        memberState: params.memberState,
+        limit: params.limit
+      });
+      
+      return {
+        success: true,
+        message: `🇪🇺 Retrieved EU market prices for ${params.sector}${params.memberState ? ` in ${params.memberState}` : ''}`,
+        data: response.data,
+        actionTaken: `Retrieved EU ${params.sector} market prices`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get EU market prices: ${error.message}`
+      };
+    }
+  }
+
+  private async getEUProductionData(params: any): Promise<MCPToolResult> {
+    try {
+      const response = await euAgriAPI.getProductionData(params.sector, {
+        memberState: params.memberState,
+        year: params.year,
+        limit: params.limit
+      });
+      
+      return {
+        success: true,
+        message: `🇪🇺 Retrieved EU production data for ${params.sector}${params.memberState ? ` in ${params.memberState}` : ''}`,
+        data: response.data,
+        actionTaken: `Retrieved EU ${params.sector} production data`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get EU production data: ${error.message}`
+      };
+    }
+  }
+
+  private async getEUTradeData(params: any): Promise<MCPToolResult> {
+    try {
+      const response = await euAgriAPI.getTradeData(params.sector, {
+        tradeType: params.tradeType,
+        memberState: params.memberState,
+        partnerCountry: params.partnerCountry,
+        limit: params.limit
+      });
+      
+      return {
+        success: true,
+        message: `🇪🇺 Retrieved EU trade data for ${params.sector}${params.memberState ? ` in ${params.memberState}` : ''}`,
+        data: response.data,
+        actionTaken: `Retrieved EU ${params.sector} trade data`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get EU trade data: ${error.message}`
+      };
+    }
+  }
+
+  private async getEUMarketDashboard(params: any): Promise<MCPToolResult> {
+    try {
+      const response = await euAgriAPI.getMarketDashboard(params.sector);
+      
+      return {
+        success: true,
+        message: `🇪🇺 Retrieved EU market dashboard for ${params.sector}`,
+        data: response.data,
+        actionTaken: `Retrieved EU ${params.sector} market dashboard`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get EU market dashboard: ${error.message}`
+      };
     }
   }
 

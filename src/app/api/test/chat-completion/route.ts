@@ -146,15 +146,29 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
     if (response.functionCalls && response.functionCalls.length > 0) {
       console.log('🔧 Function calls detected:', response.functionCalls.map(fc => fc.name))
       
-      // Filter out John Deere functions if John Deere is not selected
-      const johnDeereFunctions = ['getOrganizations', 'getFields', 'getEquipment', 'getOperations', 'getComprehensiveData']
+      // Filter out functions based on selected data sources
+      const johnDeereFunctions = ['getOrganizations', 'getFields', 'getEquipment', 'getOperations', 'getComprehensiveData', 'scheduleFieldOperation', 'getFieldRecommendations', 'updateFieldStatus', 'scheduleEquipmentMaintenance', 'getEquipmentAlerts', 'updateEquipmentStatus', 'get_equipment_details', 'get_field_operation_history', 'list_john_deere_files', 'get_field_boundary']
+      const euCommissionFunctions = ['getEUMarketPrices', 'getEUProductionData', 'getEUTradeData', 'getEUMarketDashboard']
       let validFunctionCalls = response.functionCalls
       
+      // Filter out John Deere functions if John Deere is not selected
       if (!hasJohnDeere) {
-        const filteredCalls = response.functionCalls.filter(fc => !johnDeereFunctions.includes(fc.name))
-        if (filteredCalls.length !== response.functionCalls.length) {
+        const filteredCalls = validFunctionCalls.filter(fc => !johnDeereFunctions.includes(fc.name))
+        if (filteredCalls.length !== validFunctionCalls.length) {
           console.log('🚫 Filtered out John Deere functions (John Deere not selected)')
-          console.log('🔧 Original functions:', response.functionCalls.map(fc => fc.name))
+          console.log('🔧 Original functions:', validFunctionCalls.map(fc => fc.name))
+          console.log('🔧 Filtered functions:', filteredCalls.map(fc => fc.name))
+        }
+        validFunctionCalls = filteredCalls
+      }
+      
+      // Filter out EU Commission functions if EU Commission is not selected
+      const hasEuCommission = selectedDataSources && selectedDataSources.includes('eu-commission')
+      if (!hasEuCommission) {
+        const filteredCalls = validFunctionCalls.filter(fc => !euCommissionFunctions.includes(fc.name))
+        if (filteredCalls.length !== validFunctionCalls.length) {
+          console.log('🚫 Filtered out EU Commission functions (EU Commission not selected)')
+          console.log('🔧 Original functions:', validFunctionCalls.map(fc => fc.name))
           console.log('🔧 Filtered functions:', filteredCalls.map(fc => fc.name))
         }
         validFunctionCalls = filteredCalls

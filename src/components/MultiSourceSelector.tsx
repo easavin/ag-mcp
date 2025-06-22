@@ -47,6 +47,15 @@ const DATA_SOURCES: DataSource[] = [
     category: 'platform',
     color: '#059669',
     available: true
+  },
+  {
+    id: 'eu-commission',
+    name: 'EU Markets',
+    icon: <Cloud className="w-5 h-5" />,
+    description: 'Agricultural market prices, production data, trade statistics',
+    category: 'environmental',
+    color: '#EAB308',
+    available: true
   }
 ]
 

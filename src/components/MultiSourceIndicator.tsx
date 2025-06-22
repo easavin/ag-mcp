@@ -33,6 +33,12 @@ const DATA_SOURCES: DataSource[] = [
     name: 'Auravant', 
     icon: <Wheat className="w-5 h-5" />,
     color: '#059669'
+  },
+  {
+    id: 'eu-commission',
+    name: 'EU Markets',
+    icon: <Image src="/assets/logos/ec-logo.png" alt="EU Commission" width={20} height={20} />,
+    color: '#EAB308'
   }
 ]
 
