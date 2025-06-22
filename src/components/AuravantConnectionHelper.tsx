@@ -18,8 +18,10 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
   const [connectionStatus, setConnectionStatus] = useState<AuravantConnectionStatus>({ connected: false });
   const [isConnecting, setIsConnecting] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [authMethod, setAuthMethod] = useState<'token' | 'extension'>('token');
   const [token, setToken] = useState('');
   const [extensionId, setExtensionId] = useState('');
+  const [extensionSecret, setExtensionSecret] = useState('');
   const [showTokenInput, setShowTokenInput] = useState(false);
 
   useEffect(() => {
@@ -64,21 +66,23 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
 
   const handleConnect = async () => {
     if (!token.trim()) {
-      alert('Please enter your Auravant developer token');
+      alert('Please enter your Auravant Bearer token');
       return;
     }
 
     setIsConnecting(true);
     try {
+      const requestBody = {
+        token: token.trim(),
+        extensionId: extensionId.trim() || undefined
+      };
+
       const response = await fetch('/api/auth/auravant/connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          token: token.trim(),
-          extensionId: extensionId.trim() || undefined
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
@@ -87,6 +91,7 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
         setConnectionStatus({ connected: true, extensionId: extensionId.trim() || undefined });
         setToken('');
         setExtensionId('');
+        setExtensionSecret('');
         setShowTokenInput(false);
         alert('Successfully connected to Auravant!');
         await checkConnectionStatus(); // Refresh status
@@ -198,21 +203,21 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
       {!connectionStatus.connected && showTokenInput && (
         <div className="token-input-form">
           <div className="form-group">
-            <label htmlFor="auravant-token">Developer Token *</label>
+            <label htmlFor="auravant-token">Bearer Token *</label>
             <input
               id="auravant-token"
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="Enter your Auravant developer token"
+              placeholder="Enter your Auravant Bearer token"
               className="token-input"
             />
           </div>
           
           <div className="form-group">
-            <label htmlFor="extension-id">Extension ID (Optional)</label>
+            <label htmlFor="extension-id-optional">Extension ID (Optional)</label>
             <input
-              id="extension-id"
+              id="extension-id-optional"
               type="text"
               value={extensionId}
               onChange={(e) => setExtensionId(e.target.value)}
@@ -235,6 +240,7 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
                 setShowTokenInput(false);
                 setToken('');
                 setExtensionId('');
+                setExtensionSecret('');
               }}
               disabled={isConnecting}
             >
@@ -243,13 +249,17 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
           </div>
 
           <div className="help-text">
-            <h4>How to get your Auravant developer token:</h4>
+            <h4>⚠️ Important:</h4>
+            <p>Auravant requires a Bearer token generated from your Extension in the Developer Space. Extension ID/Secret cannot be used to generate tokens via API.</p>
+            
+            <h4>How to get your Auravant credentials:</h4>
+            
             <ol>
               <li>Login to your Auravant account</li>
               <li>Go to Settings → Apply for developer status</li>
               <li>Create an Extension in the Developer Space</li>
-              <li>Generate a test token for development</li>
-              <li>Copy the token and paste it above</li>
+              <li><strong>Generate a test token</strong> from the "Version box" in Developer Space</li>
+              <li>Copy the Bearer token and paste it above</li>
             </ol>
             <p>
               <strong>Need help?</strong> Contact{' '}
@@ -352,6 +362,35 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
           font-weight: 600;
           color: #e0e0e0;
           font-size: 14px;
+        }
+
+        .auth-method-selector {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+
+        .method-btn {
+          flex: 1;
+          padding: 8px 12px;
+          border: 1px solid #555;
+          border-radius: 6px;
+          background-color: #333;
+          color: #e0e0e0;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .method-btn:hover {
+          background-color: #444;
+          border-color: #666;
+        }
+
+        .method-btn.active {
+          background-color: #2563eb;
+          border-color: #2563eb;
+          color: white;
         }
 
         .token-input, .extension-input {

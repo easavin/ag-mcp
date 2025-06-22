@@ -4,6 +4,41 @@ import { AuravantClient } from './client'
 export class AuravantAuth {
   
   /**
+   * Generate Bearer token from extension credentials
+   */
+  static async generateTokenFromExtension(extensionId: string, secret: string): Promise<string> {
+    try {
+      const response = await fetch('https://api.auravant.com/api/auth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          extension_id: extensionId,
+          secret: secret
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      // Handle Auravant-specific error codes
+      if (data.code !== undefined && data.code !== 0) {
+        throw new Error(data.msg || 'Failed to generate token')
+      }
+
+      // Return the Bearer token
+      return data.token || data.access_token || data.bearer_token
+    } catch (error) {
+      console.error('Failed to generate token from extension credentials:', error)
+      throw new Error('Failed to authenticate with extension credentials')
+    }
+  }
+
+  /**
    * Test if a Bearer token is valid by making a test API call
    */
   static async validateToken(token: string): Promise<boolean> {

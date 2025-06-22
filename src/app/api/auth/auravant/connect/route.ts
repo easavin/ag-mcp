@@ -16,26 +16,29 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { token, extensionId } = body
+    const { token, extensionId, extensionSecret } = body
 
     if (!token) {
       return NextResponse.json(
-        { error: 'Bearer token is required' },
+        { error: 'Bearer token is required. Generate a test token from your Auravant Extension Developer Space.' },
         { status: 400 }
       )
     }
 
+    const finalToken = token
+    const finalExtensionId = extensionId
+
     // Validate token by testing connection
-    const isValid = await AuravantAuth.validateToken(token)
+    const isValid = await AuravantAuth.validateToken(finalToken)
     if (!isValid) {
       return NextResponse.json(
-        { error: 'Invalid Auravant token. Please check your token and try again.' },
+        { error: 'Invalid Auravant credentials. Please check your credentials and try again.' },
         { status: 400 }
       )
     }
 
     // Store token for user
-    await AuravantAuth.storeToken(session.user.id, token, extensionId)
+    await AuravantAuth.storeToken(session.user.id, finalToken, finalExtensionId)
 
     return NextResponse.json({
       success: true,
