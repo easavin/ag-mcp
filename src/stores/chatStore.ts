@@ -38,6 +38,7 @@ interface ChatState {
   isLoading: boolean
   error: string | null
   currentDataSource: string | null
+  selectedDataSources: string[]
 
   // Actions
   setCurrentSession: (sessionId: string | null) => void
@@ -51,6 +52,8 @@ interface ChatState {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setCurrentDataSource: (sourceId: string) => void
+  setSelectedDataSources: (sources: string[]) => void
+  toggleDataSource: (sourceId: string) => void
   reprocessLastFarmDataQuestion: (sessionId: string) => Promise<void>
   generateChatTitle: (sessionId: string, firstUserMessage: string) => Promise<void>
 }
@@ -86,6 +89,7 @@ export const useChatStore = create<ChatState>()(
       isLoading: false,
       error: null,
       currentDataSource: null,
+      selectedDataSources: ['weather'], // Weather always selected by default
 
       // Actions
       setCurrentSession: (sessionId) => {
@@ -374,6 +378,12 @@ export const useChatStore = create<ChatState>()(
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
       setCurrentDataSource: (sourceId) => set({ currentDataSource: sourceId }),
+      setSelectedDataSources: (sources) => set({ selectedDataSources: sources }),
+      toggleDataSource: (sourceId) => set((state) => ({
+        selectedDataSources: state.selectedDataSources.includes(sourceId)
+          ? state.selectedDataSources.filter(id => id !== sourceId)
+          : [...state.selectedDataSources, sourceId]
+      })),
       
       reprocessLastFarmDataQuestion: async (sessionId) => {
         const state = get()

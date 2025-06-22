@@ -247,22 +247,22 @@ export const useAuthStore = create<AuthState>()(
 
         checkJohnDeereConnection: async () => {
           try {
-            const response = await fetch('/api/auth/johndeere/status')
+            const response = await fetch('/api/johndeere/connection-status')
             
             if (!response.ok) {
               set({ johnDeereConnection: { isConnected: false } })
               return
             }
 
-            const { isConnected, connection } = await response.json()
+            const data = await response.json()
+            
+            const isConnected = data.status === 'connected' || data.status === 'partial_connection'
             
             if (isConnected) {
               set({
                 johnDeereConnection: {
                   isConnected: true,
-                  expiresAt: connection?.expiresAt || null,
-                  scope: connection?.scope || '',
-                  organizations: connection?.organizations || [],
+                  organizations: data.organizations || [],
                 },
               })
             } else {

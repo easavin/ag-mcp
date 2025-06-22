@@ -8,6 +8,7 @@ import MobileMenu from '@/components/MobileMenu'
 import { ThinkingBubbles } from '@/components/LoadingStates'
 import ProgressIndicator, { useProgressIndicator } from '@/components/ProgressIndicator'
 import DataSourceIndicator from '@/components/DataSourceIndicator'
+import MultiSourceIndicator from '@/components/MultiSourceIndicator'
 import AuthModal from '@/components/AuthModal'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -19,12 +20,14 @@ function ChatInterface() {
     isLoading,
     error,
     currentDataSource,
+    selectedDataSources,
     createSession,
     sendMessage,
     addMessage,
     loadSessions,
     setCurrentSession,
     setCurrentDataSource,
+    setSelectedDataSources,
     reprocessLastFarmDataQuestion,
   } = useChatStore()
 
@@ -60,6 +63,16 @@ function ChatInterface() {
       })
     }
   }, [user, loadSessions, checkJohnDeereConnection])
+
+  // Auto-add John Deere to selected sources when connected
+  useEffect(() => {
+    if (johnDeereConnection.isConnected && !selectedDataSources.includes('johndeere')) {
+      setSelectedDataSources([...selectedDataSources, 'johndeere'])
+    } else if (!johnDeereConnection.isConnected && selectedDataSources.includes('johndeere')) {
+      // Remove John Deere from selected sources if disconnected
+      setSelectedDataSources(selectedDataSources.filter(id => id !== 'johndeere'))
+    }
+  }, [johnDeereConnection.isConnected, selectedDataSources, setSelectedDataSources])
 
   // Clear auth errors for unauthenticated users (these are expected)
   useEffect(() => {
@@ -138,9 +151,8 @@ function ChatInterface() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <MobileMenu />
                 {user && (
-                  <DataSourceIndicator 
-                    currentSource={currentDataSource}
-                    onSourceChange={setCurrentDataSource}
+                  <MultiSourceIndicator 
+                    selectedSources={selectedDataSources}
                   />
                 )}
               </div>

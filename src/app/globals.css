@@ -1274,6 +1274,53 @@ input[type="file"] {
   max-width: 600px;
 }
 
+/* Multi Source Selector */
+.multi-source-selector {
+  position: relative;
+  min-width: 200px;
+}
+
+.multi-source-selector .selector-header:hover {
+  border-color: #555;
+  background: #333;
+}
+
+.multi-source-selector .selector-panel {
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.multi-source-selector .source-option:hover .checkbox {
+  border-color: #777;
+}
+
+/* Backdrop for closing multi-source selector */
+.multi-source-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+/* Multi Source Indicator */
+.multi-source-indicator {
+  display: flex;
+  align-items: center;
+}
+
+.multi-source-indicator .source-icon:hover {
+  transform: scale(1.05);
+}
+
 .selector-header {
   margin-bottom: 20px;
 }

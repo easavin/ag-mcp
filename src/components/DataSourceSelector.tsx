@@ -17,6 +17,13 @@ interface DataSourceSelectorProps {
 
 const DATA_SOURCES: DataSource[] = [
   {
+    id: 'weather',
+    name: 'Weather Data',
+    icon: '/assets/logos/weather-logo.svg',
+    description: 'Access real-time weather data, forecasts, and agricultural conditions',
+    available: true
+  },
+  {
     id: 'johndeere',
     name: 'John Deere Operations Center',
     icon: '/assets/logos/johndeere-logo.png',

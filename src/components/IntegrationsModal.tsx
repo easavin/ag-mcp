@@ -249,6 +249,23 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   // Define available integrations
   const integrations: Integration[] = [
     {
+      id: 'weather',
+      name: 'Weather Data',
+      description: 'Access real-time weather data, forecasts, and agricultural conditions for your fields.',
+      logo: '/assets/logos/weather-logo.svg',
+      logoFallback: '🌤️',
+      category: 'Environmental Data',
+      isConnected: true, // Always connected - no auth needed
+      features: [
+        'Current weather conditions',
+        '7-day weather forecasts',
+        'Soil temperature and moisture',
+        'Spray application conditions', 
+        'Evapotranspiration rates',
+        'Agricultural alerts and insights'
+      ]
+    },
+    {
       id: 'johndeere',
       name: 'John Deere Operations Center',
       description: 'Connect your John Deere account to access field data, equipment status, and upload prescription files.',
@@ -452,7 +469,19 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                 )}
 
                 {/* Integration Actions */}
-                {integration.id !== 'auravant' && (
+                {integration.id === 'weather' ? (
+                  <div className="integration-actions">
+                    <div className="weather-status">
+                      <div className="status-badge connected">
+                        <div className="status-dot"></div>
+                        Always Connected
+                      </div>
+                      <p style={{ color: '#a0a0a0', fontSize: '0.85rem', margin: '8px 0 0 0' }}>
+                        Weather data is available without authentication
+                      </p>
+                    </div>
+                  </div>
+                ) : integration.id !== 'auravant' ? (
                   <div className="integration-actions">
                     {integration.isConnected ? (
                       <div className="connected-actions">
@@ -498,7 +527,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                       </button>
                     )}
                   </div>
-                )}
+                ) : null}
               </div>
             ))}
           </div>

@@ -20,6 +20,14 @@ interface DataSourceIndicatorProps {
 
 const DATA_SOURCES: DataSource[] = [
   {
+    id: 'weather',
+    name: 'Weather',
+    icon: '/assets/logos/weather-logo.svg',
+    description: 'Real-time weather data',
+    available: true,
+    color: '#3B82F6'
+  },
+  {
     id: 'johndeere',
     name: 'John Deere',
     icon: '/assets/logos/johndeere-logo.png',
