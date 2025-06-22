@@ -56,6 +56,15 @@ const DATA_SOURCES: DataSource[] = [
     category: 'environmental',
     color: '#EAB308',
     available: true
+  },
+  {
+    id: 'usda',
+    name: 'USDA Markets',
+    icon: <Cloud className="w-5 h-5" />,
+    description: 'North American agricultural market data, production statistics, trade info',
+    category: 'environmental',
+    color: '#DC2626',
+    available: true
   }
 ]
 

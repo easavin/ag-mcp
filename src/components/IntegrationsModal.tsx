@@ -83,6 +83,11 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   const [euCommissionConnected, setEuCommissionConnected] = useState(
     selectedDataSources.includes('eu-commission')
   );
+  
+  // USDA state - check if it's in selected data sources
+  const [usdaConnected, setUsdaConnected] = useState(
+    selectedDataSources.includes('usda')
+  );
 
   // EU Commission handlers
   const handleEuCommissionConnect = () => {
@@ -96,6 +101,21 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
     setEuCommissionConnected(false);
     if (selectedDataSources.includes('eu-commission')) {
       toggleDataSource('eu-commission');
+    }
+  };
+
+  // USDA handlers
+  const handleUsdaConnect = () => {
+    setUsdaConnected(true);
+    if (!selectedDataSources.includes('usda')) {
+      toggleDataSource('usda');
+    }
+  };
+
+  const handleUsdaDisconnect = () => {
+    setUsdaConnected(false);
+    if (selectedDataSources.includes('usda')) {
+      toggleDataSource('usda');
     }
   };
 
@@ -116,6 +136,11 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   // Sync EU Commission connection state with chat store
   useEffect(() => {
     setEuCommissionConnected(selectedDataSources.includes('eu-commission'));
+  }, [selectedDataSources]);
+
+  // Sync USDA connection state with chat store
+  useEffect(() => {
+    setUsdaConnected(selectedDataSources.includes('usda'));
   }, [selectedDataSources]);
 
   // Check Auravant connection status
@@ -340,6 +365,23 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         'Beef, dairy, cereals, and more sectors',
         'Historical and current market trends'
       ]
+    },
+    {
+      id: 'usda',
+      name: 'USDA Agricultural Markets',
+      description: 'Access USDA agricultural market data for North American markets including prices, production statistics, and trade information.',
+      logo: '/assets/logos/usda-logo.png',
+      logoFallback: '🇺🇸',
+      category: 'Market Data',
+      isConnected: usdaConnected,
+      features: [
+        'Agricultural market prices across North America',
+        'Production statistics by region (US, Canada, Mexico)',
+        'Import/export trade data',
+        'Market dashboards and reports',
+        'Grain, livestock, dairy, and more categories',
+        'Regional market analysis (Midwest, Southeast, etc.)'
+      ]
     }
   ];
 
@@ -543,9 +585,15 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                               <p>Direct access to EU agricultural data</p>
                             </div>
                           )}
+                          {integration.id === 'usda' && (
+                            <div className="connection-details">
+                              <p>No authentication required</p>
+                              <p>Direct access to USDA agricultural data</p>
+                            </div>
+                          )}
                         </div>
                         <div className="action-buttons">
-                          {integration.id !== 'eu-commission' && (
+                          {integration.id !== 'eu-commission' && integration.id !== 'usda' && (
                             <button 
                               className="refresh-btn"
                               onClick={integration.id === 'johndeere' ? checkConnectionStatus : checkAuravantStatus}
@@ -561,6 +609,8 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                                 handleJohnDeereDisconnect();
                               } else if (integration.id === 'eu-commission') {
                                 handleEuCommissionDisconnect();
+                              } else if (integration.id === 'usda') {
+                                handleUsdaDisconnect();
                               }
                             }}
                           >
@@ -576,6 +626,8 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                             handleJohnDeereConnect();
                           } else if (integration.id === 'eu-commission') {
                             handleEuCommissionConnect();
+                          } else if (integration.id === 'usda') {
+                            handleUsdaConnect();
                           }
                         }}
                         disabled={isConnecting}

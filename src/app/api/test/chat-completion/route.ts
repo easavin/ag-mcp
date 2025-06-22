@@ -149,6 +149,7 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
       // Filter out functions based on selected data sources
       const johnDeereFunctions = ['getOrganizations', 'getFields', 'getEquipment', 'getOperations', 'getComprehensiveData', 'scheduleFieldOperation', 'getFieldRecommendations', 'updateFieldStatus', 'scheduleEquipmentMaintenance', 'getEquipmentAlerts', 'updateEquipmentStatus', 'get_equipment_details', 'get_field_operation_history', 'list_john_deere_files', 'get_field_boundary']
       const euCommissionFunctions = ['getEUMarketPrices', 'getEUProductionData', 'getEUTradeData', 'getEUMarketDashboard']
+      const usdaFunctions = ['getUSDAMarketPrices', 'getUSDAProductionData', 'getUSDATradeData', 'getUSDAMarketDashboard']
       let validFunctionCalls = response.functionCalls
       
       // Filter out John Deere functions if John Deere is not selected
@@ -168,6 +169,18 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
         const filteredCalls = validFunctionCalls.filter(fc => !euCommissionFunctions.includes(fc.name))
         if (filteredCalls.length !== validFunctionCalls.length) {
           console.log('🚫 Filtered out EU Commission functions (EU Commission not selected)')
+          console.log('🔧 Original functions:', validFunctionCalls.map(fc => fc.name))
+          console.log('🔧 Filtered functions:', filteredCalls.map(fc => fc.name))
+        }
+        validFunctionCalls = filteredCalls
+      }
+      
+      // Filter out USDA functions if USDA is not selected
+      const hasUSDA = selectedDataSources && selectedDataSources.includes('usda')
+      if (!hasUSDA) {
+        const filteredCalls = validFunctionCalls.filter(fc => !usdaFunctions.includes(fc.name))
+        if (filteredCalls.length !== validFunctionCalls.length) {
+          console.log('🚫 Filtered out USDA functions (USDA not selected)')
           console.log('🔧 Original functions:', validFunctionCalls.map(fc => fc.name))
           console.log('🔧 Filtered functions:', filteredCalls.map(fc => fc.name))
         }

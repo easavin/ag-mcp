@@ -4,6 +4,7 @@
 import { getJohnDeereAPIClient } from './johndeere-api';
 import { getWeatherAPIClient } from './weather-api';
 import { euAgriAPI, MARKET_SECTORS } from './eu-agri-api';
+import { usdaAPI, USDA_MARKET_CATEGORIES } from './usda-api';
 
 export interface MCPTool {
   name: string
@@ -453,6 +454,107 @@ export const EU_COMMISSION_TOOLS: MCPTool[] = [
   }
 ]
 
+// USDA Agricultural Market Tools
+export const USDA_TOOLS: MCPTool[] = [
+  {
+    name: 'getUSDAMarketPrices',
+    description: 'Get current agricultural market prices from USDA for North American markets including US, Canada, and Mexico.',
+    parameters: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: ['grain', 'livestock', 'dairy', 'poultry', 'fruits', 'vegetables', 'specialty'],
+          description: 'Agricultural market category'
+        },
+        region: {
+          type: 'string',
+          enum: ['US', 'CA', 'MX', 'Midwest', 'Southeast', 'Northeast', 'Southwest', 'West'],
+          description: 'North American region'
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of results to return',
+          default: 10
+        }
+      },
+      required: ['category']
+    }
+  },
+  {
+    name: 'getUSDAProductionData',
+    description: 'Get agricultural production statistics from USDA for North American regions.',
+    parameters: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: ['grain', 'livestock', 'dairy', 'poultry', 'fruits', 'vegetables', 'specialty'],
+          description: 'Agricultural category'
+        },
+        region: {
+          type: 'string',
+          description: 'North American region'
+        },
+        year: {
+          type: 'number',
+          description: 'Production year'
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of results to return',
+          default: 10
+        }
+      },
+      required: ['category']
+    }
+  },
+  {
+    name: 'getUSDATradeData',
+    description: 'Get agricultural trade data (imports/exports) from USDA for North American markets.',
+    parameters: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: ['grain', 'livestock', 'dairy', 'poultry', 'fruits', 'vegetables', 'specialty'],
+          description: 'Agricultural category'
+        },
+        tradeType: {
+          type: 'string',
+          enum: ['export', 'import'],
+          description: 'Type of trade data'
+        },
+        country: {
+          type: 'string',
+          description: 'Trading partner country'
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of results to return',
+          default: 10
+        }
+      },
+      required: ['category']
+    }
+  },
+  {
+    name: 'getUSDAMarketDashboard',
+    description: 'Get comprehensive market dashboard with key indicators for North American agricultural markets.',
+    parameters: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: ['grain', 'livestock', 'dairy', 'poultry', 'fruits', 'vegetables', 'specialty'],
+          description: 'Agricultural market category'
+        }
+      },
+      required: ['category']
+    }
+  }
+]
+
 // All MCP Tools combined
 export const ALL_MCP_TOOLS: MCPTool[] = [
   ...FIELD_OPERATION_TOOLS,
@@ -460,6 +562,7 @@ export const ALL_MCP_TOOLS: MCPTool[] = [
   ...DATA_RETRIEVAL_TOOLS,
   ...WEATHER_TOOLS,
   ...EU_COMMISSION_TOOLS,
+  ...USDA_TOOLS,
 ]
 
 // Tool execution functions
@@ -491,6 +594,11 @@ export class MCPToolExecutor {
     // EU Commission
     if (EU_COMMISSION_TOOLS.find(tool => tool.name === toolName)) {
       return this.executeEUCommission(toolName, parameters);
+    }
+    
+    // USDA
+    if (USDA_TOOLS.find(tool => tool.name === toolName)) {
+      return this.executeUSDA(toolName, parameters);
     }
     
     return {
@@ -569,6 +677,21 @@ export class MCPToolExecutor {
         return this.getEUMarketDashboard(parameters);
       default:
         return { success: false, message: 'Unknown EU Commission tool' };
+    }
+  }
+
+  private async executeUSDA(toolName: string, parameters: any): Promise<MCPToolResult> {
+    switch (toolName) {
+      case 'getUSDAMarketPrices':
+        return this.getUSDAMarketPrices(parameters);
+      case 'getUSDAProductionData':
+        return this.getUSDAProductionData(parameters);
+      case 'getUSDATradeData':
+        return this.getUSDATradeData(parameters);
+      case 'getUSDAMarketDashboard':
+        return this.getUSDAMarketDashboard(parameters);
+      default:
+        return { success: false, message: 'Unknown USDA tool' };
     }
   }
 
@@ -946,6 +1069,99 @@ export class MCPToolExecutor {
       return {
         success: false,
         message: `Failed to get EU market dashboard: ${error.message}`
+      };
+    }
+  }
+
+  // USDA Tool Implementations
+  private async getUSDAMarketPrices(params: any): Promise<MCPToolResult> {
+    try {
+      const response = await usdaAPI.getMarketPrices(
+        params.category,
+        {
+          region: params.region,
+          limit: params.limit
+        }
+      );
+      
+      return {
+        success: true,
+        message: `🇺🇸 Retrieved USDA market prices for ${params.category}${params.region ? ` in ${params.region}` : ''}`,
+        data: response.data,
+        actionTaken: `Retrieved USDA ${params.category} market prices`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get USDA market prices: ${error.message}`
+      };
+    }
+  }
+
+  private async getUSDAProductionData(params: any): Promise<MCPToolResult> {
+    try {
+      const response = await usdaAPI.getProductionData(
+        params.category,
+        {
+          region: params.region,
+          year: params.year,
+          limit: params.limit
+        }
+      );
+      
+      return {
+        success: true,
+        message: `🇺🇸 Retrieved USDA production data for ${params.category}${params.region ? ` in ${params.region}` : ''}`,
+        data: response.data,
+        actionTaken: `Retrieved USDA ${params.category} production data`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get USDA production data: ${error.message}`
+      };
+    }
+  }
+
+  private async getUSDATradeData(params: any): Promise<MCPToolResult> {
+    try {
+      const response = await usdaAPI.getTradeData(
+        params.category,
+        {
+          tradeType: params.tradeType,
+          country: params.country,
+          limit: params.limit
+        }
+      );
+      
+      return {
+        success: true,
+        message: `🇺🇸 Retrieved USDA trade data for ${params.category}${params.tradeType ? ` (${params.tradeType})` : ''}`,
+        data: response.data,
+        actionTaken: `Retrieved USDA ${params.category} trade data`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get USDA trade data: ${error.message}`
+      };
+    }
+  }
+
+  private async getUSDAMarketDashboard(params: any): Promise<MCPToolResult> {
+    try {
+      const response = await usdaAPI.getMarketDashboard(params.category);
+      
+      return {
+        success: true,
+        message: `🇺🇸 Retrieved USDA market dashboard for ${params.category}`,
+        data: response.data,
+        actionTaken: `Retrieved USDA ${params.category} market dashboard`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get USDA market dashboard: ${error.message}`
       };
     }
   }

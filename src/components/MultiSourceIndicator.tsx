@@ -39,6 +39,12 @@ const DATA_SOURCES: DataSource[] = [
     name: 'EU Markets',
     icon: <Image src="/assets/logos/ec-logo.png" alt="EU Commission" width={20} height={20} />,
     color: '#EAB308'
+  },
+  {
+    id: 'usda',
+    name: 'USDA Markets',
+    icon: <Image src="/assets/logos/usda-logo.png" alt="USDA" width={20} height={20} />,
+    color: '#DC2626'
   }
 ]
 
