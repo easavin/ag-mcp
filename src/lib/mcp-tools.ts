@@ -2,6 +2,7 @@
 // These tools allow farmers to perform actions, not just retrieve data
 
 import { getJohnDeereAPIClient } from './johndeere-api';
+import { getWeatherAPIClient } from './weather-api';
 
 export interface MCPTool {
   name: string
@@ -290,11 +291,66 @@ export const DATA_RETRIEVAL_TOOLS: MCPTool[] = [
   }
 ];
 
+// Weather Tools
+export const WEATHER_TOOLS: MCPTool[] = [
+  {
+    name: 'getCurrentWeather',
+    description: 'Get current weather conditions for a specific location. Includes agricultural data like soil temperature, humidity, wind conditions, and spray recommendations.',
+    parameters: {
+      type: 'object',
+      properties: {
+        location: {
+          type: 'string',
+          description: 'Location name (e.g., "Iowa City, IA" or "Barcelona, Spain")'
+        },
+        latitude: {
+          type: 'number',
+          description: 'Latitude coordinate (alternative to location name)'
+        },
+        longitude: {
+          type: 'number',
+          description: 'Longitude coordinate (alternative to location name)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'getWeatherForecast',
+    description: 'Get weather forecast for a specific location with agricultural insights. Default is 7 days, can be customized.',
+    parameters: {
+      type: 'object',
+      properties: {
+        location: {
+          type: 'string',
+          description: 'Location name (e.g., "Iowa City, IA" or "Barcelona, Spain")'
+        },
+        latitude: {
+          type: 'number',
+          description: 'Latitude coordinate (alternative to location name)'
+        },
+        longitude: {
+          type: 'number',
+          description: 'Longitude coordinate (alternative to location name)'
+        },
+        days: {
+          type: 'number',
+          description: 'Number of forecast days (1-7, default: 7)',
+          minimum: 1,
+          maximum: 7
+        }
+      },
+      required: []
+    }
+  }
+]
+
 // All MCP Tools combined
 export const ALL_MCP_TOOLS: MCPTool[] = [
   ...FIELD_OPERATION_TOOLS,
   ...EQUIPMENT_MANAGEMENT_TOOLS,
   ...DATA_RETRIEVAL_TOOLS,
+  ...WEATHER_TOOLS,
 ]
 
 // Tool execution functions
@@ -316,6 +372,11 @@ export class MCPToolExecutor {
     // Data Retrieval
     if (DATA_RETRIEVAL_TOOLS.find(tool => tool.name === toolName)) {
       return this.executeDataRetrieval(toolName, parameters);
+    }
+    
+    // Weather
+    if (WEATHER_TOOLS.find(tool => tool.name === toolName)) {
+      return this.executeWeather(toolName, parameters);
     }
     
     return {
@@ -368,6 +429,17 @@ export class MCPToolExecutor {
         return this.getFieldBoundary(parameters);
       default:
         return { success: false, message: 'Unknown data retrieval tool' };
+    }
+  }
+
+  private async executeWeather(toolName: string, parameters: any): Promise<MCPToolResult> {
+    switch (toolName) {
+      case 'getCurrentWeather':
+        return this.getCurrentWeather(parameters);
+      case 'getWeatherForecast':
+        return this.getWeatherForecast(parameters);
+      default:
+        return { success: false, message: 'Unknown weather tool' };
     }
   }
 
@@ -571,6 +643,96 @@ export class MCPToolExecutor {
       };
     } catch (error: any) {
       return { success: false, message: `Failed to get boundary for field "${params.fieldName}": ${error.message}` };
+    }
+  }
+
+  // Weather Tool Implementations
+  private async getCurrentWeather(params: any): Promise<MCPToolResult> {
+    try {
+      const weatherClient = getWeatherAPIClient()
+      
+      let latitude: number
+      let longitude: number
+      
+      if (params.latitude && params.longitude) {
+        latitude = params.latitude
+        longitude = params.longitude
+      } else if (params.location) {
+        // Search for location coordinates
+        const locations = await weatherClient.searchLocations(params.location, 1)
+        if (locations.length === 0) {
+          return {
+            success: false,
+            message: `Location "${params.location}" not found. Please try a different location name.`
+          }
+        }
+        latitude = locations[0].latitude
+        longitude = locations[0].longitude
+      } else {
+        return {
+          success: false,
+          message: 'Please provide either a location name or latitude/longitude coordinates.'
+        }
+      }
+      
+      const weatherData = await weatherClient.getAgriculturalWeather(latitude, longitude, 1)
+      
+      return {
+        success: true,
+        message: `🌤️ Current weather conditions retrieved for ${weatherData.location.name || 'your location'}`,
+        data: weatherData,
+        actionTaken: 'Retrieved current weather conditions'
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get current weather: ${error.message}`
+      }
+    }
+  }
+
+  private async getWeatherForecast(params: any): Promise<MCPToolResult> {
+    try {
+      const weatherClient = getWeatherAPIClient()
+      const days = params.days || 7
+      
+      let latitude: number
+      let longitude: number
+      
+      if (params.latitude && params.longitude) {
+        latitude = params.latitude
+        longitude = params.longitude
+      } else if (params.location) {
+        // Search for location coordinates
+        const locations = await weatherClient.searchLocations(params.location, 1)
+        if (locations.length === 0) {
+          return {
+            success: false,
+            message: `Location "${params.location}" not found. Please try a different location name.`
+          }
+        }
+        latitude = locations[0].latitude
+        longitude = locations[0].longitude
+      } else {
+        return {
+          success: false,
+          message: 'Please provide either a location name or latitude/longitude coordinates.'
+        }
+      }
+      
+      const weatherData = await weatherClient.getAgriculturalWeather(latitude, longitude, days)
+      
+      return {
+        success: true,
+        message: `📅 ${days}-day weather forecast retrieved for ${weatherData.location.name || 'your location'}`,
+        data: weatherData,
+        actionTaken: `Retrieved ${days}-day weather forecast`
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get weather forecast: ${error.message}`
+      }
     }
   }
 

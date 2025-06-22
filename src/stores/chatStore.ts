@@ -267,7 +267,7 @@ export const useChatStore = create<ChatState>()(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               sessionId,
-              currentDataSource: get().currentDataSource,
+              selectedDataSources: get().selectedDataSources,
               messages: allMessages.map(msg => ({
                 role: msg.role,
                 content: msg.content,
@@ -433,7 +433,7 @@ export const useChatStore = create<ChatState>()(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               sessionId,
-              currentDataSource: state.currentDataSource,
+              selectedDataSources: state.selectedDataSources,
               messages: allMessages.map(msg => ({
                 role: msg.role,
                 content: msg.content,

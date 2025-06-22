@@ -227,8 +227,8 @@ export async function POST(request: NextRequest) {
   console.log('🚀 Starting chat completion request')
   
   try {
-    const { sessionId, messages, options, currentDataSource } = await request.json()
-    console.log('📝 Request data:', { sessionId, messageCount: messages?.length, options, currentDataSource })
+    const { sessionId, messages, options, selectedDataSources } = await request.json()
+    console.log('📝 Request data:', { sessionId, messageCount: messages?.length, options, selectedDataSources })
 
     if (!sessionId || !messages || !Array.isArray(messages)) {
       console.error('❌ Missing required fields')
@@ -293,13 +293,17 @@ export async function POST(request: NextRequest) {
 
     console.log('💬 Chat messages prepared:', chatMessages.length)
 
+    // Check if John Deere is selected as a data source
+    const hasJohnDeere = selectedDataSources && selectedDataSources.includes('johndeere')
+    const hasWeather = selectedDataSources && selectedDataSources.includes('weather')
+
     // Prepare context-aware system prompt based on data source selection
     let systemPrompt = AGRICULTURAL_SYSTEM_PROMPT
     
-    if (currentDataSource) {
-      // User has selected a data source - immediately call functions for data requests
+    if (hasJohnDeere) {
+      // John Deere is selected - enable John Deere functions for farm data requests
       systemPrompt += `\n\n**IMPORTANT CONTEXT:**
-The user has selected "${currentDataSource}" as their active data source. When they ask about farm data (fields, equipment, organizations, operations), you MUST immediately use the available John Deere API functions to fetch their data.
+The user has John Deere connected as an active data source. When they ask about farm data (fields, equipment, organizations, operations), you MUST immediately use the available John Deere API functions to fetch their data.
 
 **REQUIRED ACTIONS for John Deere data requests:**
 - For field questions (count, list, details): Call getFields() - it will auto-fetch organization
@@ -307,15 +311,6 @@ The user has selected "${currentDataSource}" as their active data source. When t
 - For operations questions (recent activity, field operations): Call getOperations() - it will auto-fetch organization
 - For comprehensive data: Call getComprehensiveData() with the organization ID
 - ALWAYS call the appropriate function when user asks about farm data
-
-**SPECIAL REPROCESSING CONTEXT:**
-If you see previous messages in the conversation where the user asked about farm data (fields, equipment, machines, operations) but you couldn't access the data due to no data source being selected, you should now immediately process those requests with the current data source.
-
-Look for patterns like:
-- "my machines", "my equipment", "how many machines"
-- "my fields", "how many fields"  
-- "my operations", "recent operations"
-- Any previous farm data questions
 
 **EXAMPLES:** 
 - User: "how many fields do I have" → IMMEDIATELY call getFields() → count the returned fields
@@ -326,59 +321,49 @@ Look for patterns like:
 **DO:**
 - Automatically fetch the organization first, then use its ID for subsequent calls
 - Provide specific data-driven responses based on actual API results
-- Process any previous farm data questions in the conversation now that you have data source access
+- Use John Deere functions immediately for any farm data questions
 
 **DO NOT:**
 - Give generic responses without calling functions
 - Ask the user to provide organization IDs manually
-- Ignore previous farm data questions in the conversation
+- Ask the user to select a data source when John Deere is already connected
 
-Current active data source: ${currentDataSource}`
+Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
     } else {
-      // No data source selected - offer selection for data requests
+      // John Deere not selected - offer selection for farm data requests
       systemPrompt += `\n\n**IMPORTANT CONTEXT:**
-The user has NOT selected a data source yet. When they ask about specific farm data (fields, equipment, organizations, operations), you should offer them data source selection options in a helpful way.
+The user has NOT connected John Deere as a data source yet. When they ask about specific farm data (fields, equipment, organizations, operations), you should offer them data source selection options.
 
 **REQUIRED ACTIONS for farm data requests:**
-- For questions about "my fields", "my equipment", "my operations", etc. → Offer data source selection
+- For questions about "my fields", "my equipment", "my operations", etc. → Offer John Deere connection
 - For general farming advice → Answer directly without data source selection
-- For MCP tool actions (scheduling, recommendations) → Execute directly without data source selection
+- For weather questions → Use weather tools directly (weather is always available)
 
 **EXAMPLES:** 
-- User: "how many fields do I have" → "I can help you check your field count! To access your field data, please select a data source. You can connect to your John Deere Operations Center to view your fields, equipment, and operations data."
+- User: "how many fields do I have" → "I can help you check your field count! To access your field data, you'll need to connect to your John Deere Operations Center. You can connect using the integrations button in the interface."
+- User: "what's the weather like" → Use weather tools directly
 - User: "what's the best time to plant corn" → Answer directly with farming advice
-- User: "schedule planting for next week" → Use MCP tools directly
-
-**DATA SOURCE SELECTION RESPONSE FORMAT:**
-When user asks for farm data without selecting a source, respond with:
-"I can help you with [their request]! To access your farm data, you'll need to select a data source first. 
-
-**Available Data Sources:**
-🚜 **John Deere Operations Center** - Access your fields, equipment, operations, and farm management data
-
-You can select a data source using the dropdown in the top-left corner of the interface, or let me know which data source you'd like to use."
 
 **DO:**
-- Offer helpful data source selection for specific data requests
+- Offer John Deere connection for specific farm data requests
+- Use weather tools when weather questions are asked
 - Provide general farming advice without requiring data source selection
-- Use MCP tools for farming actions without requiring data source selection
-- Be encouraging and helpful about the data source selection process
 
 **DO NOT:**
-- Call John Deere API functions when no data source is selected
-- Give generic responses without explaining the data source selection`
+- Call John Deere API functions when John Deere is not connected
+- Give generic responses without explaining how to connect data sources
+
+Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
     }
 
     // Generate completion with appropriate function calling
     console.log('🎯 Generating LLM completion...')
     console.log('📋 System prompt:', systemPrompt.substring(0, 200) + '...')
     console.log('📝 Chat messages:', chatMessages.map(m => ({ role: m.role, contentLength: m.content.length })))
-    console.log('🔗 Current data source:', currentDataSource || 'none')
+    console.log('🔗 Selected data sources:', selectedDataSources || 'none')
     
-    // Enable functions based on data source selection
-    // - If data source selected: enable all functions (John Deere + MCP tools)
-    // - If no data source: enable only MCP tools (no John Deere functions)
-    const enableFunctions = true // Always enable some functions (at least MCP tools)
+    // Enable functions - always enable weather and MCP tools, enable John Deere if connected
+    const enableFunctions = true
     
     let response = await llmService.generateChatCompletion(chatMessages, {
       maxTokens: options?.maxTokens || 4000,
@@ -398,14 +383,14 @@ You can select a data source using the dropdown in the top-left corner of the in
     if (response.functionCalls && response.functionCalls.length > 0) {
       console.log('🔧 Function calls detected:', response.functionCalls.map(fc => fc.name))
       
-      // Filter out John Deere functions if no data source is selected
+      // Filter out John Deere functions if John Deere is not selected
       const johnDeereFunctions = ['getOrganizations', 'getFields', 'getEquipment', 'getOperations', 'getComprehensiveData']
       let validFunctionCalls = response.functionCalls
       
-      if (!currentDataSource) {
+      if (!hasJohnDeere) {
         const filteredCalls = response.functionCalls.filter(fc => !johnDeereFunctions.includes(fc.name))
         if (filteredCalls.length !== response.functionCalls.length) {
-          console.log('🚫 Filtered out John Deere functions (no data source selected)')
+          console.log('🚫 Filtered out John Deere functions (John Deere not selected)')
           console.log('🔧 Original functions:', response.functionCalls.map(fc => fc.name))
           console.log('🔧 Filtered functions:', filteredCalls.map(fc => fc.name))
         }
@@ -459,10 +444,19 @@ You can select a data source using the dropdown in the top-left corner of the in
 
         console.log('🎯 Getting final response with function results...')
         
+        // Check if we need to enable functions for multi-step workflows
+        const needsMultiStepFunctions = originalFunctionCalls.some(fc => 
+          fc.name === 'get_field_boundary' || fc.name === 'getFields'
+        ) && functionResults.some(result => 
+          result.result?.success && (result.result?.data || result.result?.fields)
+        )
+        
         // Prepare enhanced system prompt based on whether there are connection errors
         let finalSystemPrompt = systemPrompt
         if (hasConnectionErrors) {
           finalSystemPrompt += `\n\n**IMPORTANT: Some function calls encountered connection/permission errors. Use the userMessage field from the error results to provide helpful guidance to the user. DO NOT show technical error details - only provide user-friendly explanations and guidance.**`
+        } else if (needsMultiStepFunctions) {
+          finalSystemPrompt += `\n\n**IMPORTANT: You have just received field/boundary data. If the user asked about weather for a specific field, you MUST now extract coordinates from the boundary data and call getCurrentWeather or getWeatherForecast. Complete the full workflow - do not stop after getting boundary data.**`
         } else {
           finalSystemPrompt += `\n\n**IMPORTANT: You have just received function results with actual farm data. Use this data to provide a specific, detailed response to the user's question. DO NOT give generic responses.**`
         }
@@ -471,7 +465,7 @@ You can select a data source using the dropdown in the top-left corner of the in
           maxTokens: options?.maxTokens || 4000,
           temperature: options?.temperature || 0.7,
           systemPrompt: finalSystemPrompt,
-          enableFunctions: false, // Disable functions for final response
+          enableFunctions: needsMultiStepFunctions, // Enable functions for multi-step workflows
         })
 
         // Restore the original function calls to the response
