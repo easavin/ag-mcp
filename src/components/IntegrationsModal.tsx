@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import AuravantConnectionHelper from './AuravantConnectionHelper';
 
 interface IntegrationsModalProps {
   isOpen: boolean;
@@ -29,6 +30,14 @@ interface JohnDeereConnectionStatus {
     farms: { success: boolean; count: number; error?: string };
     files: { success: boolean; count: number; error?: string };
   };
+  error?: string;
+}
+
+interface AuravantConnectionStatus {
+  connected: boolean;
+  extensionId?: string;
+  lastUpdated?: string;
+  tokenExpiry?: string;
   error?: string;
 }
 
@@ -63,11 +72,15 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<JohnDeereConnectionStatus>({ status: 'loading' });
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  
+  // Auravant state
+  const [auravantStatus, setAuravantStatus] = useState<AuravantConnectionStatus>({ connected: false });
 
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       checkConnectionStatus();
+      checkAuravantStatus();
     } else {
       document.body.style.overflow = 'unset';
     }
@@ -76,6 +89,34 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
+
+  // Check Auravant connection status
+  const checkAuravantStatus = async () => {
+    try {
+      const response = await fetch('/api/auth/auravant/status');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setAuravantStatus({
+          connected: data.connected,
+          extensionId: data.extensionId,
+          lastUpdated: data.lastUpdated,
+          tokenExpiry: data.tokenExpiry
+        });
+      } else {
+        setAuravantStatus({ 
+          connected: false, 
+          error: data.error || 'Failed to check connection status' 
+        });
+      }
+    } catch (error) {
+      console.error('Failed to check Auravant connection status:', error);
+      setAuravantStatus({ 
+        connected: false, 
+        error: 'Failed to check connection status' 
+      });
+    }
+  };
 
   // Listen for auth completion
   useEffect(() => {
@@ -212,7 +253,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       name: 'John Deere Operations Center',
       description: 'Connect your John Deere account to access field data, equipment status, and upload prescription files.',
       logo: '/assets/logos/johndeere-logo.png',
-      logoFallback: '🔗',
+      logoFallback: '🚜',
       category: 'Equipment & Data',
       isConnected: isJohnDeereConnected,
       features: [
@@ -220,6 +261,22 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         'View equipment location and status',
         'Upload prescription files',
         'Analyze work records and yield data'
+      ]
+    },
+    {
+      id: 'auravant',
+      name: 'Auravant',
+      description: 'Connect your Auravant account to access agricultural data, livestock management, and work order planning.',
+      logo: '/assets/logos/auravant-logo.png',
+      logoFallback: '🌾',
+      category: 'Agricultural Platform',
+      isConnected: auravantStatus.connected,
+      features: [
+        'Access field and farm data',
+        'Livestock herd management',
+        'Work order planning and recommendations',
+        'Labour operation tracking',
+        'Multi-language support (ES/PT/EN)'
       ]
     }
   ];
@@ -387,43 +444,61 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                 {/* Connection Status for John Deere */}
                 {integration.id === 'johndeere' && renderConnectionStatus()}
 
-                <div className="integration-actions">
-                  {integration.isConnected ? (
-                    <div className="connected-actions">
-                      <div className="connection-info">
-                        {integration.id === 'johndeere' && johnDeereConnection?.expiresAt && (
-                          <div className="connection-details">
-                            <p>Scope: {johnDeereConnection.scope || 'ag1, ag2, ag3'}</p>
-                            <p>Expires: {new Date(johnDeereConnection.expiresAt).toLocaleDateString()}</p>
-                          </div>
-                        )}
+                {/* Connection Helper for Auravant */}
+                {integration.id === 'auravant' && (
+                  <AuravantConnectionHelper 
+                    onStatusChange={(status) => setAuravantStatus(status)}
+                  />
+                )}
+
+                {/* Integration Actions */}
+                {integration.id !== 'auravant' && (
+                  <div className="integration-actions">
+                    {integration.isConnected ? (
+                      <div className="connected-actions">
+                        <div className="connection-info">
+                          {integration.id === 'johndeere' && johnDeereConnection?.expiresAt && (
+                            <div className="connection-details">
+                              <p>Scope: {johnDeereConnection.scope || 'ag1, ag2, ag3'}</p>
+                              <p>Expires: {new Date(johnDeereConnection.expiresAt).toLocaleDateString()}</p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="action-buttons">
+                          <button 
+                            className="refresh-btn"
+                            onClick={integration.id === 'johndeere' ? checkConnectionStatus : checkAuravantStatus}
+                            disabled={isCheckingConnection}
+                          >
+                            {isCheckingConnection ? '↻ Refreshing...' : '↻ Refresh Status'}
+                          </button>
+                          <button 
+                            className="disconnect-btn"
+                            onClick={() => {
+                              if (integration.id === 'johndeere') {
+                                handleJohnDeereDisconnect();
+                              }
+                            }}
+                          >
+                            Disconnect
+                          </button>
+                        </div>
                       </div>
-                      <div className="action-buttons">
-                        <button 
-                          className="refresh-btn"
-                          onClick={checkConnectionStatus}
-                          disabled={isCheckingConnection}
-                        >
-                          {isCheckingConnection ? '↻ Refreshing...' : '↻ Refresh Status'}
-                        </button>
-                        <button 
-                          className="disconnect-btn"
-                          onClick={() => handleJohnDeereDisconnect()}
-                        >
-                          Disconnect
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button 
-                      className="connect-btn"
-                      onClick={() => handleJohnDeereConnect()}
-                      disabled={isConnecting}
-                    >
-                      {isConnecting && integration.id === 'johndeere' ? 'Connecting...' : 'Connect'}
-                    </button>
-                  )}
-                </div>
+                    ) : (
+                      <button 
+                        className="connect-btn"
+                        onClick={() => {
+                          if (integration.id === 'johndeere') {
+                            handleJohnDeereConnect();
+                          }
+                        }}
+                        disabled={isConnecting}
+                      >
+                        {isConnecting && integration.id === 'johndeere' ? 'Connecting...' : 'Connect'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

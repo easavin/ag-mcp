@@ -400,6 +400,38 @@ body {
   z-index: -1;
 }
 
+.avatar-auravant {
+  background: #2563eb;
+  color: white;
+  padding: 2px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-auravant img {
+  width: 16px !important;
+  height: 16px !important;
+  object-fit: contain;
+  display: block;
+}
+
+.avatar-auravant img:error {
+  display: none;
+}
+
+/* Fallback when image fails */
+.avatar-auravant::after {
+  content: "🌾";
+  font-size: 12px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+}
+
 .avatar-system {
   background: #6b7280;
   color: white;

@@ -6,6 +6,7 @@ This directory contains logos for various integrations in the Ag Assistant appli
 ```
 public/assets/logos/
 ├── johndeere-logo.png          # John Deere Operations Center logo
+├── auravant-logo.png           # Auravant Platform logo
 ├── future-integration-logo.png # Future integration logos
 └── README.md                   # This file
 ```
@@ -20,13 +21,21 @@ public/assets/logos/
 
 ### Naming Convention
 - Use lowercase with hyphens: `integration-name-logo.png`
-- Be descriptive: `johndeere-logo.png`, `climate-fieldview-logo.png`
+- Be descriptive: `johndeere-logo.png`, `auravant-logo.png`, `climate-fieldview-logo.png`
 
-### John Deere Logo
+### Integration Logos
+
+#### John Deere Logo
 To add the John Deere logo:
 1. Download the official John Deere logo (ensure you have proper licensing)
 2. Save it as `johndeere-logo.png` in this directory
 3. The logo will automatically appear in the Integrations modal
+
+#### Auravant Logo
+The Auravant logo is already included:
+- File: `auravant-logo.png`
+- Used in: Integrations modal, connection helper, test page, and message bubbles
+- Automatically displays when Auravant data is shown
 
 ### Adding New Integration Logos
 1. Add your logo file to this directory

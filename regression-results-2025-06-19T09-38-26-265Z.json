@@ -1,0 +1,1137 @@
+{
+  "total": 29,
+  "passed": 9,
+  "failed": 20,
+  "successRate": 31.03448275862069,
+  "avgResponseTime": 357,
+  "testResults": [
+    {
+      "endpoint": "/api/health",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "responseTime": 2362,
+      "data": {
+        "status": "healthy",
+        "timestamp": "2025-06-19T09:38:18.249Z",
+        "version": "0.1.0",
+        "environment": "development",
+        "uptime": 21.017242542,
+        "responseTime": "73ms",
+        "services": {
+          "database": {
+            "status": "healthy",
+            "latency": "72ms"
+          },
+          "llm": {
+            "status": "healthy",
+            "providers": {
+              "gemini": true,
+              "openai": true
+            }
+          },
+          "environment": {
+            "status": "healthy",
+            "missingVars": []
+          }
+        },
+        "system": {
+          "nodeVersion": "v20.18.3",
+          "platform": "darwin",
+          "arch": "arm64",
+          "memory": {
+            "used": 232,
+            "total": 262,
+            "external": 148
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "endpoint": "/api/johndeere/connection-status",
+      "method": "GET",
+      "status": 401,
+      "success": false,
+      "responseTime": 256,
+      "data": null,
+      "error": {
+        "status": "auth_required",
+        "message": "User authentication required. Please sign in first."
+      }
+    },
+    {
+      "endpoint": "/api/auth/user",
+      "method": "GET",
+      "status": 401,
+      "success": false,
+      "responseTime": 184,
+      "data": null,
+      "error": {
+        "error": "Authentication required"
+      }
+    },
+    {
+      "endpoint": "/api/auth/johndeere/status",
+      "method": "GET",
+      "status": 401,
+      "success": false,
+      "responseTime": 114,
+      "data": null,
+      "error": {
+        "error": "Authentication required"
+      }
+    },
+    {
+      "endpoint": "/api/johndeere/organizations",
+      "method": "GET",
+      "status": 500,
+      "success": false,
+      "responseTime": 1109,
+      "data": null,
+      "error": {
+        "error": "Failed to fetch organizations"
+      }
+    },
+    {
+      "endpoint": "/api/mcp/tools",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "responseTime": 166,
+      "data": {
+        "success": true,
+        "tools": [
+          {
+            "name": "scheduleFieldOperation",
+            "description": "Schedule a field operation (planting, harvesting, spraying, etc.)",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string",
+                  "description": "ID of the field for the operation"
+                },
+                "operationType": {
+                  "type": "string",
+                  "enum": [
+                    "planting",
+                    "harvesting",
+                    "spraying",
+                    "fertilizing",
+                    "cultivation",
+                    "irrigation"
+                  ],
+                  "description": "Type of field operation to schedule"
+                },
+                "scheduledDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Planned date for the operation (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)"
+                },
+                "equipmentId": {
+                  "type": "string",
+                  "description": "ID of equipment to use for the operation"
+                },
+                "notes": {
+                  "type": "string",
+                  "description": "Additional notes or instructions for the operation"
+                },
+                "priority": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "urgent"
+                  ],
+                  "description": "Priority level of the operation"
+                }
+              },
+              "required": [
+                "fieldId",
+                "operationType",
+                "scheduledDate"
+              ]
+            }
+          },
+          {
+            "name": "getFieldRecommendations",
+            "description": "Get AI-powered recommendations for field operations based on current conditions",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string",
+                  "description": "ID of the field to analyze"
+                },
+                "season": {
+                  "type": "string",
+                  "enum": [
+                    "spring",
+                    "summer",
+                    "fall",
+                    "winter"
+                  ],
+                  "description": "Current season for context"
+                },
+                "cropType": {
+                  "type": "string",
+                  "description": "Type of crop planted or planned (corn, soybeans, wheat, etc.)"
+                }
+              },
+              "required": [
+                "fieldId"
+              ]
+            }
+          },
+          {
+            "name": "updateFieldStatus",
+            "description": "Update the current status of a field (planted, growing, ready for harvest, etc.)",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string",
+                  "description": "ID of the field to update"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "prepared",
+                    "planted",
+                    "growing",
+                    "ready_for_harvest",
+                    "harvested",
+                    "fallow"
+                  ],
+                  "description": "Current status of the field"
+                },
+                "cropType": {
+                  "type": "string",
+                  "description": "Type of crop currently in the field"
+                },
+                "plantingDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Date when the field was planted (if applicable) (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)"
+                },
+                "expectedHarvestDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Expected harvest date (if applicable) (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)"
+                },
+                "notes": {
+                  "type": "string",
+                  "description": "Additional notes about the field status"
+                }
+              },
+              "required": [
+                "fieldId",
+                "status"
+              ]
+            }
+          },
+          {
+            "name": "scheduleEquipmentMaintenance",
+            "description": "Schedule maintenance for farm equipment",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "equipmentId": {
+                  "type": "string",
+                  "description": "ID of the equipment needing maintenance"
+                },
+                "maintenanceType": {
+                  "type": "string",
+                  "enum": [
+                    "routine",
+                    "repair",
+                    "inspection",
+                    "oil_change",
+                    "filter_replacement",
+                    "tire_check"
+                  ],
+                  "description": "Type of maintenance needed"
+                },
+                "scheduledDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Planned date for maintenance (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)"
+                },
+                "priority": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "urgent"
+                  ],
+                  "description": "Priority level of the maintenance"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Description of the maintenance work needed"
+                },
+                "estimatedCost": {
+                  "type": "number",
+                  "description": "Estimated cost of the maintenance"
+                }
+              },
+              "required": [
+                "equipmentId",
+                "maintenanceType",
+                "scheduledDate"
+              ]
+            }
+          },
+          {
+            "name": "getEquipmentAlerts",
+            "description": "Get current alerts and warnings for equipment",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "equipmentId": {
+                  "type": "string",
+                  "description": "ID of specific equipment (optional - if not provided, returns all alerts)"
+                },
+                "alertType": {
+                  "type": "string",
+                  "enum": [
+                    "maintenance_due",
+                    "error",
+                    "warning",
+                    "fuel_low",
+                    "hours_high"
+                  ],
+                  "description": "Filter by specific alert type"
+                }
+              },
+              "required": []
+            }
+          },
+          {
+            "name": "updateEquipmentStatus",
+            "description": "Update the operational status of equipment",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "equipmentId": {
+                  "type": "string",
+                  "description": "ID of the equipment to update"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "operational",
+                    "in_use",
+                    "maintenance",
+                    "repair_needed",
+                    "out_of_service"
+                  ],
+                  "description": "Current operational status"
+                },
+                "location": {
+                  "type": "string",
+                  "description": "Current location of the equipment"
+                },
+                "operatorNotes": {
+                  "type": "string",
+                  "description": "Notes from the equipment operator"
+                },
+                "fuelLevel": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Current fuel level percentage"
+                },
+                "engineHours": {
+                  "type": "number",
+                  "description": "Current engine hours reading"
+                }
+              },
+              "required": [
+                "equipmentId",
+                "status"
+              ]
+            }
+          },
+          {
+            "name": "get_equipment_details",
+            "description": "Get detailed information for a specific piece of equipment, including engine hours.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "equipmentId": {
+                  "type": "string",
+                  "description": "The ID of the equipment to retrieve details for."
+                },
+                "organizationId": {
+                  "type": "string",
+                  "description": "The ID of the organization the equipment belongs to."
+                }
+              },
+              "required": [
+                "equipmentId",
+                "organizationId"
+              ]
+            }
+          },
+          {
+            "name": "get_field_operation_history",
+            "description": "Get the history of operations for a specific field, such as applications, planting, or harvest.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string",
+                  "description": "The ID of the field to retrieve the operation history for."
+                },
+                "organizationId": {
+                  "type": "string",
+                  "description": "The ID of the organization the field belongs to."
+                }
+              },
+              "required": [
+                "fieldId",
+                "organizationId"
+              ]
+            }
+          },
+          {
+            "name": "list_john_deere_files",
+            "description": "List files available in the connected John Deere account for a specific organization. If no organization ID is provided, it will automatically use the first available organization.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "organizationId": {
+                  "type": "string",
+                  "description": "The ID of the organization to list files for. This is optional - if not provided, the first available organization will be used."
+                }
+              },
+              "required": []
+            }
+          },
+          {
+            "name": "get_field_boundary",
+            "description": "Gets the boundary coordinate data for a specific field. If the organization ID is not known, it will be automatically determined.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "organizationId": {
+                  "type": "string",
+                  "description": "The ID of the organization the field belongs to. This is optional."
+                },
+                "fieldName": {
+                  "type": "string",
+                  "description": "The name of the field to get the boundary for."
+                }
+              },
+              "required": [
+                "fieldName"
+              ]
+            }
+          }
+        ],
+        "message": "Available MCP tools: 10"
+      },
+      "error": null
+    },
+    {
+      "endpoint": "/api/mcp/tools",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "responseTime": 19,
+      "data": {
+        "success": true,
+        "message": "🌾 Generated **AI recommendations** for field test-field",
+        "data": {
+          "fieldId": "test-field",
+          "season": "spring",
+          "cropType": "corn",
+          "recommendations": [
+            {
+              "type": "planting",
+              "priority": "high",
+              "recommendation": "Optimal planting window for corn is approaching. Soil temperature should be above 50°F.",
+              "suggestedDate": "2024-04-15",
+              "confidence": 0.85
+            },
+            {
+              "type": "fertilizer",
+              "priority": "medium",
+              "recommendation": "Consider nitrogen application based on soil test results.",
+              "suggestedDate": "2024-04-10",
+              "confidence": 0.78
+            },
+            {
+              "type": "equipment",
+              "priority": "medium",
+              "recommendation": "Schedule planter maintenance before planting season.",
+              "suggestedDate": "2024-04-05",
+              "confidence": 0.92
+            }
+          ],
+          "generatedAt": "2025-06-19T09:38:20.112Z"
+        },
+        "actionTaken": "Generated field recommendations"
+      },
+      "error": null
+    },
+    {
+      "endpoint": "/api/mcp/tools",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "responseTime": 31,
+      "data": {
+        "success": true,
+        "message": "✅ Successfully scheduled **planting** operation for **2024-03-15T10:00:00Z**",
+        "data": {
+          "id": "op_1750325900143",
+          "fieldId": "test-field",
+          "operationType": "planting",
+          "scheduledDate": "2024-03-15T10:00:00Z",
+          "priority": "medium",
+          "status": "scheduled",
+          "createdAt": "2025-06-19T09:38:20.143Z"
+        },
+        "actionTaken": "Scheduled planting operation"
+      },
+      "error": null
+    },
+    {
+      "endpoint": "/api/mcp/tools",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "responseTime": 11,
+      "data": {
+        "success": true,
+        "message": "⚠️ Retrieved **2 equipment alerts**",
+        "data": [
+          {
+            "id": "alert_001",
+            "equipmentId": "equipment_001",
+            "alertType": "maintenance_due",
+            "severity": "medium",
+            "message": "Routine maintenance due in 50 engine hours",
+            "createdAt": "2025-06-19T09:38:20.155Z",
+            "acknowledged": false
+          },
+          {
+            "id": "alert_002",
+            "equipmentId": "equipment_002",
+            "alertType": "fuel_low",
+            "severity": "low",
+            "message": "Fuel level below 25%",
+            "createdAt": "2025-06-19T09:38:20.155Z",
+            "acknowledged": false
+          }
+        ],
+        "actionTaken": "Retrieved equipment alerts"
+      },
+      "error": null
+    },
+    {
+      "endpoint": "/api/chat/sessions",
+      "method": "POST",
+      "status": 401,
+      "success": false,
+      "responseTime": 120,
+      "data": null,
+      "error": {
+        "error": "Authentication required"
+      }
+    },
+    {
+      "endpoint": "/api/chat/johndeere-data",
+      "method": "GET",
+      "status": 0,
+      "success": false,
+      "responseTime": 99,
+      "data": null,
+      "error": "body used already for: http://localhost:3000/api/chat/johndeere-data"
+    },
+    {
+      "endpoint": "/api/files/upload",
+      "method": "POST",
+      "status": 500,
+      "success": false,
+      "responseTime": 162,
+      "data": null,
+      "error": {
+        "error": "Failed to upload file.",
+        "details": "Missing boundary in content-type header"
+      }
+    },
+    {
+      "endpoint": "/api/nonexistent",
+      "method": "GET",
+      "status": 0,
+      "success": false,
+      "responseTime": 1671,
+      "data": null,
+      "error": "body used already for: http://localhost:3000/api/nonexistent"
+    },
+    {
+      "endpoint": "/api/mcp/tools",
+      "method": "POST",
+      "status": 400,
+      "success": false,
+      "responseTime": 35,
+      "data": null,
+      "error": {
+        "success": false,
+        "error": "Tool name is required"
+      }
+    },
+    {
+      "endpoint": "/api/johndeere/organizations/invalid-org/fields",
+      "method": "GET",
+      "status": 500,
+      "success": false,
+      "responseTime": 536,
+      "data": null,
+      "error": {
+        "error": "Failed to fetch fields"
+      }
+    },
+    {
+      "endpoint": "/api/johndeere/connection-status",
+      "method": "GET",
+      "status": 401,
+      "success": false,
+      "responseTime": 18,
+      "data": null,
+      "error": {
+        "status": "auth_required",
+        "message": "User authentication required. Please sign in first."
+      }
+    },
+    {
+      "endpoint": "/api/johndeere/organizations",
+      "method": "GET",
+      "status": 500,
+      "success": false,
+      "responseTime": 135,
+      "data": null,
+      "error": {
+        "error": "Failed to fetch organizations"
+      }
+    },
+    {
+      "endpoint": "/api/johndeere/organizations/test/boundaries",
+      "method": "GET",
+      "status": 0,
+      "success": false,
+      "responseTime": 92,
+      "data": null,
+      "error": "body used already for: http://localhost:3000/api/johndeere/organizations/test/boundaries"
+    },
+    {
+      "endpoint": "/api/johndeere/organizations/test/crop-types",
+      "method": "GET",
+      "status": 0,
+      "success": false,
+      "responseTime": 18,
+      "data": null,
+      "error": "body used already for: http://localhost:3000/api/johndeere/organizations/test/crop-types"
+    },
+    {
+      "endpoint": "/api/johndeere/organizations/test/farms",
+      "method": "GET",
+      "status": 500,
+      "success": false,
+      "responseTime": 425,
+      "data": null,
+      "error": {
+        "error": "Failed to fetch farms"
+      }
+    },
+    {
+      "endpoint": "/api/johndeere/organizations/test/fields",
+      "method": "GET",
+      "status": 500,
+      "success": false,
+      "responseTime": 229,
+      "data": null,
+      "error": {
+        "error": "Failed to fetch fields"
+      }
+    },
+    {
+      "endpoint": "/api/johndeere/organizations/test/equipment",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "responseTime": 874,
+      "data": {
+        "organizationId": "test",
+        "equipment": [],
+        "count": 0
+      },
+      "error": null
+    },
+    {
+      "endpoint": "/api/johndeere/organizations/test/operations",
+      "method": "GET",
+      "status": 500,
+      "success": false,
+      "responseTime": 485,
+      "data": null,
+      "error": {
+        "error": "Failed to fetch field operations"
+      }
+    },
+    {
+      "endpoint": "/api/johndeere/organizations/test/files",
+      "method": "GET",
+      "status": 0,
+      "success": false,
+      "responseTime": 59,
+      "data": null,
+      "error": "body used already for: http://localhost:3000/api/johndeere/organizations/test/files"
+    },
+    {
+      "endpoint": "/api/johndeere/organizations/test/assets",
+      "method": "GET",
+      "status": 500,
+      "success": false,
+      "responseTime": 618,
+      "data": null,
+      "error": {
+        "error": "Failed to fetch assets"
+      }
+    },
+    {
+      "endpoint": "/api/mcp/tools",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "responseTime": 87,
+      "data": {
+        "success": true,
+        "tools": [
+          {
+            "name": "scheduleFieldOperation",
+            "description": "Schedule a field operation (planting, harvesting, spraying, etc.)",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string",
+                  "description": "ID of the field for the operation"
+                },
+                "operationType": {
+                  "type": "string",
+                  "enum": [
+                    "planting",
+                    "harvesting",
+                    "spraying",
+                    "fertilizing",
+                    "cultivation",
+                    "irrigation"
+                  ],
+                  "description": "Type of field operation to schedule"
+                },
+                "scheduledDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Planned date for the operation (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)"
+                },
+                "equipmentId": {
+                  "type": "string",
+                  "description": "ID of equipment to use for the operation"
+                },
+                "notes": {
+                  "type": "string",
+                  "description": "Additional notes or instructions for the operation"
+                },
+                "priority": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "urgent"
+                  ],
+                  "description": "Priority level of the operation"
+                }
+              },
+              "required": [
+                "fieldId",
+                "operationType",
+                "scheduledDate"
+              ]
+            }
+          },
+          {
+            "name": "getFieldRecommendations",
+            "description": "Get AI-powered recommendations for field operations based on current conditions",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string",
+                  "description": "ID of the field to analyze"
+                },
+                "season": {
+                  "type": "string",
+                  "enum": [
+                    "spring",
+                    "summer",
+                    "fall",
+                    "winter"
+                  ],
+                  "description": "Current season for context"
+                },
+                "cropType": {
+                  "type": "string",
+                  "description": "Type of crop planted or planned (corn, soybeans, wheat, etc.)"
+                }
+              },
+              "required": [
+                "fieldId"
+              ]
+            }
+          },
+          {
+            "name": "updateFieldStatus",
+            "description": "Update the current status of a field (planted, growing, ready for harvest, etc.)",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string",
+                  "description": "ID of the field to update"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "prepared",
+                    "planted",
+                    "growing",
+                    "ready_for_harvest",
+                    "harvested",
+                    "fallow"
+                  ],
+                  "description": "Current status of the field"
+                },
+                "cropType": {
+                  "type": "string",
+                  "description": "Type of crop currently in the field"
+                },
+                "plantingDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Date when the field was planted (if applicable) (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)"
+                },
+                "expectedHarvestDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Expected harvest date (if applicable) (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)"
+                },
+                "notes": {
+                  "type": "string",
+                  "description": "Additional notes about the field status"
+                }
+              },
+              "required": [
+                "fieldId",
+                "status"
+              ]
+            }
+          },
+          {
+            "name": "scheduleEquipmentMaintenance",
+            "description": "Schedule maintenance for farm equipment",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "equipmentId": {
+                  "type": "string",
+                  "description": "ID of the equipment needing maintenance"
+                },
+                "maintenanceType": {
+                  "type": "string",
+                  "enum": [
+                    "routine",
+                    "repair",
+                    "inspection",
+                    "oil_change",
+                    "filter_replacement",
+                    "tire_check"
+                  ],
+                  "description": "Type of maintenance needed"
+                },
+                "scheduledDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Planned date for maintenance (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)"
+                },
+                "priority": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "urgent"
+                  ],
+                  "description": "Priority level of the maintenance"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Description of the maintenance work needed"
+                },
+                "estimatedCost": {
+                  "type": "number",
+                  "description": "Estimated cost of the maintenance"
+                }
+              },
+              "required": [
+                "equipmentId",
+                "maintenanceType",
+                "scheduledDate"
+              ]
+            }
+          },
+          {
+            "name": "getEquipmentAlerts",
+            "description": "Get current alerts and warnings for equipment",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "equipmentId": {
+                  "type": "string",
+                  "description": "ID of specific equipment (optional - if not provided, returns all alerts)"
+                },
+                "alertType": {
+                  "type": "string",
+                  "enum": [
+                    "maintenance_due",
+                    "error",
+                    "warning",
+                    "fuel_low",
+                    "hours_high"
+                  ],
+                  "description": "Filter by specific alert type"
+                }
+              },
+              "required": []
+            }
+          },
+          {
+            "name": "updateEquipmentStatus",
+            "description": "Update the operational status of equipment",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "equipmentId": {
+                  "type": "string",
+                  "description": "ID of the equipment to update"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "operational",
+                    "in_use",
+                    "maintenance",
+                    "repair_needed",
+                    "out_of_service"
+                  ],
+                  "description": "Current operational status"
+                },
+                "location": {
+                  "type": "string",
+                  "description": "Current location of the equipment"
+                },
+                "operatorNotes": {
+                  "type": "string",
+                  "description": "Notes from the equipment operator"
+                },
+                "fuelLevel": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Current fuel level percentage"
+                },
+                "engineHours": {
+                  "type": "number",
+                  "description": "Current engine hours reading"
+                }
+              },
+              "required": [
+                "equipmentId",
+                "status"
+              ]
+            }
+          },
+          {
+            "name": "get_equipment_details",
+            "description": "Get detailed information for a specific piece of equipment, including engine hours.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "equipmentId": {
+                  "type": "string",
+                  "description": "The ID of the equipment to retrieve details for."
+                },
+                "organizationId": {
+                  "type": "string",
+                  "description": "The ID of the organization the equipment belongs to."
+                }
+              },
+              "required": [
+                "equipmentId",
+                "organizationId"
+              ]
+            }
+          },
+          {
+            "name": "get_field_operation_history",
+            "description": "Get the history of operations for a specific field, such as applications, planting, or harvest.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string",
+                  "description": "The ID of the field to retrieve the operation history for."
+                },
+                "organizationId": {
+                  "type": "string",
+                  "description": "The ID of the organization the field belongs to."
+                }
+              },
+              "required": [
+                "fieldId",
+                "organizationId"
+              ]
+            }
+          },
+          {
+            "name": "list_john_deere_files",
+            "description": "List files available in the connected John Deere account for a specific organization. If no organization ID is provided, it will automatically use the first available organization.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "organizationId": {
+                  "type": "string",
+                  "description": "The ID of the organization to list files for. This is optional - if not provided, the first available organization will be used."
+                }
+              },
+              "required": []
+            }
+          },
+          {
+            "name": "get_field_boundary",
+            "description": "Gets the boundary coordinate data for a specific field. If the organization ID is not known, it will be automatically determined.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "organizationId": {
+                  "type": "string",
+                  "description": "The ID of the organization the field belongs to. This is optional."
+                },
+                "fieldName": {
+                  "type": "string",
+                  "description": "The name of the field to get the boundary for."
+                }
+              },
+              "required": [
+                "fieldName"
+              ]
+            }
+          }
+        ],
+        "message": "Available MCP tools: 10"
+      },
+      "error": null
+    },
+    {
+      "endpoint": "/api/chat/sessions",
+      "method": "GET",
+      "status": 401,
+      "success": false,
+      "responseTime": 27,
+      "data": null,
+      "error": {
+        "error": "Authentication required"
+      }
+    },
+    {
+      "endpoint": "/api/health",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "responseTime": 45,
+      "data": {
+        "status": "healthy",
+        "timestamp": "2025-06-19T09:38:25.904Z",
+        "version": "0.1.0",
+        "environment": "development",
+        "uptime": 28.671894667,
+        "responseTime": "6ms",
+        "services": {
+          "database": {
+            "status": "healthy",
+            "latency": "5ms"
+          },
+          "llm": {
+            "status": "healthy",
+            "providers": {
+              "gemini": true,
+              "openai": true
+            }
+          },
+          "environment": {
+            "status": "healthy",
+            "missingVars": []
+          }
+        },
+        "system": {
+          "nodeVersion": "v20.18.3",
+          "platform": "darwin",
+          "arch": "arm64",
+          "memory": {
+            "used": 387,
+            "total": 424,
+            "external": 949
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "endpoint": "/api/debug/env",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "responseTime": 357,
+      "data": {
+        "message": "Environment check",
+        "environment": {
+          "NODE_ENV": "development",
+          "NEXTAUTH_URL": "http://localhost:3000",
+          "JOHN_DEERE_ENVIRONMENT": "sandbox",
+          "JOHN_DEERE_CLIENT_ID": "SET",
+          "JOHN_DEERE_CLIENT_SECRET": "SET",
+          "NEXTAUTH_SECRET": "SET",
+          "DATABASE_URL": "SET",
+          "redirectUri": "http://localhost:3000/api/auth/johndeere/callback",
+          "isProduction": false,
+          "timestamp": "2025-06-19T09:38:26.261Z"
+        },
+        "recommendations": {
+          "nextauthUrl": "OK",
+          "johnDeereClientId": "OK",
+          "johnDeereClientSecret": "OK",
+          "redirectUriMatch": "Update John Deere redirect URI to: http://localhost:3000/api/auth/johndeere/callback"
+        }
+      },
+      "error": null
+    }
+  ],
+  "report": "\n╔══════════════════════════════════════════════════════════════╗\n║                    REGRESSION TEST REPORT                    ║\n╚══════════════════════════════════════════════════════════════╝\n\n📊 SUMMARY:\n  Total Tests: 29\n  ✅ Passed: 9 (31.0%)\n  ❌ Failed: 20 (69.0%)\n  ⏱️  Total Time: 10.37s\n  📈 Avg Response: 357ms\n\n🔍 DETAILED RESULTS:\n\n✅ SUCCESSFUL TESTS:\n  ✓ GET /api/health (2362ms)\n  ✓ GET /api/mcp/tools (166ms)\n  ✓ POST /api/mcp/tools (19ms)\n  ✓ POST /api/mcp/tools (31ms)\n  ✓ POST /api/mcp/tools (11ms)\n  ✓ GET /api/johndeere/organizations/test/equipment (874ms)\n  ✓ GET /api/mcp/tools (87ms)\n  ✓ GET /api/health (45ms)\n  ✓ GET /api/debug/env (357ms)\n\n❌ FAILED TESTS:\n  ✗ GET /api/johndeere/connection-status - [object Object]\n  ✗ GET /api/auth/user - [object Object]\n  ✗ GET /api/auth/johndeere/status - [object Object]\n  ✗ GET /api/johndeere/organizations - [object Object]\n  ✗ POST /api/chat/sessions - [object Object]\n  ✗ GET /api/chat/johndeere-data - body used already for: http://localhost:3000/api/chat/johndeere-data\n  ✗ POST /api/files/upload - [object Object]\n  ✗ GET /api/nonexistent - body used already for: http://localhost:3000/api/nonexistent\n  ✗ POST /api/mcp/tools - [object Object]\n  ✗ GET /api/johndeere/organizations/invalid-org/fields - [object Object]\n  ✗ GET /api/johndeere/connection-status - [object Object]\n  ✗ GET /api/johndeere/organizations - [object Object]\n  ✗ GET /api/johndeere/organizations/test/boundaries - body used already for: http://localhost:3000/api/johndeere/organizations/test/boundaries\n  ✗ GET /api/johndeere/organizations/test/crop-types - body used already for: http://localhost:3000/api/johndeere/organizations/test/crop-types\n  ✗ GET /api/johndeere/organizations/test/farms - [object Object]\n  ✗ GET /api/johndeere/organizations/test/fields - [object Object]\n  ✗ GET /api/johndeere/organizations/test/operations - [object Object]\n  ✗ GET /api/johndeere/organizations/test/files - body used already for: http://localhost:3000/api/johndeere/organizations/test/files\n  ✗ GET /api/johndeere/organizations/test/assets - [object Object]\n  ✗ GET /api/chat/sessions - [object Object]\n\n📋 API COVERAGE ANALYSIS:\nBased on John Deere API Reference Documentation:\n\n✅ TESTED CATEGORIES:\n  • Connection Management API\n  • Organizations API  \n  • Authentication & OAuth\n  • Setup/Plan APIs (Fields, Farms, Boundaries)\n  • Equipment APIs\n  • Work Results APIs (Field Operations, Files)\n  • Insights & Monitoring APIs (Assets)\n  • Application APIs (MCP Tools, Chat)\n  • Health & Debug APIs\n\n🔗 SCOPE REQUIREMENTS TESTED:\n  • Basic Access (Organizations)\n  • ag1 Scope (Fields, Farms listing)\n  • ag2 Scope (Field Operations)\n  • ag3 Scope (Assets, Full data management)\n  • eq1 Scope (Equipment listing)\n  • files Scope (File operations)\n\n⚠️  EXPECTED BEHAVIORS:\n  • 403 Forbidden: Expected for unconnected organizations\n  • 401 Unauthorized: Expected without valid authentication\n  • Scope errors: Expected when insufficient permissions\n\n🎯 RECOMMENDATIONS:\n  20 test(s) failed. Review connection status and authentication.\n\n⚠️  SUCCESS RATE BELOW 50% - Check connection and authentication setup\n"
+}

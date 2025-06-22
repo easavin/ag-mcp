@@ -17,12 +17,16 @@ model User {
   name              String?
   password          String?   // Optional for backward compatibility with existing users
   johnDeereConnected Boolean  @default(false)
+  auravantConnected Boolean   @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   // Relations
   chatSessions      ChatSession[]
   johnDeereTokens   JohnDeereToken?
+  auravantToken     AuravantToken?
+  livestockHerds    LivestockHerd[]
+  workOrders        WorkOrder[]
 
   @@map("users")
 }
@@ -89,15 +93,31 @@ model FileUpload {
 
 model FieldOperation {
   id                String    @id @default(cuid())
-  johnDeereFieldId  String
+  johnDeereFieldId  String?   // Make optional for multi-platform support
   operationType     String    // 'planting' | 'harvesting' | 'spraying' | 'fertilizing'
   operationDate     DateTime
   equipmentId       String?
   area              Float?    // acres
   yield             Float?    // bushels per acre
   notes             String?
-  metadata          Json?     // Store additional John Deere operation data
+  metadata          Json?     // Store additional operation data
   createdAt         DateTime  @default(now())
+  
+  // Multi-platform support
+  dataSource        String    @default("johndeere") // 'johndeere' | 'auravant'
+  
+  // Auravant-specific fields
+  auravantUuid      String?   // Auravant operation UUID
+  labourTypeId      Int?      // Auravant labour type (1-4)
+  yeargroup         Int?      // Auravant season grouping
+  status            Int?      // 1=Planned, 2=Executed, 3=Cancelled
+  
+  // Work order association
+  workOrderUuid     String?
+  
+  // Livestock associations (for grazing operations)
+  herdUuid          String?
+  paddockId         Int?
 
   @@map("field_operations")
 }
@@ -118,4 +138,84 @@ model Equipment {
   updatedAt        DateTime  @updatedAt
 
   @@map("equipment")
+}
+
+// Auravant authentication tokens
+model AuravantToken {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Bearer token authentication
+  accessToken String
+  tokenType   String   @default("Bearer")
+  
+  // Extension information
+  extensionId String?
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime?
+  
+  @@map("auravant_tokens")
+}
+
+// Livestock management (unique to Auravant)
+model LivestockHerd {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Auravant identifiers
+  herdUuid    String   @unique
+  herdName    String
+  
+  // Herd details
+  animalCount Int
+  weight      Float?
+  weightUnit  String   @default("Kg")
+  typeId      Int
+  
+  // Location
+  paddockId   Int?
+  fieldId     Int?
+  farmId      Int?
+  
+  // Metadata
+  dataSource  String   @default("auravant")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("livestock_herds")
+}
+
+// Work orders for planning
+model WorkOrder {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Auravant identifiers
+  workOrderUuid String  @unique
+  name         String
+  
+  // Planning details
+  yeargroup    Int
+  date         DateTime
+  notes        String?
+  status       String   @default("planned")
+  
+  // Recommendations
+  recommendations Json?
+  
+  // Associated operations
+  labourOperations String[] // UUIDs of associated operations
+  
+  // Metadata
+  dataSource   String   @default("auravant")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@map("work_orders")
 }

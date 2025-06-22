@@ -1,0 +1,28 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+I have set up files .env and .env.local which are not visible for the parser. these files include all the parameters we need right now:
+
+JOHN_DEERE_CLIENT_ID=
+JOHN_DEERE_CLIENT_SECRET=
+JOHN_DEERE_ENVIRONMENT=sandbox
+# JOHN_DEERE_ENVIRONMENT=production
+
+# Application URL (for OAuth redirects)
+NEXTAUTH_URL=http://localhost:3000
+
+# Database
+# DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://Evgeny@localhost:5432/agmcp_dev"
+
+# LLM API Keys
+# Google Gemini API Key - Get from https://ai.google.dev/
+GOOGLE_API_KEY=
+
+# OpenAI API Key (fallback) - Get from https://platform.openai.com/
+OPENAI_API_KEY=
+
+#auth
+NEXTAUTH_SECRET=your-secret-key-here-development-only

@@ -36,26 +36,47 @@ export default function MessageBubble({
     if (isUser) return <User className="w-4 h-4" />
     if (isSystem) return <Settings className="w-4 h-4" />
     
-    // Check if this is a John Deere data response
-    if (isJohnDeereResponse()) {
-      return (
-        <img
-          src="/assets/logos/johndeere-logo.png"
-          alt="John Deere"
-          width={16}
-          height={16}
-          className="rounded-sm"
-          onError={(e) => {
-            console.error('Failed to load John Deere logo:', e)
-            // Fallback to bot icon if image fails to load
-            e.currentTarget.style.display = 'none'
-          }}
-          onLoad={() => {
-            console.log('✅ John Deere logo loaded successfully')
-          }}
-        />
-      )
-    }
+      // Check if this is a John Deere data response
+  if (isJohnDeereResponse()) {
+    return (
+      <img
+        src="/assets/logos/johndeere-logo.png"
+        alt="John Deere"
+        width={16}
+        height={16}
+        className="rounded-sm"
+        onError={(e) => {
+          console.error('Failed to load John Deere logo:', e)
+          // Fallback to bot icon if image fails to load
+          e.currentTarget.style.display = 'none'
+        }}
+        onLoad={() => {
+          console.log('✅ John Deere logo loaded successfully')
+        }}
+      />
+    )
+  }
+  
+  // Check if this is an Auravant data response
+  if (isAuravantResponse()) {
+    return (
+      <img
+        src="/assets/logos/auravant-logo.png"
+        alt="Auravant"
+        width={16}
+        height={16}
+        className="rounded-sm"
+        onError={(e) => {
+          console.error('Failed to load Auravant logo:', e)
+          // Fallback to bot icon if image fails to load
+          e.currentTarget.style.display = 'none'
+        }}
+        onLoad={() => {
+          console.log('✅ Auravant logo loaded successfully')
+        }}
+      />
+    )
+  }
     
     return <Bot className="w-4 h-4" />
   }
@@ -67,6 +88,11 @@ export default function MessageBubble({
     // Show John Deere branding for John Deere data responses
     if (isJohnDeereResponse()) {
       return 'John Deere Data'
+    }
+    
+    // Show Auravant branding for Auravant data responses
+    if (isAuravantResponse()) {
+      return 'Auravant Data'
     }
     
     return 'Ag Assistant'
@@ -86,6 +112,24 @@ export default function MessageBubble({
     ]
     
     return johnDeerePatterns.some(pattern => pattern.test(content))
+  }
+
+  // Check if this message contains Auravant data
+  const isAuravantResponse = () => {
+    if (isUser || isSystem) return false
+    
+    // Look for patterns that indicate this is Auravant data
+    const auravantPatterns = [
+      /Auravant/i,
+      /Your Livestock:/i,
+      /Your Herds:/i,
+      /Work Orders:/i,
+      /Labour Operations:/i,
+      /Paddocks:/i,
+      /from Auravant/i,
+    ]
+    
+    return auravantPatterns.some(pattern => pattern.test(content))
   }
 
   // Check if this message should show a data source selector
@@ -136,6 +180,7 @@ export default function MessageBubble({
         isUser ? 'avatar-user' : 
         isSystem ? 'avatar-system' : 
         isJohnDeereResponse() ? 'avatar-johndeere' : 
+        isAuravantResponse() ? 'avatar-auravant' :
         'avatar-assistant'
       }`}>
         {getIcon()}
