@@ -258,6 +258,25 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
       }
     }
 
+    // 🤔 REASONING VALIDATION SYSTEM (Optional - for testing)
+    const enableReasoning = process.env.ENABLE_REASONING_VALIDATION === 'true'
+    const originalUserQuery = chatMessages[chatMessages.length - 1]?.content || ''
+    
+    if (enableReasoning) {
+      console.log('🤔 Starting reasoning validation in test endpoint...')
+      const validation = await llmService.validateResponse(
+        originalUserQuery,
+        response,
+        [] // functionResults not available in this scope, but validation can still work
+      )
+
+      // Add reasoning to response metadata
+      response.reasoning = validation
+      console.log('✅ Test validation completed:', validation)
+    } else {
+      console.log('⚠️ Reasoning validation disabled for test endpoint')
+    }
+
     console.log('✅ Test chat completion successful')
 
     return NextResponse.json({
@@ -270,6 +289,7 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
           model: response.model,
           usage: response.usage,
           functionCalls: response.functionCalls ? JSON.parse(JSON.stringify(response.functionCalls)) : [],
+          reasoning: response.reasoning ? JSON.parse(JSON.stringify(response.reasoning)) : undefined,
         },
       },
       usage: response.usage,

@@ -351,7 +351,7 @@ export const WEATHER_TOOLS: MCPTool[] = [
 export const EU_COMMISSION_TOOLS: MCPTool[] = [
   {
     name: 'getEUMarketPrices',
-    description: 'Get current agricultural market prices from the EU Commission for specific sectors and member states.',
+    description: 'Get current agricultural market PRICES (cost per unit) from the EU Commission. Use this for ANY price-related queries including "price per ton", "cost of corn", "monthly prices", etc.',
     parameters: {
       type: 'object',
       properties: {
@@ -376,7 +376,7 @@ export const EU_COMMISSION_TOOLS: MCPTool[] = [
   },
   {
     name: 'getEUProductionData',
-    description: 'Get agricultural production statistics from the EU Commission for specific sectors and member states.',
+    description: 'Get agricultural production QUANTITIES (how much was produced) from the EU Commission. Use this for production volume queries like "how much corn was produced", "harvest amounts", etc. NOT for prices.',
     parameters: {
       type: 'object',
       properties: {

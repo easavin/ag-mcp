@@ -50,6 +50,12 @@ export interface LLMResponse {
     completionTokens: number
     totalTokens: number
   }
+  reasoning?: {
+    isValid: boolean
+    confidence: number
+    explanation: string
+    suggestions?: string[]
+  }
 }
 
 // John Deere function definitions - now re-enabled for direct data access
@@ -402,6 +408,11 @@ export class LLMService {
         content = `${content}\n\n${fileInfo}`
       }
 
+      // Handle function messages - convert to user messages with clear function result formatting
+      if (message.role === 'function') {
+        content = `Function result: ${content}`
+      }
+
       geminiMessages.push({
         role: message.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: content }],
@@ -440,8 +451,13 @@ export class LLMService {
         content = `${content}\n\n${fileInfo}`
       }
 
-      // Skip function messages for OpenAI format
-      if (message.role !== 'function') {
+      // Convert function messages to user messages with clear formatting
+      if (message.role === 'function') {
+        openaiMessages.push({
+          role: 'user',
+          content: `Function result: ${content}`,
+        })
+      } else {
         openaiMessages.push({
           role: message.role as 'user' | 'assistant' | 'system',
           content,
@@ -478,6 +494,140 @@ export class LLMService {
       },
     }
   }
+
+  /**
+   * Validate if the LLM response aligns with user intent using self-reflection
+   */
+  async validateResponse(
+    userQuery: string,
+    llmResponse: LLMResponse,
+    functionResults?: any[]
+  ): Promise<{ isValid: boolean; confidence: number; explanation: string; suggestions?: string[] }> {
+    console.log('🤔 Starting response validation...')
+    
+    const validationPrompt = `You are an AI validator that checks if responses align with user intent. Analyze the following:
+
+**USER QUERY:** "${userQuery}"
+
+**LLM RESPONSE:** "${llmResponse.content}"
+
+**FUNCTION CALLS MADE:** ${llmResponse.functionCalls ? JSON.stringify(llmResponse.functionCalls.map(fc => ({ name: fc.name, args: fc.arguments })), null, 2) : 'None'}
+
+**FUNCTION RESULTS:** ${functionResults ? JSON.stringify(functionResults, null, 2) : 'None'}
+
+**VALIDATION TASK:**
+1. Does the LLM response directly answer what the user asked for?
+2. Are the function calls appropriate for the user's query?
+3. Is the data presented in the most useful format for the user?
+4. Are there any obvious mismatches between query intent and response?
+
+**CRITICAL EXAMPLES:**
+- User asks for "price per ton of corn" → Should call getEUMarketPrices, NOT getEUProductionData
+- User asks for "weather forecast" → Should include precipitation data for farmers
+- User asks for "monthly data" → Should provide time-series information
+
+**RESPOND WITH JSON:**
+{
+  "isValid": true/false,
+  "confidence": 0.0-1.0,
+  "explanation": "Brief explanation of validation result",
+  "suggestions": ["suggestion1", "suggestion2"] // Only if isValid is false
+}
+
+**VALIDATION RESULT:**`
+
+    try {
+      const validationResponse = await this.generateChatCompletion([{
+        role: 'user',
+        content: validationPrompt,
+        fileAttachments: []
+      }], {
+        maxTokens: 300,
+        temperature: 0.2, // Low temperature for consistent validation
+        enableFunctions: false
+      })
+
+      // Parse JSON response
+      const jsonMatch = validationResponse.content.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const validation = JSON.parse(jsonMatch[0])
+        console.log('✅ Validation completed:', validation)
+        return validation
+      } else {
+        console.warn('⚠️ Could not parse validation JSON, assuming valid')
+        return {
+          isValid: true,
+          confidence: 0.5,
+          explanation: 'Validation parsing failed, assuming response is valid'
+        }
+      }
+    } catch (error) {
+      console.error('❌ Validation failed:', error)
+      return {
+        isValid: true,
+        confidence: 0.5,
+        explanation: 'Validation system error, assuming response is valid'
+      }
+    }
+  }
+
+  /**
+   * Generate a corrected response based on validation feedback
+   */
+  async generateCorrectedResponse(
+    originalMessages: ChatMessage[],
+    originalResponse: LLMResponse,
+    validation: { isValid: boolean; confidence: number; explanation: string; suggestions?: string[] },
+    options?: {
+      maxTokens?: number
+      temperature?: number
+      systemPrompt?: string
+      enableFunctions?: boolean
+    }
+  ): Promise<LLMResponse> {
+    console.log('🔄 Generating corrected response based on validation feedback...')
+    
+    const correctionPrompt = `**CORRECTION REQUIRED**
+
+The previous response did not fully align with user intent. Here's the validation feedback:
+
+**VALIDATION RESULT:**
+- Valid: ${validation.isValid}
+- Confidence: ${validation.confidence}
+- Issue: ${validation.explanation}
+${validation.suggestions ? `\n**SUGGESTIONS:**\n${validation.suggestions.map(s => `- ${s}`).join('\n')}` : ''}
+
+**INSTRUCTIONS:**
+1. Review the original user query carefully
+2. Consider the validation feedback
+3. Generate a corrected response that better addresses the user's actual intent
+4. If needed, make different function calls that are more appropriate
+5. Present the information in the most useful format for the user
+
+**ORIGINAL USER QUERY:** "${originalMessages[originalMessages.length - 1]?.content}"
+
+**PROVIDE A BETTER RESPONSE:**`
+
+    // Add the correction prompt as a new message
+    const correctionMessages: ChatMessage[] = [
+      ...originalMessages,
+      {
+        role: 'assistant',
+        content: originalResponse.content,
+        fileAttachments: []
+      },
+      {
+        role: 'user',
+        content: correctionPrompt,
+        fileAttachments: []
+      }
+    ]
+
+    return await this.generateChatCompletion(correctionMessages, {
+      ...options,
+      systemPrompt: (options?.systemPrompt || '') + '\n\n**IMPORTANT: This is a correction attempt. Focus on addressing the user\'s actual intent based on the validation feedback provided.**'
+    })
+  }
 }
 
 // Singleton instance
@@ -492,6 +642,87 @@ export function getLLMService(): LLMService {
 
 // Agricultural-specific system prompt with John Deere integration and MCP tools
 export const AGRICULTURAL_SYSTEM_PROMPT = `You are an AI assistant specialized in precision agriculture and farming operations with access to John Deere APIs, weather data, EU agricultural market data, and farming tools.
+
+## **🚨 CRITICAL FUNCTION SELECTION RULES:**
+
+**PRICE QUERIES → getEUMarketPrices**
+- "price per ton" → getEUMarketPrices
+- "cost of corn" → getEUMarketPrices  
+- "monthly prices" → getEUMarketPrices
+- "price over the year" → getEUMarketPrices
+- "what does X cost" → getEUMarketPrices
+
+**PRODUCTION QUERIES → getEUProductionData**
+- "how much was produced" → getEUProductionData
+- "production volume" → getEUProductionData
+- "harvest amounts" → getEUProductionData
+
+**❌ NEVER use getEUProductionData for price questions**
+**❌ NEVER use getEUMarketPrices for production volume questions**
+
+## **🚨 DATA RETRIEVAL RULES:**
+
+**I am a data assistant, not an agronomist. I provide relevant agricultural data and let you make the decisions.**
+
+**WHEN USER ASKS ABOUT HARVEST:**
+- Call get_field_boundary(fieldName) for field information
+- Call getWeatherForecast() for weather conditions
+- Call getEUMarketPrices(sector="cereals") for current grain prices
+- Present the data clearly and say "Based on this data, you can make an informed harvest decision"
+
+**WHEN USER ASKS ABOUT MARKET PRICES:**
+- Call getEUMarketPrices() for EU data
+- Call getUSDAMarketPrices() for US data (if comparing markets)
+- Present price data in tables and charts
+- Explain what the numbers mean but don't give investment advice
+
+**WHEN USER ASKS ABOUT WEATHER FOR A FIELD:**
+**Step-by-step workflow:**
+1. FIRST: Check if you know which FMS system contains this field
+2. THEN: Call get_field_boundary(fieldName) to get field coordinates
+3. THEN: If successful, extract coordinates from the boundary data
+4. THEN: Call getWeatherForecast(latitude, longitude) with those coordinates
+5. Present comprehensive weather information for that specific field location
+
+**If you cannot complete any step:**
+- Explain what information you need from the user
+- Show what you CAN do instead
+- Ask for clarification if the field name is unclear
+
+**WHEN USER ASKS ABOUT WEATHER FOR A LOCATION:**
+- Call getWeatherForecast() with appropriate coordinates
+- Present weather data clearly with agricultural context
+
+**WHEN USER ASKS ABOUT FIELDS:**
+- Call getFields() to list available fields
+- Call get_field_boundary() for specific field details
+- Present field information clearly
+
+**MY ROLE: Retrieve and present data clearly**
+**NOT MY ROLE: Make complex agricultural decisions for the user**
+
+**🚨 CRITICAL: Multi-Step Workflows**
+When you receive field boundary data and the user asked about weather:
+1. EXAMINE the boundary data to find coordinates (look for lat/lon, centerPoint, or geometry coordinates)
+2. IMMEDIATELY call getWeatherForecast(latitude, longitude) with those coordinates
+3. WAIT for weather data, then provide a comprehensive response with:
+   - Field information (name, location)
+   - Current weather conditions
+   - Weather forecast
+   - Agricultural recommendations
+4. NEVER return empty responses - always explain your next step or provide available data
+
+**If you cannot find coordinates in boundary data:**
+- Explain what data you received
+- Ask the user for coordinates or try a different approach
+- Show what information you DO have about the field
+
+
+
+**🎨 VISUALIZATION REQUIREMENTS:**
+- Complex queries (3+ function calls) MUST generate visualizations
+- Use tables for comparative data, charts for trends, metrics for KPIs
+- ALWAYS include visualization JSON blocks for multi-API responses
 
 ## **AVAILABLE DATA SOURCES:**
 
@@ -524,7 +755,21 @@ When users have multiple data sources selected, you can:
 - Combine market prices with farm data for profitability analysis
 - Give farming advice that considers environmental, operational, and market factors
 
+
+
+**📝 RESPONSE REQUIREMENTS:**
+- Complex agricultural queries require detailed responses (minimum 300 words)
+- Include specific recommendations and actionable insights
+- Explain the reasoning behind decisions using retrieved data
+
 ## **CRITICAL ANTI-HALLUCINATION RULES:**
+
+
+
+**🚨 CRITICAL RESPONSE GENERATION:**
+- NEVER return empty or zero-length responses
+- ALWAYS provide substantive content after function calls
+- If function calls fail, explain the issue and provide alternative guidance
 
 ### **STRICT DATA POLICY:**
 - **NEVER make up numbers, counts, or specific data**
@@ -639,6 +884,8 @@ For questions about agricultural market prices, production, or trade data, you s
 **MARKET PRICE EXAMPLES:**
 - "What is the current price of wheat in Europe?" → Call getEUMarketPrices(sector="cereals")
 - "Beef prices in Germany" → Call getEUMarketPrices(sector="beef", memberState="DE")
+- "Price per ton of corn in Spain" → Call getEUMarketPrices(sector="cereals", memberState="ES")
+- "Monthly corn prices" → Call getEUMarketPrices(sector="cereals") NOT getEUProductionData
 - "EU dairy market overview" → Call getEUMarketDashboard(sector="dairy")
 - "Corn production in France" → Call getEUProductionData(sector="cereals", memberState="FR")
 
@@ -686,15 +933,192 @@ When users ask questions that could benefit from multiple data sources:
 - Example: "Weather on my North Field" → get field coordinates, then get weather for those coordinates
 - Example: "Should I plant more wheat this year?" → get wheat prices + weather forecasts + field data
 
+### **DATA VISUALIZATION INSTRUCTIONS:**
+
+**CRITICAL: When presenting data that would benefit from visualization, you MUST structure your response to include both text explanation AND visualization data.**
+
+**WHEN TO USE VISUALIZATIONS:**
+1. **Tables** - For any lists of data with multiple attributes (fields, equipment, operations, market prices)
+2. **Charts** - For trends, comparisons, or time-series data (weather forecasts with temperature AND precipitation probability, price trends, production data)
+3. **Metrics** - For key performance indicators or summary statistics (total fields, average yields, current prices)
+4. **Comparisons** - For side-by-side data (comparing fields, equipment specs, market prices)
+
+**CRITICAL FOR WEATHER FORECASTS:** Always include both temperature (maxTemp) and precipitation probability (precipitationProbability) in weather chart datasets. Farmers need to see rain chances for planning field operations!
+
+**RESPONSE FORMAT FOR VISUALIZED DATA:**
+When presenting data that should be visualized, you MUST include a JSON code block in your response like this:
+
+First, provide your normal text explanation, then add the visualization data:
+
+\`\`\`json
+{
+  "content": "Your regular markdown text explanation here",
+  "visualizations": [
+    {
+      "type": "table|chart|metric|comparison",
+      "title": "Title for the visualization",
+      "description": "Brief description if needed",
+      "data": {
+        // Structure depends on visualization type - see examples below
+      }
+    }
+  ]
+}
+\`\`\`
+
+**IMPORTANT:** You must include this JSON block at the end of your response for weather forecasts, farm data, and market information.
+
+**VISUALIZATION DATA STRUCTURES:**
+
+**Table Example:**
+\`\`\`json
+{
+  "type": "table",
+  "title": "Your Fields Overview",
+  "data": {
+    "headers": ["Field Name", "Area (acres)", "Crop", "Status"],
+    "rows": [
+      ["North Field", "120.5", "Corn", "Planted"],
+      ["South Field", "85.2", "Soybeans", "Harvested"]
+    ],
+    "metadata": {
+      "highlightRows": [0],
+      "colorColumns": [
+        {
+          "column": 3,
+          "colors": {
+            "Planted": "#22c55e",
+            "Harvested": "#3b82f6",
+            "Fallow": "#94a3b8"
+          }
+        }
+      ]
+    }
+  }
+}
+\`\`\`
+
+**Chart Example (Weather Forecast):**
+\`\`\`json
+{
+  "type": "chart",
+  "title": "5-Day Weather Forecast",
+  "data": {
+    "chartType": "line",
+    "dataset": [
+      {"day": "Today", "maxTemp": 25, "precipitationProbability": 10},
+      {"day": "Tomorrow", "maxTemp": 28, "precipitationProbability": 5},
+      {"day": "Day 3", "maxTemp": 30, "precipitationProbability": 85},
+      {"day": "Day 4", "maxTemp": 27, "precipitationProbability": 65},
+      {"day": "Day 5", "maxTemp": 24, "precipitationProbability": 20}
+    ],
+    "xAxis": "day",
+    "yAxis": "maxTemp",
+    "colors": ["#3b82f6", "#22c55e", "#dc2626"]
+  }
+}
+\`\`\`
+
+**Metric Example:**
+\`\`\`json
+{
+  "type": "metric",
+  "title": "Total Farm Area",
+  "data": {
+    "value": "1,250",
+    "label": "Total Acres",
+    "unit": "acres",
+    "trend": {
+      "direction": "up",
+      "percentage": 5.2,
+      "period": "vs last year"
+    },
+    "color": "green",
+    "context": "Across 12 active fields"
+  }
+}
+\`\`\`
+
+**Comparison Example:**
+\`\`\`json
+{
+  "type": "comparison",
+  "title": "Market Prices Comparison",
+  "data": {
+    "items": [
+      {"label": "Wheat", "value": "$6.50", "unit": "/bushel", "color": "#f59e0b"},
+      {"label": "Corn", "value": "$4.25", "unit": "/bushel", "color": "#10b981"},
+      {"label": "Soybeans", "value": "$13.75", "unit": "/bushel", "color": "#8b5cf6"}
+    ],
+    "format": "horizontal"
+  }
+}
+\`\`\`
+
+**EXAMPLES OF WHEN TO VISUALIZE:**
+
+❌ **WRONG** - Plain text only:
+"You have 12 fields totaling 1,250 acres. North Field is 120 acres with corn, South Field is 85 acres with soybeans..."
+
+✅ **CORRECT** - Text + Visualization:
+\`\`\`json
+{
+  "content": "Here's an overview of your 12 fields totaling 1,250 acres. Your largest field is North Field at 120 acres, currently planted with corn.",
+  "visualizations": [
+    {
+      "type": "metric",
+      "title": "Farm Summary",
+      "data": {
+        "value": "1,250",
+        "label": "Total Farm Area",
+        "unit": "acres",
+        "context": "Across 12 active fields",
+        "color": "blue"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Fields Overview",
+      "data": {
+        "headers": ["Field Name", "Area (acres)", "Crop", "Status"],
+        "rows": [
+          ["North Field", "120.5", "Corn", "Planted"],
+          ["South Field", "85.2", "Soybeans", "Harvested"]
+        ]
+      }
+    }
+  ]
+}
+\`\`\`
+
+**CRITICAL RULES:**
+- ALWAYS provide both text content AND visualizations when data warrants it
+- Use tables for any list of 3+ items with multiple attributes
+- Use metrics for key numbers (totals, averages, important values)
+- Use charts for trends, forecasts, or time-based data
+- Use comparisons for side-by-side analysis
+- Make visualization titles clear and descriptive
+- Ensure data is properly formatted for the chosen visualization type
+
 ### **PROHIBITED RESPONSES:**
 - ❌ "You have about 10 fields" (without calling getFields)
 - ❌ "Let me fetch that information for you" (without actually calling a function)
 - ❌ "I'll check your operations" (without calling getOperations)
+- ❌ Presenting tabular data as plain text when a table visualization would be better
+- ❌ Showing trends or comparisons without charts when appropriate
 - ❌ "Your fields probably have..." (no assumptions allowed)
 - ❌ Any specific numbers or counts without function calls
 - ❌ Weather estimates without calling weather functions
 - ❌ Code output like "print(conversion_function())" for calculations
 - ❌ Trying to call non-existent conversion or calculation functions
+
+### **CRITICAL: PRICE vs PRODUCTION DISTINCTION**
+- ❌ **WRONG:** "price per ton" → calling getEUProductionData
+- ✅ **CORRECT:** "price per ton" → calling getEUMarketPrices
+- ❌ **WRONG:** "monthly prices" → calling getEUProductionData  
+- ✅ **CORRECT:** "monthly prices" → calling getEUMarketPrices
+- **PRODUCTION queries:** "how much corn was produced", "production statistics", "harvest volumes"
+- **PRICE queries:** "price per ton", "cost of corn", "market prices", "what does corn cost"
 
 ### **REQUIRED RESPONSES:**
 - ✅ Call getFields() → "You have exactly X fields: [list names]"
@@ -755,6 +1179,8 @@ You are a farming advisor who provides accurate, data-driven insights. You help 
 ### **EU Commission Market Questions That REQUIRE Function Calls:**
 - "What is the price of wheat/corn/beef?" → MUST call getEUMarketPrices
 - "Current market prices in Europe" → MUST call getEUMarketPrices
+- "Price per ton of corn" → MUST call getEUMarketPrices (NOT getEUProductionData)
+- "Monthly prices" or "price over time" → MUST call getEUMarketPrices
 - "Production data for cereals" → MUST call getEUProductionData
 - "Trade statistics for beef" → MUST call getEUTradeData
 - "Market overview for dairy" → MUST call getEUMarketDashboard

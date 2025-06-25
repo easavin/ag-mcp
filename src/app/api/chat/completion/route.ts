@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { mcpToolExecutor, ALL_MCP_TOOLS } from '@/lib/mcp-tools'
 import { JohnDeereConnectionError, JohnDeereRCAError, JohnDeerePermissionError } from '@/lib/johndeere-api'
+import { parseVisualizationsFromResponse } from '@/lib/visualization-parser'
 
 // Function to execute John Deere API calls
 async function executeJohnDeereFunction(functionCall: FunctionCall, request: NextRequest): Promise<any> {
@@ -379,6 +380,10 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
       functionCallCount: response.functionCalls?.length || 0
     })
 
+    // Store original user query for validation
+    const originalUserQuery = chatMessages[chatMessages.length - 1]?.content || ''
+    let functionResults: any[] = []
+
     // Handle function calls if present
     if (response.functionCalls && response.functionCalls.length > 0) {
       console.log('🔧 Function calls detected:', response.functionCalls.map(fc => fc.name))
@@ -400,36 +405,12 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
         validFunctionCalls = filteredCalls
       }
       
-      // Filter out EU Commission functions if EU Commission is not selected
-      const hasEuCommission = selectedDataSources?.includes('eu-commission')
-      if (!hasEuCommission) {
-        const filteredCalls = validFunctionCalls.filter(fc => !euCommissionFunctions.includes(fc.name))
-        if (filteredCalls.length !== validFunctionCalls.length) {
-          console.log('🚫 Filtered out EU Commission functions (EU Commission not selected)')
-          console.log('🔧 Original functions:', validFunctionCalls.map(fc => fc.name))
-          console.log('🔧 Filtered functions:', filteredCalls.map(fc => fc.name))
-        }
-        validFunctionCalls = filteredCalls
-      }
-      
-      // Filter out USDA functions if USDA is not selected
-      const hasUSDA = selectedDataSources?.includes('usda')
-      if (!hasUSDA) {
-        const filteredCalls = validFunctionCalls.filter(fc => !usdaFunctions.includes(fc.name))
-        if (filteredCalls.length !== validFunctionCalls.length) {
-          console.log('🚫 Filtered out USDA functions (USDA not selected)')
-          console.log('🔧 Original functions:', validFunctionCalls.map(fc => fc.name))
-          console.log('🔧 Filtered functions:', filteredCalls.map(fc => fc.name))
-        }
-        validFunctionCalls = filteredCalls
-      }
-      
       if (validFunctionCalls.length === 0) {
         console.log('⚠️  No valid function calls to execute')
       } else {
         // Execute valid function calls
         console.log('⚡ Executing function calls...')
-        const functionResults = await Promise.all(
+        functionResults = await Promise.all(
           validFunctionCalls.map(async (functionCall, index) => {
             console.log(`🔧 Executing function ${index + 1}/${validFunctionCalls.length}: ${functionCall.name}`)
             const result = await executeFunction(functionCall, request)
@@ -470,27 +451,195 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
         ]
 
         console.log('🎯 Getting final response with function results...')
+        console.log('📝 Messages being sent to LLM:', messagesWithFunctions.map(m => ({
+          role: m.role,
+          contentLength: m.content?.length || 0,
+          contentPreview: m.content?.substring(0, 100) + (m.content?.length > 100 ? '...' : '')
+        })))
+        
+        // Check if user asked about weather (needed for auto-completion)
+        const userAskedAboutWeather = originalUserQuery.toLowerCase().includes('weather') || 
+          originalUserQuery.toLowerCase().includes('forecast') ||
+          originalUserQuery.toLowerCase().includes('temperature') ||
+          originalUserQuery.toLowerCase().includes('rain') ||
+          originalUserQuery.toLowerCase().includes('wind')
+        
+        // Debug: Check if we have boundary data with coordinates
+        const boundaryResult = functionResults.find(fr => fr.name === 'get_field_boundary')
+        if (boundaryResult && boundaryResult.result?.data?.values?.[0]) {
+          console.log('🔍 Sample boundary data structure:', JSON.stringify(boundaryResult.result.data.values[0], null, 2).substring(0, 500) + '...')
+          
+          // 🚨 AUTOMATIC WEATHER COMPLETION: Since LLM consistently fails to follow instructions,
+          // automatically extract coordinates and call weather API when user asks about weather
+          if (userAskedAboutWeather && hasWeather) {
+            console.log('🌤️ LLM failed to continue workflow - automatically extracting coordinates and calling weather API')
+            
+            const fieldData = boundaryResult.result.data.values[0]
+            let latitude, longitude
+            
+            // Extract coordinates from multipolygons structure
+            if (fieldData.multipolygons?.[0]?.rings?.[0]?.points) {
+              const points = fieldData.multipolygons[0].rings[0].points
+              if (points.length > 0) {
+                                 // Calculate center point from all coordinates
+                 const lats = points.map((p: any) => p.lat).filter((lat: any) => lat !== undefined)
+                 const lons = points.map((p: any) => p.lon).filter((lon: any) => lon !== undefined)
+                 
+                 if (lats.length > 0 && lons.length > 0) {
+                   latitude = lats.reduce((sum: number, lat: number) => sum + lat, 0) / lats.length
+                   longitude = lons.reduce((sum: number, lon: number) => sum + lon, 0) / lons.length
+                  console.log(`🌤️ Extracted center coordinates: ${latitude}, ${longitude}`)
+                }
+              }
+            }
+            
+            // If we have coordinates, make the weather call
+            if (latitude && longitude) {
+              try {
+                console.log('🌤️ Automatically calling weather API...')
+                const weatherResult = await executeFunction({
+                  name: 'getWeatherForecast',
+                  arguments: { latitude, longitude }
+                }, request)
+                
+                // Add weather result to function results
+                functionResults.push({
+                  name: 'getWeatherForecast',
+                  result: weatherResult,
+                  error: weatherResult.error ? weatherResult.error : undefined
+                })
+                
+                console.log('✅ Automatic weather API call completed')
+              } catch (error) {
+                console.error('❌ Failed to automatically call weather API:', error)
+              }
+            } else {
+              console.warn('⚠️ Could not extract coordinates from boundary data')
+            }
+          }
+        }
         
         // Check if we need to enable functions for multi-step workflows
+        
         const needsMultiStepFunctions = originalFunctionCalls.some(fc => 
           fc.name === 'get_field_boundary' || fc.name === 'getFields'
         ) && functionResults.some(result => 
           result.result?.success && (result.result?.data || result.result?.fields)
-        )
+                ) && (userAskedAboutWeather || hasWeather)
+
+        console.log('🔍 Multi-step workflow check:', {
+          userAskedAboutWeather,
+          hasWeather,
+          hasBoundaryCall: originalFunctionCalls.some(fc => fc.name === 'get_field_boundary'),
+          hasSuccessfulBoundaryData: functionResults.some(result => result.result?.success && result.result?.data),
+          needsMultiStepFunctions,
+          originalUserQuery: originalUserQuery.substring(0, 100)
+        })
+
+        
         
         // Prepare enhanced system prompt based on whether there are connection errors
         let finalSystemPrompt = systemPrompt
         if (hasConnectionErrors) {
           finalSystemPrompt += `\n\n**IMPORTANT: Some function calls encountered connection/permission errors. Use the userMessage field from the error results to provide helpful guidance to the user. DO NOT show technical error details - only provide user-friendly explanations and guidance.**`
         } else if (needsMultiStepFunctions) {
-          finalSystemPrompt += `\n\n**IMPORTANT: You have just received field/boundary data. If the user asked about weather for a specific field, you MUST now extract coordinates from the boundary data and call getCurrentWeather or getWeatherForecast. Complete the full workflow - do not stop after getting boundary data.**`
+          // Check if we now have both field and weather data
+          const hasWeatherData = functionResults.some(result => result.name === 'getWeatherForecast' && result.result?.success)
+          const hasFieldData = functionResults.some(result => result.name === 'get_field_boundary' && result.result?.success)
+          
+          if (hasWeatherData && hasFieldData) {
+            finalSystemPrompt += `\n\n**✅ COMPLETE WORKFLOW: You now have BOTH field boundary data AND weather forecast data. 
+PROVIDE A COMPREHENSIVE RESPONSE that includes:
+1. Field information (name, location, size from boundary data)
+2. Current weather conditions and forecast (from weather data)
+3. Agricultural insights about the weather for this specific field
+4. Any recommendations based on the weather data
+YOU HAVE ALL THE DATA - PROVIDE A DETAILED, HELPFUL RESPONSE.**`
+          } else if (hasFieldData) {
+            finalSystemPrompt += `\n\n**🚨 CRITICAL: CONTINUE WEATHER WORKFLOW**
+
+You just received field boundary data and the user asked about WEATHER for this field.
+
+**MANDATORY NEXT STEPS:**
+1. Look at the field boundary data in the function result
+2. Find coordinates (lat/lon) in the boundary data
+3. IMMEDIATELY call getWeatherForecast(latitude, longitude) with those coordinates
+4. Provide a comprehensive weather report for the field
+
+**COORDINATE EXTRACTION HELP:**
+- Look for "lat" and "lon" values in the boundary data
+- Or look for "latitude" and "longitude" 
+- Or look for geometry coordinates
+- Use the first coordinate pair you find
+
+**EXAMPLE:** If you see lat: 41.628, lon: -3.587, then call getWeatherForecast(41.628, -3.587)
+
+**ABSOLUTELY FORBIDDEN:**
+- Returning empty responses
+- Stopping after getting boundary data
+- Not calling the weather function
+
+**YOU MUST CALL getWeatherForecast() NOW - DO NOT STOP HERE**`
+          } else {
+            finalSystemPrompt += `\n\n**🚀 START WORKFLOW: Begin the step-by-step process to answer the user's question. Make the appropriate function calls and explain your progress.**`
+          }
         } else {
-          finalSystemPrompt += `\n\n**IMPORTANT: You have just received function results with actual farm data. Use this data to provide a specific, detailed response to the user's question. DO NOT give generic responses.**`
+          // Check if we have connection errors for field boundary requests when user asked about weather
+          const hasBoundaryConnectionError = functionResults.some(result => 
+            result.name === 'get_field_boundary' && 
+            (result.result?.error === 'connection_required' || 
+             result.result?.error === 'rca_required' || 
+             result.result?.error === 'insufficient_permissions' ||
+             result.result?.error === 'access_denied' ||
+             result.error)
+          )
+          
+          if (userAskedAboutWeather && hasBoundaryConnectionError && hasWeather) {
+            finalSystemPrompt += `\n\n**🌤️ WEATHER QUERY WITH FIELD CONNECTION ERROR**
+
+The user asked about weather for a specific field, but there was an authentication/connection error accessing the field data.
+
+**YOU MUST:**
+1. Acknowledge that you cannot access the specific field data due to connection issues
+2. Offer to provide weather information if the user provides coordinates
+3. Suggest they check their John Deere connection
+4. Offer general weather information for their location if they provide city/region
+
+**EXAMPLE RESPONSE:**
+"I'm unable to access the boundary data for field '14ha' due to a connection issue with your farm management system. However, I can still provide weather information! 
+
+You can:
+1. Provide coordinates (latitude, longitude) for the field
+2. Tell me the city/region where the field is located
+3. Check your John Deere connection in the integrations settings
+
+Would you like me to get weather information using coordinates or a location name?"
+
+**DO NOT return empty responses - always provide helpful alternatives.**`
+          } else {
+            finalSystemPrompt += `\n\n**CRITICAL: You have just received function results with actual farm data. You MUST provide a detailed response to the user's question using this data. 
+
+**REQUIRED ACTIONS:**
+1. Analyze the function results data
+2. Extract relevant information for the user's question
+3. Provide a comprehensive answer with specific details
+4. Include recommendations based on the data
+
+**EXAMPLES:**
+- If field boundary data: Describe the field size, location, and provide harvesting recommendations
+- If weather data: Analyze conditions and give farming advice
+- If market data: Explain prices and market trends
+
+**YOU MUST RESPOND WITH ACTUAL CONTENT - DO NOT RETURN EMPTY RESPONSES.**`
+          }
         }
+        
+        console.log('🎯 Enhanced system prompt being sent:', finalSystemPrompt.substring(finalSystemPrompt.length - 500))
+        console.log('🔧 Functions enabled for multi-step:', needsMultiStepFunctions)
         
         response = await llmService.generateChatCompletion(messagesWithFunctions, {
           maxTokens: options?.maxTokens || 4000,
-          temperature: options?.temperature || 0.7,
+          temperature: 0.1, // Lower temperature for more consistent function calling
           systemPrompt: finalSystemPrompt,
           enableFunctions: needsMultiStepFunctions, // Enable functions for multi-step workflows
         })
@@ -502,21 +651,268 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
           model: response.model,
           contentLength: response.content?.length
         })
+        
+        // 🚨 FINAL FALLBACK: If LLM returns empty content despite having both field and weather data,
+        // generate the response at code level
+        if ((!response.content || response.content.trim().length === 0) && needsMultiStepFunctions) {
+          const hasWeatherData = functionResults.some(result => result.name === 'getWeatherForecast' && result.result?.success)
+          const hasFieldData = functionResults.some(result => result.name === 'get_field_boundary' && result.result?.success)
+          
+          if (hasWeatherData && hasFieldData && userAskedAboutWeather) {
+            console.log('🚨 LLM returned empty content despite having complete data - generating fallback response')
+            
+            const fieldResult = functionResults.find(result => result.name === 'get_field_boundary')
+            const weatherResult = functionResults.find(result => result.name === 'getWeatherForecast')
+            
+            if (fieldResult?.result?.data?.values?.[0] && weatherResult?.result?.data) {
+              const fieldData = fieldResult.result.data.values[0]
+              const weatherData = weatherResult.result.data
+              
+              const fieldName = fieldData.name || 'Unknown Field'
+              const fieldArea = fieldData.area?.valueAsDouble ? `${fieldData.area.valueAsDouble.toFixed(1)} ${fieldData.area.unit}` : 'Unknown area'
+              
+              const current = weatherData.current
+              const forecast = weatherData.forecast?.daily?.[0]
+              const agriculture = weatherData.agriculture
+              
+              // Check if user asked for multi-day forecast
+              const isMultiDayForecast = originalUserQuery.toLowerCase().includes('forecast') || 
+                originalUserQuery.toLowerCase().includes('days') ||
+                originalUserQuery.toLowerCase().includes('week') ||
+                originalUserQuery.match(/\d+\s*day/i)
+              
+              console.log('🔍 Multi-day forecast requested:', isMultiDayForecast)
+              
+              if (isMultiDayForecast && weatherData.forecast?.daily) {
+                // Generate multi-day forecast with visualizations
+                const dailyForecast = weatherData.forecast.daily.slice(0, 4) // Get 4 days
+                
+                response.content = `# 4-Day Weather Forecast for Field "${fieldName}"
+
+## Field Information
+- **Name**: ${fieldName}
+- **Area**: ${fieldArea}
+- **Location**: ${weatherData.location?.latitude?.toFixed(3)}, ${weatherData.location?.longitude?.toFixed(3)}
+
+## 4-Day Forecast Summary
+
+\`\`\`json
+{
+  "type": "table",
+  "title": "4-Day Weather Forecast",
+  "data": [
+    {
+      "Day": "Today",
+      "High/Low (°C)": "${current?.temperature}° / ${current?.temperature}°",
+      "Weather": "${current?.weatherCondition}",
+      "Precipitation (mm)": "${current?.precipitation || 0}",
+      "Wind (km/h)": "${current?.windSpeed}",
+      "Humidity (%)": "${current?.humidity}"
+         }${dailyForecast.map((day: any, index: number) => `,
+     {
+       "Day": "Day ${index + 1}",
+      "High/Low (°C)": "${day.temperature2mMax || day.temperatureMax}° / ${day.temperature2mMin || day.temperatureMin}°",
+      "Weather": "${day.weatherCode ? 'Varies' : 'Clear'}",
+      "Precipitation (mm)": "${day.precipitationSum || 0}",
+      "Wind (km/h)": "${day.windSpeed10mMax || day.windSpeedMax || 'N/A'}",
+      "Humidity (%)": "${day.relativeHumidity2mMean || 'N/A'}"
+    }`).join('')}
+  ]
+}
+\`\`\`
+
+\`\`\`json
+{
+  "type": "line",
+  "title": "Temperature Trend (4 Days)",
+  "data": [
+    {
+      "day": "Today",
+      "high": ${current?.temperature || 0},
+             "low": ${current?.temperature || 0}
+     }${dailyForecast.map((day: any, index: number) => `,
+     {
+       "day": "Day ${index + 1}",
+       "high": ${day.temperature2mMax || day.temperatureMax || 0},
+      "low": ${day.temperature2mMin || day.temperatureMin || 0}
+    }`).join('')}
+  ],
+  "xAxis": "day",
+  "yAxis": "temperature",
+  "lines": [
+    {"key": "high", "color": "#ff6b6b", "label": "High °C"},
+    {"key": "low", "color": "#4ecdc4", "label": "Low °C"}
+  ]
+}
+\`\`\`
+
+\`\`\`json
+{
+  "type": "bar",
+  "title": "Precipitation Forecast (4 Days)",
+  "data": [
+    {
+      "day": "Today",
+             "precipitation": ${current?.precipitation || 0}
+     }${dailyForecast.map((day: any, index: number) => `,
+     {
+       "day": "Day ${index + 1}",
+       "precipitation": ${day.precipitationSum || 0}
+    }`).join('')}
+  ],
+  "xAxis": "day",
+  "yAxis": "precipitation",
+  "color": "#45b7d1"
+}
+\`\`\`
+
+## Agricultural Recommendations
+${agriculture ? `- **Soil Temperature**: ${agriculture.soilTemperature?.surface}°C (surface), ${agriculture.soilTemperature?.depth6cm}°C (6cm depth)
+- **Soil Moisture**: ${agriculture.soilMoisture?.surface?.toFixed(3)} (surface)
+- **Spraying Conditions**: ${agriculture.sprayConditions?.suitable ? 'Currently suitable' : 'Currently not suitable'}` : 'Agricultural data not available'}
+
+## Planning Recommendations
+Based on the 4-day forecast for your ${fieldArea} field:
+- **Today**: ${current?.weatherCondition?.toLowerCase()}, ${current?.temperature}°C
+- **Best Days for Field Work**: ${dailyForecast.filter((day: any) => (day.precipitationSum || 0) < 2).length > 0 ? 'Days with low precipitation' : 'Monitor weather closely'}
+- **Irrigation Planning**: ${dailyForecast.some((day: any) => (day.precipitationSum || 0) > 5) ? 'Rain expected - reduce irrigation' : 'Consider irrigation needs'}
+- **Spray Applications**: Plan for days with low wind and no precipitation
+
+*4-day weather forecast provided by AgMCP Weather Service*`
+              } else {
+                // Generate current weather report
+                response.content = `# Weather Report for Field "${fieldName}"
+
+## Field Information
+- **Name**: ${fieldName}
+- **Area**: ${fieldArea}
+- **Location**: ${weatherData.location?.latitude?.toFixed(3)}, ${weatherData.location?.longitude?.toFixed(3)}
+
+## Current Weather Conditions
+- **Temperature**: ${current?.temperature}°C
+- **Weather**: ${current?.weatherCondition}
+- **Humidity**: ${current?.humidity}%
+- **Wind**: ${current?.windSpeed} km/h from ${current?.windDirection}°
+- **Pressure**: ${current?.pressure} hPa
+- **Precipitation**: ${current?.precipitation} mm
+
+## Tomorrow's Forecast
+${forecast ? `- **High/Low**: ${forecast.temperatureMax || forecast.temperature2mMax}°C / ${forecast.temperatureMin || forecast.temperature2mMin}°C
+- **Precipitation**: ${forecast.precipitationSum || forecast.precipitationSum || 0} mm (${forecast.precipitationProbabilityMax || forecast.precipitationProbabilityMean || 0}% chance)
+- **Wind**: Up to ${forecast.windSpeedMax || forecast.windSpeed10mMax || 'N/A'} km/h` : 'Forecast data not available'}
+
+## Agricultural Conditions
+${agriculture ? `- **Soil Temperature**: ${agriculture.soilTemperature?.surface}°C (surface), ${agriculture.soilTemperature?.depth6cm}°C (6cm depth)
+- **Soil Moisture**: ${agriculture.soilMoisture?.surface?.toFixed(3)} (surface)
+- **Evapotranspiration**: ${agriculture.evapotranspiration} mm
+- **UV Index**: ${agriculture.uvIndex}
+- **Spraying Conditions**: ${agriculture.sprayConditions?.suitable ? 'Suitable' : 'Not suitable'}` : 'Agricultural data not available'}
+
+## Recommendations
+Based on the current weather conditions for your ${fieldArea} field:
+- Current conditions are ${current?.weatherCondition?.toLowerCase()}
+- ${agriculture?.sprayConditions?.suitable ? 'Good conditions for spraying operations' : 'Consider waiting for better spraying conditions'}
+- Monitor soil moisture levels for irrigation planning
+- ${forecast?.precipitationSum > 5 ? 'Significant rain expected tomorrow - plan field operations accordingly' : 'Dry conditions expected - consider irrigation needs'}
+
+*Weather data provided by AgMCP Weather Service*`
+              }
+
+              console.log('✅ Generated fallback weather response:', response.content.length, 'characters')
+            }
+          }
+        }
       }
+    }
+
+    // 🤔 REASONING VALIDATION SYSTEM (Optional)
+    const enableReasoning = process.env.ENABLE_REASONING_VALIDATION === 'true'
+    
+    if (enableReasoning) {
+      console.log('🤔 Starting reasoning validation...')
+      const validation = await llmService.validateResponse(
+        originalUserQuery,
+        response,
+        functionResults
+      )
+
+      // Add reasoning to response metadata
+      response.reasoning = validation
+
+      // If validation fails and confidence is low, attempt correction
+      if (!validation.isValid && validation.confidence < 0.7) {
+        console.log('🔄 Response validation failed, attempting correction...')
+        console.log('❌ Validation issue:', validation.explanation)
+        
+        try {
+          const correctedResponse = await llmService.generateCorrectedResponse(
+            chatMessages,
+            response,
+            validation,
+            {
+              maxTokens: options?.maxTokens || 4000,
+              temperature: options?.temperature || 0.7,
+              systemPrompt: systemPrompt,
+              enableFunctions: enableFunctions,
+            }
+          )
+          
+          // Keep original function calls and results but use corrected content
+          correctedResponse.functionCalls = response.functionCalls
+          correctedResponse.reasoning = {
+            ...validation,
+            explanation: `Original response corrected: ${validation.explanation}`
+          }
+          
+          response = correctedResponse
+          console.log('✅ Response corrected successfully')
+        } catch (correctionError) {
+          console.error('❌ Failed to generate correction:', correctionError)
+          // Keep original response if correction fails
+          console.log('⚠️ Using original response despite validation failure')
+        }
+      } else if (validation.isValid) {
+        console.log('✅ Response validation passed:', validation.explanation)
+      } else {
+        console.log('⚠️ Response validation failed but confidence too high for auto-correction:', validation.confidence)
+      }
+    } else {
+      console.log('⚠️ Reasoning validation disabled')
+    }
+
+    // Parse potential visualization data from LLM response
+    console.log('🔍 Raw LLM response content:', response.content)
+    
+    // Use the new visualization parser - extract visualizations and clean content
+    const { visualizations, cleanedContent } = parseVisualizationsFromResponse(response.content, [])
+    const messageContent = cleanedContent
+    
+    console.log('📊 Auto-generated visualizations:', visualizations.length, 'items')
+    if (visualizations.length > 0) {
+      console.log('📊 Visualization data:', JSON.stringify(visualizations, null, 2))
     }
 
     // Save assistant message to database
     console.log('💾 Saving message to database...')
+    console.log('🔍 About to save visualizations:', visualizations.length, 'items')
+    console.log('🔍 Visualization data before saving:', JSON.stringify(visualizations, null, 2))
+    
+    const metadataToSave = {
+      model: response.model,
+      usage: response.usage,
+      functionCalls: response.functionCalls ? JSON.parse(JSON.stringify(response.functionCalls)) : [],
+      visualizations: visualizations.length > 0 ? JSON.parse(JSON.stringify(visualizations)) : undefined,
+      reasoning: response.reasoning ? JSON.parse(JSON.stringify(response.reasoning)) : undefined,
+    }
+    
+    console.log('🔍 Complete metadata to save:', JSON.stringify(metadataToSave, null, 2))
+    
     const assistantMessage = await prisma.message.create({
       data: {
         sessionId: sessionId,
         role: 'assistant',
-        content: response.content,
-        metadata: {
-          model: response.model,
-          usage: response.usage,
-          functionCalls: response.functionCalls ? JSON.parse(JSON.stringify(response.functionCalls)) : [],
-        },
+        content: messageContent,
+        metadata: metadataToSave,
       },
     })
 

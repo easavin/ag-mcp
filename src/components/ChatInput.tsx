@@ -9,9 +9,10 @@ interface ChatInputProps {
   disabled?: boolean
   organizationId?: string | null;
   placeholder?: string;
+  autoFocus?: boolean;
 }
 
-export default function ChatInput({ onSendMessage, disabled, organizationId, placeholder }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, disabled, organizationId, placeholder, autoFocus = true }: ChatInputProps) {
   const [message, setMessage] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false);
@@ -67,6 +68,13 @@ export default function ChatInput({ onSendMessage, disabled, organizationId, pla
     setMessage('');
     setFiles([]);
     setIsUploading(false);
+    
+    // Refocus the input after sending the message
+    if (autoFocus && textareaRef.current) {
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 100);
+    }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,6 +101,25 @@ export default function ChatInput({ onSendMessage, disabled, organizationId, pla
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   }, [message]);
+
+  // Auto-focus the input when disabled changes from true to false (i.e., when response is received)
+  useEffect(() => {
+    if (!disabled && autoFocus && textareaRef.current) {
+      const timer = setTimeout(() => {
+        console.log('🎯 Auto-focusing chat input after response received');
+        textareaRef.current?.focus();
+      }, 300); // Increased delay to ensure the UI has fully updated
+      
+      return () => clearTimeout(timer);
+    }
+  }, [disabled, autoFocus]);
+
+  // Auto-focus on mount
+  useEffect(() => {
+    if (autoFocus && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [autoFocus]);
 
   return (
     <div className="chat-input-container" style={{
@@ -137,7 +164,8 @@ export default function ChatInput({ onSendMessage, disabled, organizationId, pla
           border: '1px solid #444',
           borderRadius: '16px',
           background: '#2a2a2a',
-          minHeight: '80px' // Increased from 60px to 80px for better mobile visibility
+          minHeight: '80px', // Increased from 60px to 80px for better mobile visibility
+          transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
         }}>
             <textarea
                 ref={textareaRef}
@@ -165,6 +193,20 @@ export default function ChatInput({ onSendMessage, disabled, organizationId, pla
                   outline: 'none',
                   maxHeight: '200px',
                   minHeight: '36px' // Increased from 24px to 36px for better mobile visibility
+                }}
+                onFocus={(e) => {
+                  const wrapper = e.target.parentElement;
+                  if (wrapper) {
+                    wrapper.style.borderColor = '#2563eb';
+                    wrapper.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                  }
+                }}
+                onBlur={(e) => {
+                  const wrapper = e.target.parentElement;
+                  if (wrapper) {
+                    wrapper.style.borderColor = '#444';
+                    wrapper.style.boxShadow = 'none';
+                  }
                 }}
             />
             <div className="input-buttons" style={{

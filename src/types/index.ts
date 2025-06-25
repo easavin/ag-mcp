@@ -21,6 +21,22 @@ export interface Message {
   role: 'user' | 'assistant'
   content: string
   fileAttachments?: FileAttachment[]
+  metadata?: {
+    model?: string
+    usage?: {
+      promptTokens: number
+      completionTokens: number
+      totalTokens: number
+    }
+    visualizations?: VisualizationData[]
+    reasoning?: {
+      isValid: boolean
+      confidence: number
+      explanation: string
+      suggestions?: string[]
+    }
+    dataSources?: string[]
+  }
   createdAt: Date
 }
 
@@ -237,4 +253,100 @@ export interface SyncResult {
   herds: number
   workOrders: number
   errors: string[]
+}
+
+// Visualization types for rich message content
+export interface VisualizationData {
+  type: 'table' | 'chart' | 'metric' | 'map' | 'progress' | 'comparison'
+  title?: string
+  description?: string
+  data: any
+  config?: any
+}
+
+export interface TableVisualization extends VisualizationData {
+  type: 'table'
+  data: {
+    headers: string[]
+    rows: (string | number)[][]
+    metadata?: {
+      sortable?: boolean
+      searchable?: boolean
+      highlightRows?: number[]
+      colorColumns?: { column: number; colors: Record<string, string> }[]
+    }
+  }
+}
+
+export interface ChartVisualization extends VisualizationData {
+  type: 'chart'
+  data: {
+    chartType: 'bar' | 'line' | 'pie' | 'area' | 'scatter'
+    dataset: any[]
+    xAxis?: string
+    yAxis?: string
+    categories?: string[]
+    colors?: string[]
+  }
+}
+
+export interface MetricVisualization extends VisualizationData {
+  type: 'metric'
+  data: {
+    value: number | string
+    label: string
+    unit?: string
+    trend?: {
+      direction: 'up' | 'down' | 'neutral'
+      percentage?: number
+      period?: string
+    }
+    context?: string
+    color?: 'green' | 'red' | 'yellow' | 'blue' | 'gray'
+  }
+}
+
+export interface ComparisonVisualization extends VisualizationData {
+  type: 'comparison'
+  data: {
+    items: Array<{
+      label: string
+      value: number | string
+      unit?: string
+      color?: string
+      description?: string
+    }>
+    format: 'horizontal' | 'vertical' | 'grid'
+  }
+}
+
+// Enhanced message interface with visualization support
+export interface EnhancedMessage {
+  id: string
+  sessionId: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  visualizations?: VisualizationData[]
+  fileAttachments?: Array<{
+    filename: string
+    fileType: string
+    fileSize: number
+  }>
+  metadata?: {
+    model?: string
+    usage?: {
+      promptTokens: number
+      completionTokens: number
+      totalTokens: number
+    }
+    visualizations?: VisualizationData[]
+    reasoning?: {
+      isValid: boolean
+      confidence: number
+      explanation: string
+      suggestions?: string[]
+    }
+    dataSources?: string[]
+  }
+  createdAt: Date | string
 } 

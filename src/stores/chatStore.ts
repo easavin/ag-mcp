@@ -18,6 +18,18 @@ export interface Message {
       completionTokens: number
       totalTokens: number
     }
+    visualizations?: Array<{
+      type: 'table' | 'chart' | 'metric' | 'comparison'
+      title?: string
+      description?: string
+      data: any
+    }>
+    reasoning?: {
+      isValid: boolean
+      confidence: number
+      explanation: string
+      suggestions?: string[]
+    }
   }
   createdAt: Date | string
 }

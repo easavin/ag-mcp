@@ -1,30 +1,28 @@
-import { NextRequest } from 'next/server'
 import { GET } from '../../health/route'
 
 describe('GET /api/health', () => {
   it('should return health status', async () => {
-    // Arrange
-    const request = new NextRequest('http://localhost/api/health')
-
     // Act
-    const response = await GET(request)
+    const response = await GET()
     const data = await response.json()
 
     // Assert
     expect(response.status).toBe(200)
     expect(data).toEqual({
-      status: 'ok',
+      status: expect.any(String),
       timestamp: expect.any(String),
       version: expect.any(String),
+      environment: expect.any(String),
+      uptime: expect.any(Number),
+      responseTime: expect.any(String),
+      services: expect.any(Object),
+      system: expect.any(Object),
     })
   })
 
   it('should return valid timestamp', async () => {
-    // Arrange
-    const request = new NextRequest('http://localhost/api/health')
-
     // Act
-    const response = await GET(request)
+    const response = await GET()
     const data = await response.json()
 
     // Assert

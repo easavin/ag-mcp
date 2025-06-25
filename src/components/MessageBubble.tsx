@@ -5,6 +5,8 @@ import { formatDate } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import DataSourceSelector from './DataSourceSelector'
 import MessageReactions from './MessageReactions'
+import MessageVisualization from './MessageVisualization'
+import { VisualizationData } from '@/types'
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant' | 'system'
@@ -16,8 +18,15 @@ interface MessageBubbleProps {
     fileType: string
     fileSize: number
   }>
+  visualizations?: VisualizationData[]
   onDataSourceSelect?: (sourceId: string, dataType: string) => void
   currentDataSource?: string | null
+  reasoning?: {
+    isValid: boolean
+    confidence: number
+    explanation: string
+    suggestions?: string[]
+  }
 }
 
 export default function MessageBubble({
@@ -26,8 +35,10 @@ export default function MessageBubble({
   timestamp,
   messageId,
   fileAttachments,
+  visualizations,
   onDataSourceSelect,
   currentDataSource,
+  reasoning,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'
@@ -229,6 +240,56 @@ export default function MessageBubble({
                   dataType={extractDataType()}
                   onSelect={handleDataSourceSelect}
                 />
+              )}
+            </div>
+          )}
+          
+          {/* Render visualizations if present */}
+          {visualizations && visualizations.length > 0 && (
+            <MessageVisualization visualizations={visualizations} />
+          )}
+          
+          {/* Show reasoning validation results for assistant messages */}
+          {!isUser && !isSystem && reasoning && (
+            <div className={`mt-3 p-3 rounded-lg border ${
+              reasoning.isValid 
+                ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' 
+                : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800'
+            }`}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  reasoning.isValid ? 'bg-green-500' : 'bg-yellow-500'
+                }`} />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Response Validation
+                </span>
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  reasoning.confidence >= 0.8 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-300'
+                    : reasoning.confidence >= 0.6 
+                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800/30 dark:text-yellow-300'
+                    : 'bg-red-100 text-red-800 dark:bg-red-800/30 dark:text-red-300'
+                }`}>
+                  {Math.round(reasoning.confidence * 100)}% confidence
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {reasoning.explanation}
+              </p>
+              {reasoning.suggestions && reasoning.suggestions.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-500 mb-1">
+                    Suggestions:
+                  </p>
+                  <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                    {reasoning.suggestions.map((suggestion, index) => (
+                      <li key={index} className="flex items-start gap-1">
+                        <span className="text-gray-400">•</span>
+                        <span>{suggestion}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           )}
