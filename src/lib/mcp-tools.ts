@@ -5,6 +5,8 @@ import { getJohnDeereAPIClient } from './johndeere-api';
 import { getWeatherAPIClient } from './weather-api';
 import { euAgriAPI, MARKET_SECTORS } from './eu-agri-api';
 import { usdaAPI, USDA_MARKET_CATEGORIES } from './usda-api';
+import { AuravantAuth } from './auravant/auth';
+import { AuravantClient } from './auravant/client';
 
 export interface MCPTool {
   name: string
@@ -555,6 +557,197 @@ export const USDA_TOOLS: MCPTool[] = [
   }
 ]
 
+// Auravant Tools (Unique Agricultural Features)
+export const AURAVANT_TOOLS: MCPTool[] = [
+  {
+    name: 'getAuravantFields',
+    description: 'Get all fields from Auravant farm management system',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'getAuravantFarms',
+    description: 'Get all farms from Auravant farm management system',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'getAuravantLabourOperations',
+    description: 'Get labour operations (field activities) from Auravant',
+    parameters: {
+      type: 'object',
+      properties: {
+        yeargroup: {
+          type: 'number',
+          description: 'Year group for the operations (e.g., 2024)'
+        },
+        farm_id: {
+          type: 'number',
+          description: 'Filter by specific farm ID'
+        },
+        field_id: {
+          type: 'number',
+          description: 'Filter by specific field ID'
+        },
+        date_from: {
+          type: 'string',
+          description: 'Start date filter (YYYY-MM-DD)'
+        },
+        date_to: {
+          type: 'string',
+          description: 'End date filter (YYYY-MM-DD)'
+        },
+        status: {
+          type: 'number',
+          enum: [1, 2, 3],
+          description: 'Operation status: 1=Planned, 2=Executed, 3=Cancelled'
+        }
+      },
+      required: ['yeargroup']
+    }
+  },
+  {
+    name: 'getAuravantLivestock',
+    description: 'Get livestock herds from Auravant (unique feature not available in other systems)',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'createAuravantSowing',
+    description: 'Create a sowing operation in Auravant',
+    parameters: {
+      type: 'object',
+      properties: {
+        field_id: {
+          type: 'number',
+          description: 'ID of the field for sowing'
+        },
+        yeargroup: {
+          type: 'number',
+          description: 'Year group (e.g., 2024)'
+        },
+        date: {
+          type: 'string',
+          description: 'Sowing date (YYYY-MM-DD)'
+        },
+        surface: {
+          type: 'number',
+          description: 'Surface area in hectares'
+        },
+        crop_id: {
+          type: 'number',
+          description: 'ID of the crop being sown'
+        },
+        variety_id: {
+          type: 'number',
+          description: 'ID of the crop variety (optional)'
+        }
+      },
+      required: ['field_id', 'yeargroup', 'date', 'surface', 'crop_id']
+    }
+  },
+  {
+    name: 'createAuravantHarvest',
+    description: 'Create a harvest operation in Auravant',
+    parameters: {
+      type: 'object',
+      properties: {
+        field_id: {
+          type: 'number',
+          description: 'ID of the field for harvest'
+        },
+        yeargroup: {
+          type: 'number',
+          description: 'Year group (e.g., 2024)'
+        },
+        date: {
+          type: 'string',
+          description: 'Harvest date (YYYY-MM-DD)'
+        },
+        surface: {
+          type: 'number',
+          description: 'Surface area harvested in hectares'
+        },
+        crop_id: {
+          type: 'number',
+          description: 'ID of the crop being harvested'
+        },
+        yield: {
+          type: 'number',
+          description: 'Yield in tons per hectare'
+        },
+        humidity: {
+          type: 'number',
+          description: 'Humidity percentage'
+        }
+      },
+      required: ['field_id', 'yeargroup', 'date', 'surface', 'crop_id']
+    }
+  },
+  {
+    name: 'getAuravantWorkOrders',
+    description: 'Get work orders from Auravant for planning and scheduling',
+    parameters: {
+      type: 'object',
+      properties: {
+        yeargroup: {
+          type: 'number',
+          description: 'Year group for work orders'
+        },
+        status: {
+          type: 'string',
+          description: 'Filter by work order status'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'createAuravantHerd',
+    description: 'Create a new livestock herd in Auravant (unique livestock management feature)',
+    parameters: {
+      type: 'object',
+      properties: {
+        herd_name: {
+          type: 'string',
+          description: 'Name of the herd'
+        },
+        animal_count: {
+          type: 'number',
+          description: 'Number of animals in the herd'
+        },
+        weight: {
+          type: 'number',
+          description: 'Average weight of animals'
+        },
+        weight_unit: {
+          type: 'string',
+          enum: ['Kg', 'Lb'],
+          description: 'Weight unit'
+        },
+        type_id: {
+          type: 'number',
+          description: 'Type of livestock (1=Cattle, 2=Sheep, 3=Goats, etc.)'
+        },
+        field_id: {
+          type: 'number',
+          description: 'Field ID where the herd is located'
+        }
+      },
+      required: ['herd_name', 'animal_count', 'type_id']
+    }
+  }
+]
+
 // All MCP Tools combined
 export const ALL_MCP_TOOLS: MCPTool[] = [
   ...FIELD_OPERATION_TOOLS,
@@ -563,6 +756,7 @@ export const ALL_MCP_TOOLS: MCPTool[] = [
   ...WEATHER_TOOLS,
   ...EU_COMMISSION_TOOLS,
   ...USDA_TOOLS,
+  ...AURAVANT_TOOLS,
 ]
 
 // Tool execution functions
@@ -599,6 +793,11 @@ export class MCPToolExecutor {
     // USDA
     if (USDA_TOOLS.find(tool => tool.name === toolName)) {
       return this.executeUSDA(toolName, parameters);
+    }
+    
+    // Auravant
+    if (AURAVANT_TOOLS.find(tool => tool.name === toolName)) {
+      return this.executeAuravant(toolName, parameters);
     }
     
     return {
@@ -692,6 +891,29 @@ export class MCPToolExecutor {
         return this.getUSDAMarketDashboard(parameters);
       default:
         return { success: false, message: 'Unknown USDA tool' };
+    }
+  }
+
+  private async executeAuravant(toolName: string, parameters: any): Promise<MCPToolResult> {
+    switch (toolName) {
+      case 'getAuravantFields':
+        return this.getAuravantFields(parameters);
+      case 'getAuravantFarms':
+        return this.getAuravantFarms(parameters);
+      case 'getAuravantLabourOperations':
+        return this.getAuravantLabourOperations(parameters);
+      case 'getAuravantLivestock':
+        return this.getAuravantLivestock(parameters);
+      case 'createAuravantSowing':
+        return this.createAuravantSowing(parameters);
+      case 'createAuravantHarvest':
+        return this.createAuravantHarvest(parameters);
+      case 'getAuravantWorkOrders':
+        return this.getAuravantWorkOrders(parameters);
+      case 'createAuravantHerd':
+        return this.createAuravantHerd(parameters);
+      default:
+        return { success: false, message: 'Unknown Auravant tool' };
     }
   }
 
@@ -1162,6 +1384,312 @@ export class MCPToolExecutor {
       return {
         success: false,
         message: `Failed to get USDA market dashboard: ${error.message}`
+      };
+    }
+  }
+
+  // Auravant Tool Implementations
+  private async getAuravantFields(params: any): Promise<MCPToolResult> {
+    try {
+      // Note: This requires user authentication - will be handled by Extension or Bearer token
+      const userId = params.userId; // This should be passed from the authenticated session
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for Auravant access'
+        };
+      }
+
+      const client = await AuravantAuth.getClient(userId);
+      if (!client) {
+        return {
+          success: false,
+          message: 'Auravant not connected. Please connect your Auravant account first.'
+        };
+      }
+
+      const fields = await client.getFields();
+      
+      return {
+        success: true,
+        message: `🌾 Retrieved ${fields.length} fields from Auravant`,
+        data: fields,
+        actionTaken: 'Retrieved Auravant fields'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get Auravant fields: ${error.message}`
+      };
+    }
+  }
+
+  private async getAuravantFarms(params: any): Promise<MCPToolResult> {
+    try {
+      const userId = params.userId;
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for Auravant access'
+        };
+      }
+
+      const client = await AuravantAuth.getClient(userId);
+      if (!client) {
+        return {
+          success: false,
+          message: 'Auravant not connected. Please connect your Auravant account first.'
+        };
+      }
+
+      const farms = await client.getFarms();
+      
+      return {
+        success: true,
+        message: `🏡 Retrieved ${farms.length} farms from Auravant`,
+        data: farms,
+        actionTaken: 'Retrieved Auravant farms'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get Auravant farms: ${error.message}`
+      };
+    }
+  }
+
+  private async getAuravantLabourOperations(params: any): Promise<MCPToolResult> {
+    try {
+      const userId = params.userId;
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for Auravant access'
+        };
+      }
+
+      const client = await AuravantAuth.getClient(userId);
+      if (!client) {
+        return {
+          success: false,
+          message: 'Auravant not connected. Please connect your Auravant account first.'
+        };
+      }
+
+      const operations = await client.getLabourOperations({
+        yeargroup: params.yeargroup,
+        farm_id: params.farm_id,
+        field_id: params.field_id,
+        date_from: params.date_from,
+        date_to: params.date_to,
+        status: params.status
+      });
+      
+      return {
+        success: true,
+        message: `🚜 Retrieved ${operations.data?.length || 0} labour operations from Auravant`,
+        data: operations,
+        actionTaken: 'Retrieved Auravant labour operations'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get Auravant labour operations: ${error.message}`
+      };
+    }
+  }
+
+  private async getAuravantLivestock(params: any): Promise<MCPToolResult> {
+    try {
+      const userId = params.userId;
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for Auravant access'
+        };
+      }
+
+      const client = await AuravantAuth.getClient(userId);
+      if (!client) {
+        return {
+          success: false,
+          message: 'Auravant not connected. Please connect your Auravant account first.'
+        };
+      }
+
+      const herds = await client.getHerds();
+      
+      return {
+        success: true,
+        message: `🐄 Retrieved ${herds.length} livestock herds from Auravant`,
+        data: herds,
+        actionTaken: 'Retrieved Auravant livestock herds'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get Auravant livestock: ${error.message}`
+      };
+    }
+  }
+
+  private async createAuravantSowing(params: any): Promise<MCPToolResult> {
+    try {
+      const userId = params.userId;
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for Auravant access'
+        };
+      }
+
+      const client = await AuravantAuth.getClient(userId);
+      if (!client) {
+        return {
+          success: false,
+          message: 'Auravant not connected. Please connect your Auravant account first.'
+        };
+      }
+
+      const result = await client.createSowing({
+        field_id: params.field_id,
+        yeargroup: params.yeargroup,
+        date: params.date,
+        surface: params.surface,
+        crop_id: params.crop_id,
+        variety_id: params.variety_id
+      });
+      
+      return {
+        success: true,
+        message: `🌱 Successfully created sowing operation in Auravant`,
+        data: result,
+        actionTaken: `Created sowing operation for field ${params.field_id}`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to create Auravant sowing operation: ${error.message}`
+      };
+    }
+  }
+
+  private async createAuravantHarvest(params: any): Promise<MCPToolResult> {
+    try {
+      const userId = params.userId;
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for Auravant access'
+        };
+      }
+
+      const client = await AuravantAuth.getClient(userId);
+      if (!client) {
+        return {
+          success: false,
+          message: 'Auravant not connected. Please connect your Auravant account first.'
+        };
+      }
+
+      const result = await client.createHarvest({
+        field_id: params.field_id,
+        yeargroup: params.yeargroup,
+        date: params.date,
+        surface: params.surface,
+        crop_id: params.crop_id,
+        yield: params.yield,
+        humidity: params.humidity
+      });
+      
+      return {
+        success: true,
+        message: `🌾 Successfully created harvest operation in Auravant`,
+        data: result,
+        actionTaken: `Created harvest operation for field ${params.field_id}`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to create Auravant harvest operation: ${error.message}`
+      };
+    }
+  }
+
+  private async getAuravantWorkOrders(params: any): Promise<MCPToolResult> {
+    try {
+      const userId = params.userId;
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for Auravant access'
+        };
+      }
+
+      const client = await AuravantAuth.getClient(userId);
+      if (!client) {
+        return {
+          success: false,
+          message: 'Auravant not connected. Please connect your Auravant account first.'
+        };
+      }
+
+      const workOrders = await client.getWorkOrders({
+        yeargroup: params.yeargroup,
+        status: params.status
+      });
+      
+      return {
+        success: true,
+        message: `📋 Retrieved ${workOrders.length} work orders from Auravant`,
+        data: workOrders,
+        actionTaken: 'Retrieved Auravant work orders'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to get Auravant work orders: ${error.message}`
+      };
+    }
+  }
+
+  private async createAuravantHerd(params: any): Promise<MCPToolResult> {
+    try {
+      const userId = params.userId;
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for Auravant access'
+        };
+      }
+
+      const client = await AuravantAuth.getClient(userId);
+      if (!client) {
+        return {
+          success: false,
+          message: 'Auravant not connected. Please connect your Auravant account first.'
+        };
+      }
+
+      const result = await client.createHerd({
+        herd_name: params.herd_name,
+        animal_count: params.animal_count,
+        weight: params.weight,
+        weight_unit: params.weight_unit || 'Kg',
+        type_id: params.type_id,
+        field_id: params.field_id
+      });
+      
+      return {
+        success: true,
+        message: `🐄 Successfully created livestock herd "${params.herd_name}" in Auravant`,
+        data: result,
+        actionTaken: `Created livestock herd with ${params.animal_count} animals`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to create Auravant livestock herd: ${error.message}`
       };
     }
   }

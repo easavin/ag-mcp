@@ -16,11 +16,45 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { token, extensionId, extensionSecret } = body
+    const { token, extensionId, extensionSecret, useExtension, auravantUserId } = body
 
+    // Extension-based connection (recommended for production)
+    if (useExtension) {
+      try {
+        await AuravantAuth.connectViaExtension(session.user.id, auravantUserId)
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Successfully connected to Auravant via Extension',
+          method: 'extension'
+        })
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        
+        // If extension connection fails, provide helpful guidance
+        if (errorMessage.includes('Extension not configured')) {
+          return NextResponse.json({
+            error: 'Extension not configured on server. Please contact administrator or use Bearer token method.',
+            details: errorMessage,
+            fallback: 'bearer_token'
+          }, { status: 400 })
+        }
+        
+        throw error
+      }
+    }
+
+    // Bearer token connection (for developers and fallback)
     if (!token) {
       return NextResponse.json(
-        { error: 'Bearer token is required. Generate a test token from your Auravant Extension Developer Space.' },
+        { 
+          error: 'Authentication method required',
+          details: 'Please provide either a Bearer token or use Extension-based authentication',
+          methods: {
+            bearer_token: 'Provide "token" field with your Bearer token',
+            extension: 'Set "useExtension": true (requires server Extension configuration)'
+          }
+        },
         { status: 400 }
       )
     }
@@ -42,7 +76,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Successfully connected to Auravant'
+      message: 'Successfully connected to Auravant',
+      method: 'bearer_token'
     })
 
   } catch (error) {
