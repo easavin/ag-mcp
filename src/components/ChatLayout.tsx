@@ -142,6 +142,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
               </svg>
               Integrations
             </button>
+            {/* Settings temporarily hidden - will be implemented later
             <button 
               className="settings-btn"
               onClick={() => setShowSettings(true)}
@@ -153,6 +154,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
               </svg>
               Settings
             </button>
+            */}
             
             {/* User Information with Dropdown */}
             <div ref={userMenuRef} className="user-info-container" style={{ position: 'relative' }}>

@@ -328,6 +328,7 @@ export default function MobileMenu({ className = '' }: MobileMenuProps) {
             <Layers className="w-5 h-5" />
             Integrations
           </button>
+          {/* Settings temporarily hidden - will be implemented later
           <button
             onClick={openSettings}
             style={{
@@ -349,6 +350,7 @@ export default function MobileMenu({ className = '' }: MobileMenuProps) {
             <Settings className="w-5 h-5" />
             Settings
           </button>
+          */}
         </div>
       </div>
 
