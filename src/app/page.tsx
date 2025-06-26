@@ -283,6 +283,7 @@ function ChatInterface() {
                   timestamp={message.createdAt}
                   fileAttachments={message.fileAttachments}
                   visualizations={message.metadata?.visualizations}
+                  metadata={message.metadata}
                   reasoning={message.metadata?.reasoning}
                   onDataSourceSelect={handleDataSourceSelect}
                   currentDataSource={currentDataSource}

@@ -24,7 +24,7 @@ const DATA_SOURCES: DataSource[] = [
   {
     id: 'weather',
     name: 'Weather Data',
-    icon: <Cloud className="w-5 h-5" />,
+    icon: <Image src="/assets/logos/weather-logo.svg" alt="Weather" width={20} height={20} />,
     color: '#3B82F6',
     description: 'Real-time weather conditions, forecasts, and agricultural insights',
     features: ['Current conditions', '5-day forecasts', 'Agricultural alerts', 'Historical data'],

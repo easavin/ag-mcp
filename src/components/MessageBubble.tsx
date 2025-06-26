@@ -1,12 +1,13 @@
 'use client'
 
-import { User, Bot, Paperclip, Settings } from 'lucide-react'
+import { User, Bot, Paperclip, Settings, Cloud, Wheat } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import DataSourceSelector from './DataSourceSelector'
 import MessageReactions from './MessageReactions'
 import MessageVisualization from './MessageVisualization'
 import { VisualizationData } from '@/types'
+import Image from 'next/image'
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant' | 'system'
@@ -19,6 +20,26 @@ interface MessageBubbleProps {
     fileSize: number
   }>
   visualizations?: VisualizationData[]
+  metadata?: {
+    model?: string
+    usage?: {
+      promptTokens: number
+      completionTokens: number
+      totalTokens: number
+    }
+    functionCalls?: Array<{
+      name: string
+      arguments: any
+    }>
+    visualizations?: VisualizationData[]
+    reasoning?: {
+      isValid: boolean
+      confidence: number
+      explanation: string
+      suggestions?: string[]
+    }
+    dataSources?: string[]
+  }
   onDataSourceSelect?: (sourceId: string, dataType: string) => void
   currentDataSource?: string | null
   reasoning?: {
@@ -36,12 +57,82 @@ export default function MessageBubble({
   messageId,
   fileAttachments,
   visualizations,
+  metadata,
   onDataSourceSelect,
   currentDataSource,
   reasoning,
 }: MessageBubbleProps) {
   const isUser = role === 'user'
   const isSystem = role === 'system'
+
+  // Extract data sources used from function calls in metadata
+  const getDataSourcesUsed = (): string[] => {
+    if (!metadata?.functionCalls) return []
+    
+    const dataSources = new Set<string>()
+    
+    metadata.functionCalls.forEach(functionCall => {
+      const functionName = functionCall.name
+      
+      // Map function names to data sources
+      if (['getOrganizations', 'getFields', 'getEquipment', 'getOperations', 'getComprehensiveData', 
+           'scheduleFieldOperation', 'getFieldRecommendations', 'updateFieldStatus', 
+           'scheduleEquipmentMaintenance', 'getEquipmentAlerts', 'updateEquipmentStatus',
+           'get_equipment_details', 'get_field_operation_history', 'list_john_deere_files', 
+           'get_field_boundary'].includes(functionName)) {
+        dataSources.add('johndeere')
+      }
+      
+      if (['getCurrentWeather', 'getWeatherForecast', 'getHistoricalWeather'].includes(functionName)) {
+        dataSources.add('weather')
+      }
+      
+      if (['getEUMarketPrices', 'getEUProductionData', 'getEUTradeData', 'getEUMarketDashboard'].includes(functionName)) {
+        dataSources.add('eu-commission')
+      }
+      
+      if (['getUSDAMarketPrices', 'getUSDAProductionData', 'getUSDATradeData', 'getUSDAMarketDashboard'].includes(functionName)) {
+        dataSources.add('usda')
+      }
+      
+      // Auravant functions
+      if (['getAuravantFields', 'getAuravantFarms', 'getAuravantLabourOperations', 'getAuravantLivestock', 
+           'createAuravantSowing', 'createAuravantHarvest', 'getAuravantWorkOrders', 'createAuravantHerd'].includes(functionName)) {
+        dataSources.add('auravant')
+      }
+    })
+    
+    return Array.from(dataSources)
+  }
+
+  // Data source information for rendering
+  const dataSourceInfo = {
+    weather: {
+      name: 'Weather Data',
+      icon: <Image src="/assets/logos/weather-logo.svg" alt="Weather" width={12} height={12} />,
+      color: '#3B82F6'
+    },
+    johndeere: {
+      name: 'John Deere',
+      icon: <Image src="/assets/logos/johndeere-logo.png" alt="John Deere" width={12} height={12} />,
+      color: '#367C2B'
+    },
+    auravant: {
+      name: 'Auravant',
+      icon: <Wheat className="w-3 h-3" />,
+      color: '#059669'
+    },
+    'eu-commission': {
+      name: 'EU Commission',
+      icon: <Image src="/assets/logos/ec-logo.png" alt="EU Commission" width={12} height={12} />,
+      color: '#EAB308'
+    },
+    usda: {
+      name: 'USDA',
+      icon: <Image src="/assets/logos/usda-logo.png" alt="USDA" width={12} height={12} />,
+      color: '#DC2626'
+    }
+  }
 
   const getIcon = () => {
     if (isUser) return <User className="w-4 h-4" />
@@ -185,6 +276,8 @@ export default function MessageBubble({
     }
   }
 
+  const dataSourcesUsed = getDataSourcesUsed()
+
   return (
     <div className={`message group ${isUser ? 'user' : isSystem ? 'system' : 'assistant'}`}>
       <div className={`message-avatar ${
@@ -305,6 +398,54 @@ export default function MessageBubble({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          
+          {/* Data Sources Used Indicator - only show for assistant messages */}
+          {!isUser && !isSystem && dataSourcesUsed.length > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '12px',
+              paddingTop: '8px',
+              borderTop: '1px solid #333'
+            }}>
+              <span style={{
+                fontSize: '11px',
+                color: '#777',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                fontWeight: '500'
+              }}>
+                Data from:
+              </span>
+              {dataSourcesUsed.map(sourceId => {
+                const source = dataSourceInfo[sourceId as keyof typeof dataSourceInfo]
+                if (!source) return null
+                
+                return (
+                  <div
+                    key={sourceId}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      backgroundColor: '#2a2a2a',
+                      border: `1px solid ${source.color}40`,
+                      borderRadius: '12px',
+                      color: source.color,
+                      fontSize: '11px',
+                      fontWeight: '500'
+                    }}
+                    title={source.name}
+                  >
+                    {source.icon}
+                    <span>{source.name}</span>
+                  </div>
+                )
+              })}
             </div>
           )}
           
