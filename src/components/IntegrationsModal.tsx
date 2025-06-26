@@ -79,42 +79,52 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   // Auravant state
   const [auravantStatus, setAuravantStatus] = useState<AuravantConnectionStatus>({ connected: false });
   
-  // EU Commission state - check if it's in selected data sources
-  const [euCommissionConnected, setEuCommissionConnected] = useState(
-    selectedDataSources.includes('eu-commission')
-  );
+  // EU Commission state - improved initialization
+  const [euCommissionConnected, setEuCommissionConnected] = useState(false);
   
-  // USDA state - check if it's in selected data sources
-  const [usdaConnected, setUsdaConnected] = useState(
-    selectedDataSources.includes('usda')
-  );
+  // USDA state - improved initialization  
+  const [usdaConnected, setUsdaConnected] = useState(false);
 
-  // EU Commission handlers
+  // Initialize connection states after component mounts
+  useEffect(() => {
+    setEuCommissionConnected(selectedDataSources.includes('eu-commission'));
+    setUsdaConnected(selectedDataSources.includes('usda'));
+  }, []); // Run only once on mount
+
+  // EU Commission handlers - improved logic
   const handleEuCommissionConnect = () => {
+    console.log('🇪🇺 EU Commission: Connecting...');
     setEuCommissionConnected(true);
     if (!selectedDataSources.includes('eu-commission')) {
+      console.log('🇪🇺 EU Commission: Adding to selected data sources');
       toggleDataSource('eu-commission');
     }
   };
 
   const handleEuCommissionDisconnect = () => {
+    console.log('🇪🇺 EU Commission: Disconnecting...');
     setEuCommissionConnected(false);
     if (selectedDataSources.includes('eu-commission')) {
+      console.log('🇪🇺 EU Commission: Removing from selected data sources');
       toggleDataSource('eu-commission');
     }
   };
 
-  // USDA handlers
+  // USDA handlers - improved logic
   const handleUsdaConnect = () => {
+    console.log('🇺🇸 USDA: Connecting...');
     setUsdaConnected(true);
     if (!selectedDataSources.includes('usda')) {
+      console.log('🇺🇸 USDA: Adding to selected data sources');
       toggleDataSource('usda');
     }
   };
 
   const handleUsdaDisconnect = () => {
+    console.log('🇺🇸 USDA: Disconnecting...');
     setUsdaConnected(false);
     if (selectedDataSources.includes('usda')) {
+      console.log('🇺🇸 USDA: Removing from selected data sources');
       toggleDataSource('usda');
     }
   };
@@ -133,14 +143,26 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
     };
   }, [isOpen]);
 
-  // Sync EU Commission connection state with chat store
+  // Sync EU Commission connection state with chat store - debounced
   useEffect(() => {
-    setEuCommissionConnected(selectedDataSources.includes('eu-commission'));
+    const timeoutId = setTimeout(() => {
+      const shouldBeConnected = selectedDataSources.includes('eu-commission');
+      console.log('🇪🇺 EU Commission: Syncing state - should be connected:', shouldBeConnected, 'current sources:', selectedDataSources);
+      setEuCommissionConnected(shouldBeConnected);
+    }, 100); // Small delay to prevent rapid state changes
+    
+    return () => clearTimeout(timeoutId);
   }, [selectedDataSources]);
 
-  // Sync USDA connection state with chat store
+  // Sync USDA connection state with chat store - debounced
   useEffect(() => {
-    setUsdaConnected(selectedDataSources.includes('usda'));
+    const timeoutId = setTimeout(() => {
+      const shouldBeConnected = selectedDataSources.includes('usda');
+      console.log('🇺🇸 USDA: Syncing state - should be connected:', shouldBeConnected, 'current sources:', selectedDataSources);
+      setUsdaConnected(shouldBeConnected);
+    }, 100); // Small delay to prevent rapid state changes
+    
+    return () => clearTimeout(timeoutId);
   }, [selectedDataSources]);
 
   // Check Auravant connection status
@@ -345,8 +367,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         'Access field and farm data',
         'Livestock herd management',
         'Work order planning and recommendations',
-        'Labour operation tracking',
-        'Multi-language support (ES/PT/EN)'
+        'Labour operation tracking'
       ]
     },
     {

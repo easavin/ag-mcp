@@ -101,7 +101,18 @@ export const useChatStore = create<ChatState>()(
       isLoading: false,
       error: null,
       currentDataSource: null,
-      selectedDataSources: ['weather'], // Weather always selected by default
+      selectedDataSources: (() => {
+        // Load from localStorage if available, otherwise default to weather
+        if (typeof window !== 'undefined') {
+          try {
+            const saved = localStorage.getItem('selectedDataSources');
+            return saved ? JSON.parse(saved) : ['weather'];
+          } catch {
+            return ['weather'];
+          }
+        }
+        return ['weather'];
+      })(),
 
       // Actions
       setCurrentSession: (sessionId) => {
@@ -390,12 +401,35 @@ export const useChatStore = create<ChatState>()(
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
       setCurrentDataSource: (sourceId) => set({ currentDataSource: sourceId }),
-      setSelectedDataSources: (sources) => set({ selectedDataSources: sources }),
-      toggleDataSource: (sourceId) => set((state) => ({
-        selectedDataSources: state.selectedDataSources.includes(sourceId)
-          ? state.selectedDataSources.filter(id => id !== sourceId)
-          : [...state.selectedDataSources, sourceId]
-      })),
+      setSelectedDataSources: (sources) => {
+        set({ selectedDataSources: sources });
+        // Persist to localStorage
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('selectedDataSources', JSON.stringify(sources));
+          } catch (error) {
+            console.warn('Failed to save selectedDataSources to localStorage:', error);
+          }
+        }
+      },
+      toggleDataSource: (sourceId) => {
+        set((state) => {
+          const newSources = state.selectedDataSources.includes(sourceId)
+            ? state.selectedDataSources.filter(id => id !== sourceId)
+            : [...state.selectedDataSources, sourceId];
+          
+          // Persist to localStorage
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('selectedDataSources', JSON.stringify(newSources));
+            } catch (error) {
+              console.warn('Failed to save selectedDataSources to localStorage:', error);
+            }
+          }
+          
+          return { selectedDataSources: newSources };
+        });
+      },
       
       reprocessLastFarmDataQuestion: async (sessionId) => {
         const state = get()

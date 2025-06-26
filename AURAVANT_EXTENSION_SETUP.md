@@ -1,8 +1,119 @@
-# Auravant Extension Authentication Setup
+# Auravant Extension Setup & Integration
 
-## ✨ Overview
+This document outlines the setup and integration of the **Auravant Extension** for server-to-server authentication. The Extension provides enhanced user experience and security compared to manual token entry.
 
-You've successfully implemented the **Extension-based authentication** for Auravant integration! This provides a much better user experience and security compared to manual Bearer token entry.
+## 🎯 **Current Status: Extension-Only Authentication**
+
+- **✅ Extension Authentication**: Primary and only supported method
+- **✅ Server-side Configuration**: Environment variables setup
+- **✅ Multi-user Support**: Handle multiple users through single Extension
+- **✅ Enhanced Security**: Server-to-server authentication
+- **❌ Bearer Token**: No longer supported (removed for security)
+
+## 🔧 **Setup Requirements**
+
+### 1. Auravant Extension Configuration
+
+- Dual authentication methods (Extension only)
+- Environment variables for Extension credentials
+- Fallback error handling
+- User-friendly connection interface
+
+### 2. Environment Variables
+
+```bash
+# Auravant Extension Configuration
+AURAVANT_EXTENSION_ID=your_extension_id_here
+AURAVANT_EXTENSION_SECRET=your_extension_secret_here
+AURAVANT_API_BASE_URL=https://api.auravant.com
+```
+
+### 3. Extension Status Endpoints
+
+- `GET /api/auth/auravant/extension` - Check Extension configuration
+- `POST /api/auth/auravant/connect` - Connect via Extension
+- `GET /api/auth/auravant/status` - Check connection status
+
+## 🚀 **User Experience Flow**
+
+### Extension Authentication
+
+1. **Extension Check**: System automatically checks if Extension is configured and active
+2. **User Connection**: Users can connect with optional Auravant User ID
+3. **Server Authentication**: Server handles token generation and management
+4. **Data Access**: Users get access to their Auravant agricultural data
+
+## 📋 **Authentication Methods**
+
+### Extension Authentication (Recommended)
+
+- **Server-to-server**: More secure than client-side tokens
+- **User-friendly**: No manual token management required
+- **Scalable**: Supports multiple users through single Extension
+- **Automatic**: Handles token refresh and management
+
+## 🧪 **Testing**
+
+### Extension Testing
+
+1. Configure Extension environment variables
+2. Test Extension status endpoint
+3. Test connection flow with optional User ID
+4. Verify data access and API calls
+
+## 📚 **API Integration**
+
+### Connection Status
+
+```typescript
+// Check Extension status
+const extensionStatus = await fetch('/api/auth/auravant/extension')
+const status = await extensionStatus.json()
+
+// Connect via Extension
+const connection = await fetch('/api/auth/auravant/connect', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    useExtension: true,
+    auravantUserId: 'optional_user_id'
+  })
+})
+```
+
+### Data Access
+
+```typescript
+// Access Auravant data (authenticated via Extension)
+const fields = await fetch('/api/auravant/fields')
+const livestock = await fetch('/api/auravant/livestock')
+const workOrders = await fetch('/api/auravant/work-orders')
+```
+
+## 🔐 **Security Benefits**
+
+- **Server-side Tokens**: Tokens never exposed to client-side
+- **Centralized Management**: Single Extension manages all user access
+- **Automatic Refresh**: Server handles token lifecycle
+- **Audit Trail**: Better tracking of API usage
+
+## ✅ **Implementation Checklist**
+
+- ✅ Extension environment configuration
+- ✅ Extension status checking
+- ✅ Connection flow (Extension only)
+- ✅ Error handling and user feedback
+- ✅ Data access endpoints
+- ✅ Multi-user support
+- ✅ Security implementation
+
+## 🎉 **Benefits Over Bearer Tokens**
+
+1. **Enhanced Security**: No client-side token exposure
+2. **Better UX**: No manual token management
+3. **Scalability**: Single Extension serves multiple users
+4. **Maintenance**: Centralized token management
+5. **Compliance**: Better audit and security compliance
 
 ## 🚀 Current Implementation Status
 
@@ -14,7 +125,7 @@ You've successfully implemented the **Extension-based authentication** for Aurav
    - User-specific token generation (when available)
 
 2. **Enhanced UI Components**
-   - Dual authentication methods (Extension + Bearer Token)
+   - Extension-only authentication method
    - Automatic detection of Extension availability
    - Improved user experience with clear guidance
 
@@ -25,7 +136,7 @@ You've successfully implemented the **Extension-based authentication** for Aurav
    - Work orders and planning tools
 
 4. **API Endpoints**
-   - `/api/auth/auravant/connect` - Enhanced with Extension support
+   - `/api/auth/auravant/connect` - Extension-only authentication
    - `/api/auth/auravant/extension` - Extension management
    - Extension status checking and user synchronization
 
@@ -57,36 +168,26 @@ node scripts/test-auravant-extension.js
 
 2. Visit `http://localhost:3000`
 
-3. Try connecting to Auravant using the **Extension method** (recommended)
+3. Connect to Auravant using the **Extension method** (only supported method)
 
 ## 🎯 User Experience
 
-### For Users (Recommended Flow)
+### Extension-Only Flow
 
-1. **Extension Installation**: Users install your Extension from Auravant's marketplace
-2. **Automatic Connection**: Users visit your app and click "Connect via Extension"
+1. **Extension Publication**: Ensure your Extension is published in Auravant's marketplace
+2. **User Connection**: Users visit your app and click "Connect via Extension"
 3. **Seamless Access**: No manual token management required
-
-### For Developers (Fallback Flow)
-
-1. **Bearer Token**: Developers can still use Bearer tokens for testing
-2. **Manual Entry**: Generate token from Extension Developer Space
-3. **Direct Access**: Works immediately without Extension installation
+4. **Secure Authentication**: Server-to-server authentication only
 
 ## 🔍 Architecture Benefits
 
 ### Extension-Based Authentication
 
-- ✅ **Better Security**: Server-to-server authentication
+- ✅ **Enhanced Security**: Server-to-server authentication only
 - ✅ **Better UX**: No manual token management
 - ✅ **Scalable**: One Extension serves all users
-- ✅ **Production Ready**: Proper OAuth-like flow
-
-### Bearer Token Authentication
-
-- ✅ **Developer Friendly**: Easy testing and development
-- ✅ **Immediate Access**: No Extension installation required
-- ✅ **Fallback Option**: When Extension isn't available
+- ✅ **Production Ready**: Proper authentication flow
+- ✅ **Centralized**: Single point of authentication management
 
 ## 🛠️ Available MCP Tools
 
@@ -107,7 +208,6 @@ Your system now includes these Auravant-specific tools:
 ### Unique Features
 - **Livestock Management**: Not available in John Deere or other systems
 - **Work Orders**: Advanced planning and scheduling
-- **Multi-language Support**: Global agricultural operations
 - **Comprehensive Operations**: Sowing, harvest, applications, etc.
 
 ## 🧪 Testing
@@ -133,14 +233,15 @@ This tests:
 
 ### Immediate
 1. Set your Extension credentials in `.env`
-2. Run the test script to verify setup
-3. Test the UI connection flow
+2. Publish your Extension in Auravant Developer Space
+3. Run the test script to verify setup
+4. Test the UI connection flow
 
 ### Production Deployment
 1. Set Extension credentials in production environment
-2. Share Extension with users for installation
+2. Ensure Extension is published and available to users
 3. Monitor Extension user adoption
-4. Provide support for both authentication methods
+4. Provide support documentation for users
 
 ### Enhancement Opportunities
 1. **Auto-sync**: Automatically connect users who install Extension
@@ -159,20 +260,23 @@ This tests:
 ### Extension Not Working
 1. Check environment variables are set correctly
 2. Verify Extension ID and Secret are valid
-3. Test direct API calls with Extension credentials
-4. Check Auravant Extension status in Developer Space
+3. Ensure Extension is published in Auravant Developer Space
+4. Test direct API calls with Extension credentials
+5. Check Auravant Extension status in Developer Space
 
 ### UI Connection Issues
 1. Check browser console for errors
 2. Verify server is running and Extension endpoint is accessible
-3. Test with Bearer token method as fallback
-4. Check network connectivity to Auravant API
+3. Ensure Extension is properly configured and published
+4. Contact Auravant support if Extension status issues persist
 
-### MCP Tools Not Available
-1. Verify user is authenticated and connected to Auravant
-2. Check user has proper permissions in Auravant
-3. Test individual API calls outside of MCP system
-4. Review error messages in server logs
+## 🔒 Security Notes
+
+- Extension credentials are stored server-side only
+- No client-side token exposure
+- Centralized authentication management
+- Better audit trail and compliance
+- Automatic token lifecycle management
 
 ---
 
@@ -180,7 +284,6 @@ This tests:
 
 You now have a **production-ready Auravant integration** with:
 - ✅ Extension-based authentication (recommended)
-- ✅ Bearer token fallback (for developers)  
 - ✅ Complete MCP tools integration
 - ✅ Enhanced user interface
 - ✅ Comprehensive testing

@@ -27,10 +27,8 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus>({ configured: false });
   const [isConnecting, setIsConnecting] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
-  const [authMethod, setAuthMethod] = useState<'extension' | 'token'>('extension');
-  const [token, setToken] = useState('');
   const [auravantUserId, setAuravantUserId] = useState('');
-  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [showConnectionForm, setShowConnectionForm] = useState(false);
 
   useEffect(() => {
     checkConnectionStatus();
@@ -85,36 +83,19 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
         status: data.status,
         error: data.error
       });
-
-      // If Extension is available, prefer it as default method
-      if (data.configured && data.status === 'active') {
-        setAuthMethod('extension');
-      } else {
-        setAuthMethod('token');
-      }
     } catch (error) {
       console.error('Failed to check Extension status:', error);
       setExtensionStatus({ configured: false, error: 'Failed to check Extension status' });
-      setAuthMethod('token');
     }
   };
 
   const handleConnect = async () => {
-    if (authMethod === 'token' && !token.trim()) {
-      alert('Please enter your Auravant Bearer token');
-      return;
-    }
-
     setIsConnecting(true);
     try {
-      const requestBody = authMethod === 'extension' 
-        ? {
-            useExtension: true,
-            auravantUserId: auravantUserId.trim() || undefined
-          }
-        : {
-            token: token.trim()
-          };
+      const requestBody = {
+        useExtension: true,
+        auravantUserId: auravantUserId.trim() || undefined
+      };
 
       const response = await fetch('/api/auth/auravant/connect', {
         method: 'POST',
@@ -128,19 +109,14 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
 
       if (response.ok) {
         setConnectionStatus({ connected: true, extensionId: data.extension_id });
-        setToken('');
         setAuravantUserId('');
-        setShowTokenInput(false);
-        alert(`Successfully connected to Auravant via ${data.method === 'extension' ? 'Extension' : 'Bearer token'}!`);
+        setShowConnectionForm(false);
+        alert('Successfully connected to Auravant via Extension!');
         await checkConnectionStatus(); // Refresh status
       } else {
         let errorMessage = data.error || 'Unknown error';
         if (data.details) {
           errorMessage += `\n\nDetails: ${data.details}`;
-        }
-        if (data.fallback === 'bearer_token') {
-          errorMessage += '\n\nYou can try using Bearer token method instead.';
-          setAuthMethod('token');
         }
         alert(`Connection failed: ${errorMessage}`);
         setConnectionStatus({ 
@@ -269,82 +245,46 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
       
       {!connectionStatus.connected && renderExtensionStatus()}
 
-      {!connectionStatus.connected && !showTokenInput && (
+      {!connectionStatus.connected && !showConnectionForm && (
         <div className="connection-actions">
           <button 
             className="connect-btn"
-            onClick={() => setShowTokenInput(true)}
+            onClick={() => setShowConnectionForm(true)}
           >
             Connect to Auravant
           </button>
         </div>
       )}
 
-      {!connectionStatus.connected && showTokenInput && (
-        <div className="token-input-form">
+      {!connectionStatus.connected && showConnectionForm && (
+        <div className="connection-form">
           <div className="form-group">
-            <label>Authentication Method</label>
-            <div className="auth-method-selector">
-              <button 
-                className={`method-btn ${authMethod === 'extension' ? 'active' : ''}`}
-                onClick={() => setAuthMethod('extension')}
-                disabled={!extensionStatus.configured || extensionStatus.status !== 'active'}
-              >
-                🔗 Extension {extensionStatus.configured && extensionStatus.status === 'active' ? '(Recommended)' : '(Not Available)'}
-              </button>
-              <button 
-                className={`method-btn ${authMethod === 'token' ? 'active' : ''}`}
-                onClick={() => setAuthMethod('token')}
-              >
-                🔑 Bearer Token
-              </button>
-            </div>
+            <label htmlFor="auravant-user-id">Your Auravant User ID (Optional)</label>
+            <input
+              id="auravant-user-id"
+              type="text"
+              value={auravantUserId}
+              onChange={(e) => setAuravantUserId(e.target.value)}
+              placeholder="Leave empty to use general Extension token"
+              className="extension-input"
+            />
+            <p className="help-text">
+              💡 If you know your Auravant User ID, enter it for personalized access. Otherwise, leave empty for general Extension access.
+            </p>
           </div>
-
-          {authMethod === 'extension' && (
-            <div className="form-group">
-              <label htmlFor="auravant-user-id">Your Auravant User ID (Optional)</label>
-              <input
-                id="auravant-user-id"
-                type="text"
-                value={auravantUserId}
-                onChange={(e) => setAuravantUserId(e.target.value)}
-                placeholder="Leave empty to use general Extension token"
-                className="extension-input"
-              />
-              <p className="help-text">
-                💡 If you know your Auravant User ID, enter it for personalized access. Otherwise, leave empty for general Extension access.
-              </p>
-            </div>
-          )}
-
-          {authMethod === 'token' && (
-            <div className="form-group">
-              <label htmlFor="auravant-token">Bearer Token *</label>
-              <input
-                id="auravant-token"
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Enter your Auravant Bearer token"
-                className="token-input"
-              />
-            </div>
-          )}
 
           <div className="form-actions">
             <button 
               className="connect-btn primary"
               onClick={handleConnect}
-              disabled={isConnecting || (authMethod === 'token' && !token.trim())}
+              disabled={isConnecting}
             >
-              {isConnecting ? 'Connecting...' : `Connect via ${authMethod === 'extension' ? 'Extension' : 'Bearer Token'}`}
+              {isConnecting ? 'Connecting...' : 'Connect via Extension'}
             </button>
             <button 
               className="cancel-btn"
               onClick={() => {
-                setShowTokenInput(false);
-                setToken('');
+                setShowConnectionForm(false);
                 setAuravantUserId('');
               }}
               disabled={isConnecting}
@@ -353,7 +293,7 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
             </button>
           </div>
 
-          {authMethod === 'extension' && extensionStatus.configured && (
+          {extensionStatus.configured && (
             <div className="help-text">
               <h4>✨ Extension Authentication</h4>
               <p>You're using the recommended Extension-based authentication. This provides:</p>
@@ -363,26 +303,6 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
                 <li>🔄 Automatic token refresh</li>
                 <li>👥 Multi-user support</li>
               </ul>
-            </div>
-          )}
-
-          {authMethod === 'token' && (
-            <div className="help-text">
-              <h4>🔑 Bearer Token Authentication</h4>
-              <p>Generate a Bearer token from your Auravant Extension Developer Space:</p>
-              <ol>
-                <li>Login to your Auravant account</li>
-                <li>Go to Settings → Apply for developer status</li>
-                <li>Create an Extension in the Developer Space</li>
-                <li><strong>Generate a test token</strong> from the "Version box"</li>
-                <li>Copy the Bearer token and paste it above</li>
-              </ol>
-              <p>
-                <strong>Need help?</strong> Contact{' '}
-                <a href="mailto:devhelp@auravant.com" target="_blank" rel="noopener noreferrer">
-                  devhelp@auravant.com
-                </a>
-              </p>
             </div>
           )}
         </div>
@@ -461,7 +381,7 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
           font-size: 14px;
         }
 
-        .token-input-form {
+        .connection-form {
           border: 1px solid #444;
           border-radius: 12px;
           padding: 24px;
@@ -481,42 +401,7 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
           font-size: 14px;
         }
 
-        .auth-method-selector {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 8px;
-        }
-
-        .method-btn {
-          flex: 1;
-          padding: 8px 12px;
-          border: 1px solid #555;
-          border-radius: 6px;
-          background-color: #333;
-          color: #e0e0e0;
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .method-btn:hover:not(:disabled) {
-          background-color: #444;
-          border-color: #666;
-        }
-
-        .method-btn:disabled {
-          background-color: #2a2a2a;
-          color: #666;
-          cursor: not-allowed;
-        }
-
-        .method-btn.active {
-          background-color: #2563eb;
-          border-color: #2563eb;
-          color: white;
-        }
-
-        .token-input, .extension-input {
+        .extension-input {
           width: 100%;
           padding: 14px 16px;
           border: 1px solid #555;
@@ -527,11 +412,11 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
           transition: all 0.2s ease;
         }
 
-        .token-input::placeholder, .extension-input::placeholder {
+        .extension-input::placeholder {
           color: #888;
         }
 
-        .token-input:focus, .extension-input:focus {
+        .extension-input:focus {
           outline: none;
           border-color: #2563eb;
           box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -616,7 +501,7 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
           line-height: 1.5;
         }
 
-        .help-text ol, .help-text ul {
+        .help-text ul {
           margin: 12px 0;
           padding-left: 20px;
           color: #d1d5db;
@@ -626,15 +511,6 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
         .help-text li {
           margin: 4px 0;
           line-height: 1.4;
-        }
-
-        .help-text a {
-          color: #60a5fa;
-          text-decoration: none;
-        }
-
-        .help-text a:hover {
-          text-decoration: underline;
         }
 
         .connection-actions, .connected-actions {
