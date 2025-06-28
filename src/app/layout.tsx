@@ -11,7 +11,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Farm MCP - Agricultural Chat Interface",
-  description: "A Claude-style chat interface that connects to John Deere Operations Center via MCP (Model Context Protocol)",
+  description: "Connect all your farm software to one chat",
   icons: {
     icon: [
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
