@@ -55,7 +55,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
     "style-src 'self' 'unsafe-inline'", // Tailwind requires unsafe-inline
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://sandboxapi.deere.com https://partnersandbox.deere.com",
+    "connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://sandboxapi.deere.com https://partnersandbox.deere.com https://partnerapi.deere.com https://equipmentapi.deere.com https://signin.johndeere.com",
     "frame-ancestors 'none'",
   ].join('; ')
   

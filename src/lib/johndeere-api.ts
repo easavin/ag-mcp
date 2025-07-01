@@ -11,7 +11,7 @@ const JOHN_DEERE_CONFIG = {
     tokenURL: 'https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1/token',
   },
   production: {
-    baseURL: 'https://api.deere.com/platform',
+    baseURL: 'https://partnerapi.deere.com/platform',
     equipmentBaseURL: 'https://equipmentapi.deere.com',
     authURL: 'https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1/authorize',
     tokenURL: 'https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1/token',
