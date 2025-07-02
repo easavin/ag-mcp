@@ -7,21 +7,68 @@ export function parseVisualizationsFromResponse(content: string, functionResults
   console.log('🔍 Parsing visualizations from content length:', content.length)
   console.log('🔍 Function results:', functionResults?.length || 0)
   
-  // Check for explicit JSON visualization blocks first
-  const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/)
-  if (jsonMatch) {
+  // First, check for the expected format with visualizations array
+  const expectedFormatMatch = content.match(/```json\n\{\s*"content":\s*"[^"]*",\s*"visualizations":\s*(\[[^\]]*\])\s*\}\s*\n```/)
+  if (expectedFormatMatch) {
     try {
-      const jsonData = JSON.parse(jsonMatch[1])
-      if (jsonData.visualizations) {
-        console.log('✅ Found explicit JSON visualizations')
-        // Remove the JSON block from the content
-        cleanedContent = content.replace(/```json\n([\s\S]*?)\n```/, '').trim()
-        return { visualizations: jsonData.visualizations, cleanedContent }
+      const fullJson = JSON.parse(expectedFormatMatch[0].replace(/```json\n/, '').replace(/\n```/, ''))
+      if (fullJson.visualizations) {
+        console.log('✅ Found expected JSON format with visualizations array')
+        cleanedContent = fullJson.content || content.replace(/```json\n[\s\S]*?\n```/, '').trim()
+        return { visualizations: fullJson.visualizations, cleanedContent }
       }
     } catch (error) {
-      console.error('❌ Error parsing JSON visualizations:', error)
+      console.error('❌ Error parsing expected JSON format:', error)
     }
   }
+  
+  // Second, look for individual JSON blocks that represent visualization objects
+  const jsonBlockRegex = /```json\n([\s\S]*?)\n```/g
+  let match
+  const jsonBlocks = []
+  
+  while ((match = jsonBlockRegex.exec(content)) !== null) {
+    try {
+      const jsonData = JSON.parse(match[1])
+      
+      // Check if this is a visualization object
+      if (jsonData.type && ['table', 'chart', 'metric', 'comparison', 'line', 'bar'].includes(jsonData.type)) {
+        console.log('✅ Found individual visualization JSON block:', jsonData.type)
+        
+        // Convert to our expected format
+        const visualization: VisualizationData = {
+          type: jsonData.type === 'line' ? 'chart' : jsonData.type === 'bar' ? 'chart' : jsonData.type,
+          title: jsonData.title || 'Untitled',
+          description: jsonData.description,
+          data: jsonData.data || jsonData
+        }
+        
+        // Special handling for line/bar charts
+        if (jsonData.type === 'line' || jsonData.type === 'bar') {
+          visualization.data = {
+            chartType: jsonData.type,
+            dataset: jsonData.data || [],
+            xAxis: jsonData.xAxis || 'x',
+            yAxis: jsonData.yAxis || 'y',
+            colors: jsonData.lines?.map((line: any) => line.color) || jsonData.color ? [jsonData.color] : ['#3b82f6']
+          }
+        }
+        
+        visualizations.push(visualization)
+        jsonBlocks.push(match[0])
+      }
+    } catch (error) {
+      console.error('❌ Error parsing individual JSON block:', error)
+    }
+  }
+  
+  // Remove all found JSON blocks from content
+  for (const block of jsonBlocks) {
+    cleanedContent = cleanedContent.replace(block, '').trim()
+  }
+  
+  // Clean up any remaining empty lines
+  cleanedContent = cleanedContent.replace(/\n\n+/g, '\n\n').trim()
   
   // Auto-detect weather forecast data
   if (functionResults) {
@@ -139,4 +186,4 @@ export function parseVisualizationsFromResponse(content: string, functionResults
   
   console.log('📊 Generated', visualizations.length, 'visualizations')
   return { visualizations, cleanedContent }
-} 
+}

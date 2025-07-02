@@ -884,7 +884,7 @@ Based on the current weather conditions for your ${fieldArea} field:
     console.log('🔍 Raw LLM response content:', response.content)
     
     // Use the new visualization parser - extract visualizations and clean content
-    const { visualizations, cleanedContent } = parseVisualizationsFromResponse(response.content, [])
+    const { visualizations, cleanedContent } = parseVisualizationsFromResponse(response.content, functionResults)
     const messageContent = cleanedContent
     
     console.log('📊 Auto-generated visualizations:', visualizations.length, 'items')
