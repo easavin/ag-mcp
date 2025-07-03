@@ -219,6 +219,10 @@ jobs:
           # Add your production deployment commands here
           # Example: kubectl apply -f k8s/production/
           # Example: docker-compose -f docker-compose.prod.yml up -d
+      - name: Run Prisma Migrate Deploy
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   # Notify on Success/Failure
   notify:

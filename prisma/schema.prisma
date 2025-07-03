@@ -219,3 +219,12 @@ model WorkOrder {
   
   @@map("work_orders")
 }
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String?
+  text      String
+  email     String?
+  pageUrl   String?
+  createdAt DateTime @default(now())
+}

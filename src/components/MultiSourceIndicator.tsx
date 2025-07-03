@@ -118,69 +118,69 @@ export default function MultiSourceIndicator({
 
   return (
     <>
-      <div className={`multi-source-indicator ${className}`}>
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '8px' 
-        }}>
-          {selectedSources.map(sourceId => {
-            const source = getSourceData(sourceId)
-            if (!source) return null
-            
-            return (
-              <div
-                key={sourceId}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '40px',
-                  height: '40px',
-                  background: '#2a2a2a',
-                  border: '1px solid #444',
-                  borderRadius: '8px',
-                  color: source.color,
-                  transition: 'all 0.2s ease',
+    <div className={`multi-source-indicator ${className}`}>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '8px' 
+      }}>
+        {selectedSources.map(sourceId => {
+          const source = getSourceData(sourceId)
+          if (!source) return null
+          
+          return (
+            <div
+              key={sourceId}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                background: '#2a2a2a',
+                border: '1px solid #444',
+                borderRadius: '8px',
+                color: source.color,
+                transition: 'all 0.2s ease',
                   position: 'relative',
                   cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = source.color
-                  e.currentTarget.style.background = `${source.color}15`
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = source.color
+                e.currentTarget.style.background = `${source.color}15`
                   handleMouseEnter(sourceId, e)
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#444'
-                  e.currentTarget.style.background = '#2a2a2a'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#444'
+                e.currentTarget.style.background = '#2a2a2a'
                   handleMouseLeave()
+              }}
+            >
+              {source.icon}
+              
+              {/* Connected indicator dot */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '2px',
+                  right: '2px',
+                  width: '8px',
+                  height: '8px',
+                  background: source.color,
+                  borderRadius: '50%',
+                  border: '1px solid #1c1c1c'
                 }}
-              >
-                {source.icon}
-                
-                {/* Connected indicator dot */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '2px',
-                    right: '2px',
-                    width: '8px',
-                    height: '8px',
-                    background: source.color,
-                    borderRadius: '50%',
-                    border: '1px solid #1c1c1c'
-                  }}
-                />
-              </div>
-            )
-          })}
+              />
+            </div>
+          )
+        })}
         </div>
       </div>
-
+        
       {/* Enhanced Tooltip */}
       {hoveredSourceData && (
-        <div
-          style={{
+          <div
+            style={{
             position: 'fixed',
             left: `${tooltipPosition.x}px`,
             top: `${tooltipPosition.y}px`,
@@ -233,7 +233,7 @@ export default function MultiSourceIndicator({
               }}>
                 {getStatusIcon(hoveredSourceData.status)}
                 <span style={{
-                  color: '#a0a0a0',
+              color: '#a0a0a0',
                   fontSize: '11px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
@@ -247,7 +247,7 @@ export default function MultiSourceIndicator({
           {/* Description */}
           <div style={{
             color: '#e0e0e0',
-            fontSize: '12px',
+              fontSize: '12px',
             lineHeight: '1.4',
             marginBottom: '12px'
           }}>
@@ -289,8 +289,8 @@ export default function MultiSourceIndicator({
                   {feature}
                 </div>
               ))}
-            </div>
-          </div>
+      </div>
+    </div>
 
           {/* Tooltip Arrow */}
           <div style={{

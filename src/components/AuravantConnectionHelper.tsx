@@ -242,7 +242,7 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
   return (
     <div className="auravant-connection-helper">
       {renderConnectionStatus()}
-      
+
       {!connectionStatus.connected && renderExtensionStatus()}
 
       {!connectionStatus.connected && !showConnectionForm && (
@@ -294,7 +294,7 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
           </div>
 
           {extensionStatus.configured && (
-            <div className="help-text">
+          <div className="help-text">
               <h4>✨ Extension Authentication</h4>
               <p>You're using the recommended Extension-based authentication. This provides:</p>
               <ul>
@@ -303,7 +303,7 @@ export default function AuravantConnectionHelper({ onStatusChange }: AuravantCon
                 <li>🔄 Automatic token refresh</li>
                 <li>👥 Multi-user support</li>
               </ul>
-            </div>
+          </div>
           )}
         </div>
       )}

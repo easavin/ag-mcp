@@ -31,12 +31,12 @@ export async function POST(request: NextRequest) {
 
     try {
       await AuravantAuth.connectViaExtension(session.user.id, auravantUserId)
-      
-      return NextResponse.json({
-        success: true,
+
+    return NextResponse.json({
+      success: true,
         message: 'Successfully connected to Auravant via Extension',
         method: 'extension'
-      })
+    })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       

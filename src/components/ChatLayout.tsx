@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { formatDate } from '@/lib/utils'
 import SettingsModal from './SettingsModal'
 import IntegrationsModal from './IntegrationsModal'
+import FeedbackModal from './FeedbackModal'
 
 interface ChatLayoutProps {
   children: React.ReactNode
@@ -19,6 +20,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
   const [showIntegrations, setShowIntegrations] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
   
   // Close dropdown when clicking outside
@@ -155,6 +157,13 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
               Settings
             </button>
             */}
+            <button 
+              className="settings-btn"
+              onClick={() => setShowFeedback(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, background: '#23272f', color: '#fff', border: '1px solid #444', borderRadius: 8, padding: '10px 16px', fontWeight: 500, fontSize: 15, cursor: 'pointer' }}
+            >
+              <span role="img" aria-label="feedback">💬</span> Feature requests and feedback
+            </button>
             
             {/* User Information with Dropdown */}
             <div ref={userMenuRef} className="user-info-container" style={{ position: 'relative' }}>
@@ -293,6 +302,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
           />
         </>
       )}
+      <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
     </div>
   )
 } 

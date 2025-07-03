@@ -415,7 +415,7 @@ export const useChatStore = create<ChatState>()(
       toggleDataSource: (sourceId) => {
         set((state) => {
           const newSources = state.selectedDataSources.includes(sourceId)
-            ? state.selectedDataSources.filter(id => id !== sourceId)
+          ? state.selectedDataSources.filter(id => id !== sourceId)
             : [...state.selectedDataSources, sourceId];
           
           // Persist to localStorage
