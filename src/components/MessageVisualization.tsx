@@ -20,9 +20,113 @@ interface MessageVisualizationProps {
 
 // Enhanced Table Component with Dark Theme Support
 const DataTable: React.FC<{ data: TableVisualization['data'] }> = ({ data }) => {
+  console.log('🔧 DataTable rendering with data:', data)
+
+  // Handle case where data might be an array instead of {headers, rows} structure
+  if (Array.isArray(data)) {
+    console.warn('⚠️ DataTable received array instead of {headers, rows} structure')
+    
+    // If it's an array of objects, convert to table format
+    if (data.length > 0 && typeof data[0] === 'object') {
+      const headers = Object.keys(data[0])
+      const rows = data.map(item => headers.map(header => item[header] || ''))
+      
+      return (
+        <div style={{
+          backgroundColor: '#1f2937',
+          border: '1px solid #374151',
+          borderRadius: '8px',
+          padding: '16px'
+        }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '14px'
+            }}>
+              <thead>
+                <tr style={{
+                  backgroundColor: '#374151',
+                  borderBottom: '2px solid #4b5563'
+                }}>
+                  {headers.map((header, index) => (
+                    <th
+                      key={index}
+                      style={{
+                        padding: '12px 8px',
+                        textAlign: 'left',
+                        fontWeight: '600',
+                        color: '#f9fafb',
+                        borderRight: index < headers.length - 1 ? '1px solid #4b5563' : 'none'
+                      }}
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, rowIndex) => (
+                  <tr
+                    key={rowIndex}
+                    style={{
+                      backgroundColor: rowIndex % 2 === 0 ? '#111827' : '#1f2937',
+                      borderBottom: '1px solid #374151'
+                    }}
+                  >
+                    {row.map((cell, cellIndex) => (
+                      <td
+                        key={cellIndex}
+                        style={{
+                          padding: '12px 8px',
+                          color: '#d1d5db',
+                          borderRight: cellIndex < row.length - 1 ? '1px solid #374151' : 'none'
+                        }}
+                      >
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )
+    } else {
+      // Fallback for array of primitives
+      return (
+        <div style={{
+          backgroundColor: '#1f2937',
+          border: '1px solid #374151',
+          borderRadius: '8px',
+          padding: '16px',
+          color: '#f9fafb'
+        }}>
+          <pre>{JSON.stringify(data, null, 2)}</pre>
+        </div>
+      )
+    }
+  }
+
+  // Handle expected {headers, rows} structure
   const { headers, rows, metadata } = data
   
-  console.log('🔧 DataTable rendering with data:', data)
+  if (!headers || !rows) {
+    console.error('❌ DataTable: Missing headers or rows in data structure')
+    return (
+      <div style={{
+        backgroundColor: '#1f2937',
+        border: '1px solid #374151',
+        borderRadius: '8px',
+        padding: '16px',
+        color: '#f9fafb'
+      }}>
+        <p>Error: Invalid table data structure</p>
+        <pre>{JSON.stringify(data, null, 2)}</pre>
+      </div>
+    )
+  }
 
   return (
     <div style={{
