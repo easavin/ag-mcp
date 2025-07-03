@@ -287,6 +287,11 @@ export interface ChartVisualization extends VisualizationData {
     yAxis?: string
     categories?: string[]
     colors?: string[]
+    lines?: Array<{
+      key: string
+      color?: string
+      label?: string
+    }>
   }
 }
 

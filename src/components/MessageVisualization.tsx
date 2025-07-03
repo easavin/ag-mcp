@@ -192,19 +192,27 @@ const DataTable: React.FC<{ data: TableVisualization['data'] }> = ({ data }) => 
   )
 }
 
-// Enhanced Chart Component with Precipitation Support
+// Enhanced Chart Component with Dark Theme Support
 const DataChart: React.FC<{ data: ChartVisualization['data'] }> = ({ data }) => {
-  const { chartType, dataset, xAxis, yAxis, colors = ['#2563eb', '#059669', '#dc2626', '#d97706', '#7c3aed'] } = data
+  const { chartType, dataset, xAxis, yAxis, colors = ['#2563eb', '#059669', '#dc2626', '#d97706', '#7c3aed'], lines } = data
 
-  console.log('🔧 Chart data:', { chartType, dataset, xAxis, yAxis })
+  console.log('🔧 Chart data:', { chartType, dataset, xAxis, yAxis, lines })
+  console.log('🔧 Chart dataset detailed:', JSON.stringify(dataset, null, 2))
 
   if (!dataset || dataset.length === 0) {
     return <div className="text-center py-8 text-gray-500">No data available</div>
   }
 
   // Check if we have precipitation data for enhanced weather charts
-  const hasTemperatureData = dataset.some((item: any) => 'maxTemp' in item || 'temperature' in item)
+  const hasTemperatureData = dataset.some((item: any) => 'maxTemp' in item || 'temperature' in item || 'high' in item)
   const hasPrecipitationData = dataset.some((item: any) => 'precipitationProbability' in item || 'precipitation' in item)
+
+  console.log('🔧 Data analysis:', { hasTemperatureData, hasPrecipitationData })
+  
+  // Log first dataset item to see available keys
+  if (dataset.length > 0) {
+    console.log('🔧 First dataset item keys:', Object.keys(dataset[0]))
+  }
 
   const renderChart = () => {
     switch (chartType) {
@@ -228,6 +236,48 @@ const DataChart: React.FC<{ data: ChartVisualization['data'] }> = ({ data }) => 
         )
       
       case 'line':
+        // Check if we have multi-line data with 'lines' property
+        if (lines && Array.isArray(lines) && lines.length > 0) {
+          console.log('🔧 Rendering multi-line chart with lines:', lines)
+          return (
+            <LineChart width={600} height={240} data={dataset}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey={xAxis} stroke="#9ca3af" />
+              <YAxis stroke="#9ca3af" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1f2937', 
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#f9fafb'
+                }} 
+                formatter={(value: any, name: string) => {
+                  if (name === 'high' || name === 'High °C') return [`${value}°C`, 'High Temperature']
+                  if (name === 'low' || name === 'Low °C') return [`${value}°C`, 'Low Temperature']
+                  return [value, name]
+                }}
+              />
+              <Legend />
+              {lines.map((line: any, index: number) => {
+                console.log(`🔧 Rendering line ${index}:`, line)
+                return (
+                  <Line 
+                    key={line.key}
+                    type="monotone" 
+                    dataKey={line.key} 
+                    stroke={line.color || colors[index]} 
+                    strokeWidth={2}
+                    dot={{ fill: line.color || colors[index], strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6 }}
+                    name={line.label || line.key}
+                    connectNulls={false}
+                  />
+                )
+              })}
+            </LineChart>
+          )
+        }
+        
         // Enhanced weather chart with temperature and precipitation
         if (hasTemperatureData && hasPrecipitationData) {
           return (

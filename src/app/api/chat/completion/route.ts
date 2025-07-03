@@ -711,11 +711,11 @@ Would you like me to get weather information using coordinates or a location nam
          }${dailyForecast.map((day: any, index: number) => `,
      {
        "Day": "Day ${index + 1}",
-      "High/Low (°C)": "${day.temperature2mMax || day.temperatureMax}° / ${day.temperature2mMin || day.temperatureMin}°",
-      "Weather": "${day.weatherCode ? 'Varies' : 'Clear'}",
-      "Precipitation (mm)": "${day.precipitationSum || 0}",
-      "Wind (km/h)": "${day.windSpeed10mMax || day.windSpeedMax || 'N/A'}",
-      "Humidity (%)": "${day.relativeHumidity2mMean || 'N/A'}"
+      "High/Low (°C)": "${day.maxTemp || 'N/A'}° / ${day.minTemp || 'N/A'}°",
+      "Weather": "${day.weatherCondition || 'Clear'}",
+      "Precipitation (mm)": "${day.precipitation || 0}",
+      "Wind (km/h)": "${day.windSpeed || 'N/A'}",
+      "Humidity (%)": "N/A"
     }`).join('')}
   ]
 }
@@ -733,12 +733,12 @@ Would you like me to get weather information using coordinates or a location nam
      }${dailyForecast.map((day: any, index: number) => `,
      {
        "day": "Day ${index + 1}",
-       "high": ${day.temperature2mMax || day.temperatureMax || 0},
-      "low": ${day.temperature2mMin || day.temperatureMin || 0}
+       "high": ${day.maxTemp || 0},
+      "low": ${day.minTemp || 0}
     }`).join('')}
   ],
   "xAxis": "day",
-  "yAxis": "temperature",
+  "yAxis": "high",
   "lines": [
     {"key": "high", "color": "#ff6b6b", "label": "High °C"},
     {"key": "low", "color": "#4ecdc4", "label": "Low °C"}
@@ -757,7 +757,7 @@ Would you like me to get weather information using coordinates or a location nam
      }${dailyForecast.map((day: any, index: number) => `,
      {
        "day": "Day ${index + 1}",
-       "precipitation": ${day.precipitationSum || 0}
+       "precipitation": ${day.precipitation || 0}
     }`).join('')}
   ],
   "xAxis": "day",
@@ -774,8 +774,8 @@ ${agriculture ? `- **Soil Temperature**: ${agriculture.soilTemperature?.surface}
 ## Planning Recommendations
 Based on the 4-day forecast for your ${fieldArea} field:
 - **Today**: ${current?.weatherCondition?.toLowerCase()}, ${current?.temperature}°C
-- **Best Days for Field Work**: ${dailyForecast.filter((day: any) => (day.precipitationSum || 0) < 2).length > 0 ? 'Days with low precipitation' : 'Monitor weather closely'}
-- **Irrigation Planning**: ${dailyForecast.some((day: any) => (day.precipitationSum || 0) > 5) ? 'Rain expected - reduce irrigation' : 'Consider irrigation needs'}
+- **Best Days for Field Work**: ${dailyForecast.filter((day: any) => (day.precipitation || 0) < 2).length > 0 ? 'Days with low precipitation' : 'Monitor weather closely'}
+- **Irrigation Planning**: ${dailyForecast.some((day: any) => (day.precipitation || 0) > 5) ? 'Rain expected - reduce irrigation' : 'Consider irrigation needs'}
 - **Spray Applications**: Plan for days with low wind and no precipitation
 
 *4-day weather forecast provided by AgMCP Weather Service*`

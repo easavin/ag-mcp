@@ -50,7 +50,8 @@ export function parseVisualizationsFromResponse(content: string, functionResults
             dataset: jsonData.data || [],
             xAxis: jsonData.xAxis || 'x',
             yAxis: jsonData.yAxis || 'y',
-            colors: jsonData.lines?.map((line: any) => line.color) || jsonData.color ? [jsonData.color] : ['#3b82f6']
+            colors: jsonData.lines?.map((line: any) => line.color) || jsonData.color ? [jsonData.color] : ['#3b82f6'],
+            lines: jsonData.lines
           }
         }
         
