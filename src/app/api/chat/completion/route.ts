@@ -644,8 +644,21 @@ Would you like me to get weather information using coordinates or a location nam
           enableFunctions: needsMultiStepFunctions, // Enable functions for multi-step workflows
         })
 
-        // Restore the original function calls to the response
-        response.functionCalls = originalFunctionCalls
+        // Restore the original function calls to the response and add any automatic calls
+        const automaticCalls = functionResults
+          .filter(result => !originalFunctionCalls.some(original => original.name === result.name))
+          .map(result => ({
+            name: result.name,
+            arguments: result.result?.arguments || {}
+          }))
+        
+        response.functionCalls = [...originalFunctionCalls, ...automaticCalls]
+        
+        console.log('✅ Function calls in response:', {
+          original: originalFunctionCalls.map(fc => fc.name),
+          automatic: automaticCalls.map(fc => fc.name),
+          total: response.functionCalls.map(fc => fc.name)
+        })
 
         console.log('✅ Final response generated:', {
           model: response.model,
