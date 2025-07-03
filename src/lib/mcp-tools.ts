@@ -1132,14 +1132,48 @@ export class MCPToolExecutor {
         latitude = params.latitude
         longitude = params.longitude
       } else if (params.location) {
-        // Search for location coordinates
-        const locations = await weatherClient.searchLocations(params.location, 1)
+        // Enhanced location search with fallback strategies
+        let locations = await weatherClient.searchLocations(params.location, 1)
+        
+        // If no results, try alternative search strategies
+        if (locations.length === 0) {
+          const originalLocation = params.location.toLowerCase()
+          
+          // Strategy 1: Try removing state abbreviations (e.g., "Fargo, ND" -> "Fargo")
+          const withoutStateAbbrev = originalLocation.replace(/,\s*(al|ak|az|ar|ca|co|ct|de|fl|ga|hi|id|il|in|ia|ks|ky|la|me|md|ma|mi|mn|ms|mo|mt|ne|nv|nh|nj|nm|ny|nc|nd|oh|ok|or|pa|ri|sc|sd|tn|tx|ut|vt|va|wa|wv|wi|wy)\b.*$/, '').trim()
+          if (withoutStateAbbrev !== originalLocation) {
+            locations = await weatherClient.searchLocations(withoutStateAbbrev, 1)
+          }
+          
+          // Strategy 2: Try expanding common abbreviations
+          if (locations.length === 0) {
+            const stateExpansions: Record<string, string> = {
+              'nd': 'North Dakota', 'sd': 'South Dakota', 'ny': 'New York', 'nc': 'North Carolina', 'sc': 'South Carolina',
+              'nh': 'New Hampshire', 'nj': 'New Jersey', 'nm': 'New Mexico', 'wv': 'West Virginia', 'wa': 'Washington'
+            }
+            
+            let expandedLocation = params.location
+            for (const [abbrev, fullName] of Object.entries(stateExpansions)) {
+              const regex = new RegExp(`\\b${abbrev}\\b`, 'gi')
+              if (regex.test(expandedLocation)) {
+                expandedLocation = expandedLocation.replace(regex, fullName)
+                break
+              }
+            }
+            
+            if (expandedLocation !== params.location) {
+              locations = await weatherClient.searchLocations(expandedLocation, 1)
+            }
+          }
+        }
+        
         if (locations.length === 0) {
           return {
             success: false,
-            message: `Location "${params.location}" not found. Please try a different location name.`
+            message: `Location "${params.location}" not found. Please try:\n- Just the city name (e.g., "Fargo")\n- Full state name (e.g., "Fargo, North Dakota")\n- Coordinates (latitude, longitude)`
           }
         }
+        
         latitude = locations[0].latitude
         longitude = locations[0].longitude
       } else {
@@ -1177,14 +1211,48 @@ export class MCPToolExecutor {
         latitude = params.latitude
         longitude = params.longitude
       } else if (params.location) {
-        // Search for location coordinates
-        const locations = await weatherClient.searchLocations(params.location, 1)
+        // Enhanced location search with fallback strategies
+        let locations = await weatherClient.searchLocations(params.location, 1)
+        
+        // If no results, try alternative search strategies
+        if (locations.length === 0) {
+          const originalLocation = params.location.toLowerCase()
+          
+          // Strategy 1: Try removing state abbreviations (e.g., "Fargo, ND" -> "Fargo")
+          const withoutStateAbbrev = originalLocation.replace(/,\s*(al|ak|az|ar|ca|co|ct|de|fl|ga|hi|id|il|in|ia|ks|ky|la|me|md|ma|mi|mn|ms|mo|mt|ne|nv|nh|nj|nm|ny|nc|nd|oh|ok|or|pa|ri|sc|sd|tn|tx|ut|vt|va|wa|wv|wi|wy)\b.*$/, '').trim()
+          if (withoutStateAbbrev !== originalLocation) {
+            locations = await weatherClient.searchLocations(withoutStateAbbrev, 1)
+          }
+          
+          // Strategy 2: Try expanding common abbreviations
+          if (locations.length === 0) {
+            const stateExpansions: Record<string, string> = {
+              'nd': 'North Dakota', 'sd': 'South Dakota', 'ny': 'New York', 'nc': 'North Carolina', 'sc': 'South Carolina',
+              'nh': 'New Hampshire', 'nj': 'New Jersey', 'nm': 'New Mexico', 'wv': 'West Virginia', 'wa': 'Washington'
+            }
+            
+            let expandedLocation = params.location
+            for (const [abbrev, fullName] of Object.entries(stateExpansions)) {
+              const regex = new RegExp(`\\b${abbrev}\\b`, 'gi')
+              if (regex.test(expandedLocation)) {
+                expandedLocation = expandedLocation.replace(regex, fullName)
+                break
+              }
+            }
+            
+            if (expandedLocation !== params.location) {
+              locations = await weatherClient.searchLocations(expandedLocation, 1)
+            }
+          }
+        }
+        
         if (locations.length === 0) {
           return {
             success: false,
-            message: `Location "${params.location}" not found. Please try a different location name.`
+            message: `Location "${params.location}" not found. Please try:\n- Just the city name (e.g., "Fargo")\n- Full state name (e.g., "Fargo, North Dakota")\n- Coordinates (latitude, longitude)`
           }
         }
+        
         latitude = locations[0].latitude
         longitude = locations[0].longitude
       } else {

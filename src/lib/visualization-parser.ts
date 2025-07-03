@@ -22,7 +22,7 @@ export function parseVisualizationsFromResponse(content: string, functionResults
     }
   }
   
-  // Second, look for individual JSON blocks that represent visualization objects
+  // Second, look for JSON blocks with markdown code fences
   const jsonBlockRegex = /```json\n([\s\S]*?)\n```/g
   let match
   const jsonBlocks = []
@@ -56,9 +56,40 @@ export function parseVisualizationsFromResponse(content: string, functionResults
         
         visualizations.push(visualization)
         jsonBlocks.push(match[0])
+      } else if (jsonData.content && jsonData.visualizations) {
+        // Handle the wrapped format
+        console.log('✅ Found wrapped JSON format with visualizations array')
+        cleanedContent = jsonData.content || cleanedContent
+        visualizations.push(...jsonData.visualizations)
+        jsonBlocks.push(match[0])
       }
     } catch (error) {
       console.error('❌ Error parsing individual JSON block:', error)
+    }
+  }
+  
+  // Third, look for standalone JSON objects without markdown fences (NEW)
+  // This handles cases where LLM outputs raw JSON directly in content
+  const standaloneJsonRegex = /\{[\s\S]*?"visualizations"[\s\S]*?\}/g
+  let standaloneMatch
+  
+  while ((standaloneMatch = standaloneJsonRegex.exec(content)) !== null) {
+    try {
+      const jsonData = JSON.parse(standaloneMatch[0])
+      
+      if (jsonData.content && jsonData.visualizations && Array.isArray(jsonData.visualizations)) {
+        console.log('✅ Found standalone JSON with visualizations array:', jsonData.visualizations.length, 'items')
+        
+        // Use the content from JSON and remove the JSON block
+        cleanedContent = jsonData.content || cleanedContent
+        visualizations.push(...jsonData.visualizations)
+        jsonBlocks.push(standaloneMatch[0])
+        
+        // Remove this JSON block from content
+        cleanedContent = cleanedContent.replace(standaloneMatch[0], '').trim()
+      }
+    } catch (error) {
+      console.error('❌ Error parsing standalone JSON:', error)
     }
   }
   
@@ -74,6 +105,12 @@ export function parseVisualizationsFromResponse(content: string, functionResults
   if (functionResults) {
     for (const result of functionResults) {
       if (result.name === 'getWeatherForecast' && result.result?.success) {
+        // Skip auto-generation if we already have LLM-generated visualizations
+        if (visualizations.length > 0) {
+          console.log('🌤️ Skipping auto-generated weather visualizations - LLM already provided them')
+          continue
+        }
+        
         const weatherData = result.result.data
         console.log('🌤️ Creating weather forecast visualization')
         
@@ -82,8 +119,8 @@ export function parseVisualizationsFromResponse(content: string, functionResults
           // Create chart for temperature trend
           const chartData = forecast.slice(0, 5).map((day: any, index: number) => ({
             day: index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : `Day ${index + 1}`,
-            temperature: Math.round(day.temperature?.max || day.temperature || 0),
-            humidity: Math.round(day.humidity || 0)
+            temperature: Math.round(day.maxTemp || day.temperature_2m_max || day.temperature || 0),
+            humidity: Math.round(day.humidity || day.relative_humidity_2m || 0)
           }))
           
           visualizations.push({
@@ -118,6 +155,12 @@ export function parseVisualizationsFromResponse(content: string, functionResults
       
       // Auto-detect field data
       if (result.name === 'getFields' && result.result?.fields) {
+        // Skip auto-generation if we already have visualizations
+        if (visualizations.some(v => v.title?.toLowerCase().includes('field'))) {
+          console.log('🌾 Skipping auto-generated field visualizations - already exist')
+          continue
+        }
+        
         const fields = result.result.fields
         console.log('🌾 Creating fields table visualization')
         
@@ -159,6 +202,12 @@ export function parseVisualizationsFromResponse(content: string, functionResults
       
       // Auto-detect equipment data
       if (result.name === 'getEquipment' && result.result?.equipment) {
+        // Skip auto-generation if we already have visualizations
+        if (visualizations.some(v => v.title?.toLowerCase().includes('equipment'))) {
+          console.log('🚜 Skipping auto-generated equipment visualizations - already exist')
+          continue
+        }
+        
         const equipment = result.result.equipment
         console.log('🚜 Creating equipment table visualization')
         
