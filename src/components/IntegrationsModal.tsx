@@ -403,6 +403,22 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         'Grain, livestock, dairy, and more categories',
         'Regional market analysis (Midwest, Southeast, etc.)'
       ]
+    },
+    {
+      id: 'climate-fieldview',
+      name: 'Climate FieldView',
+      description: 'Seamlessly integrate your Climate FieldView account to access field data, prescriptions, and advanced analytics. (Coming soon)',
+      logo: '/assets/logos/climate-logo.png',
+      logoFallback: '🌱',
+      category: 'Field Data Platform',
+      isConnected: false,
+      features: [
+        'Field boundaries and maps',
+        'Prescription upload and management',
+        'Advanced analytics and insights',
+        'Integration with other ag platforms',
+        'More features coming soon!'
+      ]
     }
   ];
 
@@ -642,18 +658,9 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                     ) : (
                       <button 
                         className="connect-btn"
-                        onClick={() => {
-                          if (integration.id === 'johndeere') {
-                            handleJohnDeereConnect();
-                          } else if (integration.id === 'eu-commission') {
-                            handleEuCommissionConnect();
-                          } else if (integration.id === 'usda') {
-                            handleUsdaConnect();
-                          }
-                        }}
-                        disabled={isConnecting}
+                        disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}
                       >
-                        {isConnecting && integration.id === 'johndeere' ? 'Connecting...' : 'Connect'}
+                        Coming soon
                       </button>
                     )}
                   </div>
