@@ -1014,6 +1014,37 @@ export class JohnDeereAPIClient {
     }
   }
 
+  async getComprehensiveFarmData(organizationId: string): Promise<any> {
+    try {
+      console.log(`🌾 Getting comprehensive farm data for organization: ${organizationId}`);
+      
+      // Fetch all data in parallel for better performance
+      const [fields, equipment, operations, assets, farms] = await Promise.allSettled([
+        this.getFields(organizationId),
+        this.getEquipment(organizationId),
+        this.getFieldOperationsForOrganization(organizationId),
+        this.getAssets(organizationId),
+        this.getFarms(organizationId)
+      ]);
+
+      // Get organization info
+      const organizations = await this.getOrganizations();
+      const organization = organizations.find(org => org.id === organizationId) || organizations[0];
+
+      return {
+        organization,
+        fields: fields.status === 'fulfilled' ? fields.value : [],
+        equipment: equipment.status === 'fulfilled' ? equipment.value : [],
+        operations: operations.status === 'fulfilled' ? operations.value : [],
+        assets: assets.status === 'fulfilled' ? assets.value : [],
+        farms: farms.status === 'fulfilled' ? farms.value : []
+      };
+    } catch (error: any) {
+      this.handleApiError(error, `getComprehensiveFarmData for organization ${organizationId}`);
+      throw error;
+    }
+  }
+
   async uploadFileViaTransfer(organizationId: string, file: Buffer, fileName: string, contentType: string, fileType: string = 'OTHER'): Promise<any> {
     try {
       console.log(`🔧 Trying alternative upload via fileTransfers endpoint:`);
