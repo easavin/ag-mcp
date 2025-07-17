@@ -21,7 +21,7 @@ export async function GET(
         operationsCount: farmData.operations.length,
         assetsCount: farmData.assets.length,
         farmsCount: farmData.farms.length,
-        totalFieldArea: farmData.fields.reduce((total, field) => total + (field.area?.measurement || 0), 0),
+        totalFieldArea: farmData.fields.reduce((total: number, field: any) => total + (field.area?.measurement || 0), 0),
       },
     })
   } catch (error) {
