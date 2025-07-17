@@ -262,35 +262,25 @@ export const DATA_RETRIEVAL_TOOLS: MCPTool[] = [
     }
   },
   {
-    name: 'list_john_deere_files',
-    description: 'List files available in the connected John Deere account for a specific organization. If no organization ID is provided, it will automatically use the first available organization.',
+    name: 'get_field_boundary',
+    description: 'Get boundary coordinates and geographic information for a specific field by name or ID.',
     parameters: {
       type: 'object',
       properties: {
+        fieldName: {
+          type: 'string',
+          description: 'The name of the field to get boundary information for (e.g., "North Field", "Field 1"). Use this when user refers to field by name.'
+        },
+        fieldId: {
+          type: 'string',
+          description: 'The ID of the field to get boundary information for. Use this when you have the exact field ID.'
+        },
         organizationId: {
           type: 'string',
-          description: 'The ID of the organization to list files for. This is optional - if not provided, the first available organization will be used.'
+          description: 'The ID of the organization the field belongs to. Optional - will auto-detect if not provided.'
         }
       },
       required: []
-    }
-  },
-  {
-    name: 'get_field_boundary',
-    description: 'Gets the boundary coordinate data for a specific field. If the organization ID is not known, it will be automatically determined.',
-    parameters: {
-      type: 'object',
-      properties: {
-        organizationId: {
-          type: 'string',
-          description: 'The ID of the organization the field belongs to. This is optional.'
-        },
-        fieldName: {
-          type: 'string',
-          description: 'The name of the field to get the boundary for.'
-        }
-      },
-      required: ['fieldName']
     }
   }
 ];
@@ -748,6 +738,55 @@ export const AURAVANT_TOOLS: MCPTool[] = [
   }
 ]
 
+// File Management Tools - Enhanced with intelligent file type detection
+export const FILE_MANAGEMENT_TOOLS: MCPTool[] = [
+  {
+    name: 'upload_file_to_john_deere',
+    description: 'Upload a file to John Deere with intelligent file type detection. Supports all file types: PRESCRIPTION, BOUNDARY, WORK_DATA, SETUP_FILE, REPORT, OTHER.',
+    parameters: {
+      type: 'object',
+      properties: {
+        organizationId: {
+          type: 'string',
+          description: 'John Deere organization ID (optional - will auto-detect if not provided)'
+        },
+        fileName: {
+          type: 'string',
+          description: 'Name of the file to upload'
+        },
+        fileContent: {
+          type: 'string',
+          description: 'Base64 encoded file content'
+        },
+        fileType: {
+          type: 'string',
+          enum: ['PRESCRIPTION', 'BOUNDARY', 'WORK_DATA', 'SETUP_FILE', 'REPORT', 'OTHER'],
+          description: 'Explicit file type (optional - will auto-detect if not provided)'
+        },
+        userIntent: {
+          type: 'string',
+          description: 'Description of what the user wants to do with this file (e.g., "upload prescription for corn field", "upload field boundary shapefile")'
+        }
+      },
+      required: ['fileName', 'fileContent']
+    }
+  },
+  {
+    name: 'list_john_deere_files',
+    description: 'List files available in the connected John Deere account for a specific organization. If no organization ID is provided, it will automatically use the first available organization.',
+    parameters: {
+      type: 'object',
+      properties: {
+        organizationId: {
+          type: 'string',
+          description: 'The ID of the organization to list files for. This is optional - if not provided, the first available organization will be used.'
+        }
+      },
+      required: []
+    }
+  }
+];
+
 // All MCP Tools combined
 export const ALL_MCP_TOOLS: MCPTool[] = [
   ...FIELD_OPERATION_TOOLS,
@@ -757,6 +796,7 @@ export const ALL_MCP_TOOLS: MCPTool[] = [
   ...EU_COMMISSION_TOOLS,
   ...USDA_TOOLS,
   ...AURAVANT_TOOLS,
+  ...FILE_MANAGEMENT_TOOLS,
 ]
 
 // Tool execution functions
@@ -798,6 +838,11 @@ export class MCPToolExecutor {
     // Auravant
     if (AURAVANT_TOOLS.find(tool => tool.name === toolName)) {
       return this.executeAuravant(toolName, parameters);
+    }
+
+    // File Management
+    if (FILE_MANAGEMENT_TOOLS.find(tool => tool.name === toolName)) {
+      return this.executeFileManagement(toolName, parameters);
     }
     
     return {
@@ -844,8 +889,6 @@ export class MCPToolExecutor {
         return this.getEquipmentDetails(parameters);
       case 'get_field_operation_history':
         return this.getFieldOperationHistory(parameters);
-      case 'list_john_deere_files':
-        return this.listJohnDeereFiles(parameters);
       case 'get_field_boundary':
         return this.getFieldBoundary(parameters);
       default:
@@ -914,6 +957,17 @@ export class MCPToolExecutor {
         return this.createAuravantHerd(parameters);
       default:
         return { success: false, message: 'Unknown Auravant tool' };
+    }
+  }
+
+  private async executeFileManagement(toolName: string, parameters: any): Promise<MCPToolResult> {
+    switch (toolName) {
+      case 'upload_file_to_john_deere':
+        return this.uploadFileToJohnDeere(parameters);
+      case 'list_john_deere_files':
+        return this.listJohnDeereFiles(parameters);
+      default:
+        return { success: false, message: 'Unknown file management tool' };
     }
   }
 
@@ -1760,6 +1814,135 @@ export class MCPToolExecutor {
         message: `Failed to create Auravant livestock herd: ${error.message}`
       };
     }
+  }
+
+  private async uploadFileToJohnDeere(params: any): Promise<MCPToolResult> {
+    try {
+      const userId = params.userId;
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for John Deere file upload'
+        };
+      }
+
+      const apiClient = getJohnDeereAPIClient();
+      if (!apiClient) {
+        return {
+          success: false,
+          message: 'John Deere API client not initialized. Please ensure connection is established.'
+        };
+      }
+
+      let orgId: string;
+      if (params.organizationId) {
+        orgId = params.organizationId;
+      } else {
+        const orgs = await apiClient.getOrganizations();
+        if (orgs && orgs.length > 0) {
+          orgId = orgs[0].id;
+          console.log(`🏢 Auto-detected organization ID for file upload: ${orgId}`);
+        } else {
+          return { success: false, message: 'Could not find any John Deere organizations.' };
+        }
+      }
+
+      const fileName = params.fileName;
+      const userIntent = params.userIntent || `Upload file: ${fileName}`;
+      
+      // Convert base64 content to Buffer
+      let fileBuffer: Buffer;
+      try {
+        fileBuffer = Buffer.from(params.fileContent, 'base64');
+      } catch (error) {
+        return {
+          success: false,
+          message: 'Invalid file content. File content must be base64 encoded.'
+        };
+      }
+
+      // Determine file type using intelligent detection or explicit type
+      let fileType = params.fileType;
+      let detectionInfo = null;
+      
+      if (!fileType) {
+        // Use intelligent file type detection
+        detectionInfo = (apiClient.constructor as any).detectFileType(fileName, userIntent);
+        fileType = detectionInfo.fileType;
+        
+        // If confidence is low, ask user for clarification
+        if (detectionInfo.confidence === 'low') {
+          return {
+            success: false,
+            message: `Unable to determine file type for "${fileName}". ${detectionInfo.reasoning}. Please specify the file type explicitly using one of: PRESCRIPTION, BOUNDARY, WORK_DATA, SETUP_FILE, REPORT, OTHER`,
+            data: {
+              suggestUserQuery: true,
+              detectedType: fileType,
+              confidence: detectionInfo.confidence,
+              reasoning: detectionInfo.reasoning,
+              availableTypes: [
+                'PRESCRIPTION - Variable Rate Application Maps and Prescriptions',
+                'BOUNDARY - Field Boundaries and Geographic Shapes', 
+                'WORK_DATA - Harvest, Planting, and Field Operations',
+                'SETUP_FILE - Equipment Configuration Files',
+                'REPORT - Analysis and Summary Documents',
+                'OTHER - General Files'
+              ]
+            }
+          };
+        }
+        
+        console.log(`🤖 Auto-detected file type: ${fileType} (confidence: ${detectionInfo.confidence})`);
+        console.log(`💡 Reasoning: ${detectionInfo.reasoning}`);
+      }
+
+      // Determine content type based on file extension
+      const contentType = this.getContentTypeFromFileName(fileName);
+
+      const result = await apiClient.uploadFile(orgId, fileBuffer, fileName, contentType, fileType);
+
+      return {
+        success: true,
+        message: `✅ Successfully uploaded "${fileName}" to John Deere as ${fileType}`,
+        data: {
+          ...result,
+          organizationId: orgId,
+          fileName,
+          fileType,
+          detectionInfo: detectionInfo ? {
+            confidence: detectionInfo.confidence,
+            reasoning: detectionInfo.reasoning
+          } : null
+        },
+        actionTaken: `Uploaded ${fileType} file "${fileName}" to John Deere organization ${orgId}`
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Failed to upload file to John Deere: ${error.message}`
+      };
+    }
+  }
+
+  private getContentTypeFromFileName(fileName: string): string {
+    const extension = fileName.toLowerCase().split('.').pop();
+    const contentTypes: { [key: string]: string } = {
+      'zip': 'application/zip',
+      'pdf': 'application/pdf',
+      'csv': 'text/csv',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'xls': 'application/vnd.ms-excel',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'shp': 'application/octet-stream',
+      'kml': 'application/vnd.google-earth.kml+xml',
+      'geojson': 'application/geo+json',
+      'json': 'application/json',
+      'xml': 'application/xml',
+      'txt': 'text/plain'
+    };
+    
+    return contentTypes[extension || ''] || 'application/octet-stream';
   }
 
   // Mock data generators

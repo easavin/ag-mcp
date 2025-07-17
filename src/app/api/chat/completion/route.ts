@@ -294,6 +294,36 @@ export async function POST(request: NextRequest) {
 
     console.log('💬 Chat messages prepared:', chatMessages.length)
 
+    // Detect and enhance messages with successful file upload information
+    chatMessages.forEach((msg, index) => {
+      if (msg.role === 'user' && msg.fileAttachments && msg.fileAttachments.length > 0) {
+        const successfulUploads = msg.fileAttachments.filter((file: any) => file.uploadSuccess)
+        
+        if (successfulUploads.length > 0) {
+          // Enhance the user message content to include upload success information
+          let uploadInfo = '\n\n**📁 File Upload Status:**\n'
+          
+          successfulUploads.forEach((file: any) => {
+            uploadInfo += `✅ Successfully uploaded "${file.name}" to John Deere Files\n`
+            uploadInfo += `   - File Type: ${file.fileType}\n`
+            uploadInfo += `   - File ID: ${file.fileId}\n`
+            uploadInfo += `   - Size: ${Math.round(file.fileSize / 1024)} KB\n`
+            uploadInfo += `   - Upload Method: ${file.endpoint}\n`
+            if (file.message) {
+              uploadInfo += `   - Details: ${file.message}\n`
+            }
+          })
+          
+          uploadInfo += '\nThe files have been successfully uploaded to your John Deere account and are now available in your John Deere Operations Center Files section.'
+          
+          // Add the upload information to the message content
+          chatMessages[index].content = msg.content + uploadInfo
+          
+          console.log(`📁 Enhanced message ${index} with upload success info for ${successfulUploads.length} files`)
+        }
+      }
+    })
+
     // Check if John Deere is selected as a data source
     const hasJohnDeere = selectedDataSources && selectedDataSources.includes('johndeere')
     const hasWeather = selectedDataSources && selectedDataSources.includes('weather')

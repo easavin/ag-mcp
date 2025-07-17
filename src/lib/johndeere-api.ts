@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import { prisma } from './prisma'
 import FormData from 'form-data'
+// Use global FormData and Blob (available in Node.js 18+)
 
 // John Deere API Configuration
 const JOHN_DEERE_CONFIG = {
@@ -559,8 +560,8 @@ export class JohnDeereAPIClient {
     const [fieldsResult, equipmentResult, farmsResult, filesResult] = await Promise.allSettled([
       this.getFieldsForConnectionTest(organizationId),
       this.getEquipmentForConnectionTest(organizationId),
-      this.getFarmsForConnectionTest(organizationId),
-      this.getFilesForConnectionTest(organizationId),
+      this.getFarms(organizationId),
+      this.getFiles(organizationId),
     ]);
 
     const fields = fieldsResult.status === 'fulfilled' ? { success: true, count: fieldsResult.value.length } : { success: false, count: 0, error: this.formatError(fieldsResult.reason) };
@@ -818,16 +819,226 @@ export class JohnDeereAPIClient {
     }
   }
 
-  async uploadFile(organizationId: string, file: Buffer, fileName: string, contentType: string): Promise<any> {
+  // John Deere supported file types
+  static readonly FILE_TYPES = {
+    PRESCRIPTION: 'PRESCRIPTION',
+    BOUNDARY: 'BOUNDARY', 
+    WORK_DATA: 'WORK_DATA',
+    SETUP_FILE: 'SETUP_FILE',
+    REPORT: 'REPORT',
+    OTHER: 'OTHER'
+  } as const;
+
+  /**
+   * Intelligently detect file type based on filename, content, and context
+   */
+  static detectFileType(fileName: string, userIntent?: string): { 
+    fileType: string, 
+    confidence: 'high' | 'medium' | 'low',
+    reasoning: string 
+  } {
+    const name = fileName.toLowerCase();
+    const intent = userIntent?.toLowerCase() || '';
+    
+    // High confidence detections
+    if (name.includes('prescription') || name.includes('rx') || name.includes('variable_rate') || 
+        intent.includes('prescription') || intent.includes('variable rate') || intent.includes('application rate')) {
+      return {
+        fileType: this.FILE_TYPES.PRESCRIPTION,
+        confidence: 'high',
+        reasoning: 'Filename or intent indicates prescription/variable rate application data'
+      };
+    }
+    
+    if (name.includes('boundary') || name.includes('field_boundary') || name.includes('border') ||
+        intent.includes('boundary') || intent.includes('field border') || intent.includes('field shape')) {
+      return {
+        fileType: this.FILE_TYPES.BOUNDARY,
+        confidence: 'high', 
+        reasoning: 'Filename or intent indicates field boundary data'
+      };
+    }
+    
+    if (name.includes('harvest') || name.includes('planting') || name.includes('tillage') || name.includes('operation') ||
+        intent.includes('harvest') || intent.includes('planting') || intent.includes('field work') || intent.includes('operation')) {
+      return {
+        fileType: this.FILE_TYPES.WORK_DATA,
+        confidence: 'high',
+        reasoning: 'Filename or intent indicates field operation/work data'
+      };
+    }
+    
+    if (name.includes('report') || name.includes('summary') || name.includes('analysis') ||
+        intent.includes('report') || intent.includes('summary') || intent.includes('analysis')) {
+      return {
+        fileType: this.FILE_TYPES.REPORT,
+        confidence: 'high',
+        reasoning: 'Filename or intent indicates report or analysis document'
+      };
+    }
+    
+    // Medium confidence detections based on file extensions and patterns
+    if (name.match(/\.(shp|kml|gpx|geojson)$/)) {
+      return {
+        fileType: this.FILE_TYPES.BOUNDARY,
+        confidence: 'medium',
+        reasoning: 'Geographic file format commonly used for boundaries'
+      };
+    }
+    
+    if (name.match(/\.(csv|xlsx|dat)$/) && (name.includes('yield') || name.includes('data'))) {
+      return {
+        fileType: this.FILE_TYPES.WORK_DATA,
+        confidence: 'medium',
+        reasoning: 'Data file format with yield/work indicators'
+      };
+    }
+    
+    if (name.match(/\.(pdf|doc|docx)$/)) {
+      return {
+        fileType: this.FILE_TYPES.REPORT,
+        confidence: 'medium',
+        reasoning: 'Document format commonly used for reports'
+      };
+    }
+    
+    // Low confidence - default to OTHER
+    return {
+      fileType: this.FILE_TYPES.OTHER,
+      confidence: 'low',
+      reasoning: 'Could not determine specific file type from filename or context'
+    };
+  }
+
+  async uploadFile(organizationId: string, file: Buffer, fileName: string, contentType: string, fileType: string = 'OTHER'): Promise<any> {
     try {
+      console.log(`🔧 Starting John Deere two-step upload process:`);
+      console.log(`   Organization ID: ${organizationId}`);
+      console.log(`   File name: ${fileName}`);
+      console.log(`   Content type: ${contentType}`);
+      console.log(`   File type: ${fileType}`);
+      console.log(`   File size: ${file.length} bytes`);
+
+      // Validate file type
+      const validTypes = Object.values(JohnDeereAPIClient.FILE_TYPES);
+      if (!validTypes.includes(fileType as any)) {
+        throw new Error(`Invalid file type: ${fileType}. Valid types: ${validTypes.join(', ')}`);
+      }
+
+      // STEP 1: Create file record
+      console.log(`📝 Step 1: Creating file record...`);
+      
+      const fileCreationPayload = {
+        name: fileName,
+        type: fileType
+      };
+
+      const createResponse = await this.axiosInstance.post(
+        `/organizations/${organizationId}/files`,
+        fileCreationPayload,
+        {
+          headers: {
+            'Content-Type': 'application/vnd.deere.axiom.v3+json',
+            'Accept': 'application/vnd.deere.axiom.v3+json'
+          },
+        }
+      );
+
+      // Extract file ID from location header
+      const locationHeader = createResponse.headers.location;
+      if (!locationHeader) {
+        throw new Error('No location header received from file creation');
+      }
+
+      const fileId = locationHeader.split('/').pop();
+      if (!fileId) {
+        throw new Error('Could not extract file ID from location header');
+      }
+
+      console.log(`✅ Step 1 successful: File record created with ID: ${fileId}`);
+
+      // STEP 2: Upload file content using PUT
+      console.log(`📤 Step 2: Uploading file content to file ID ${fileId}...`);
+      
+      // Determine best content type for the PUT request
+      const putContentType = contentType === 'application/zip' ? 'application/zip' : 'application/octet-stream';
+      
+      const uploadResponse = await this.axiosInstance.put(
+        `/files/${fileId}`,
+        file,
+        {
+          headers: {
+            'Content-Type': putContentType,
+            'Accept': 'application/vnd.deere.axiom.v3+json'
+          },
+        }
+      );
+
+      console.log(`✅ Step 2 complete: File content uploaded successfully`);
+      console.log(`   Upload response status: ${uploadResponse.status}`);
+
+      // Return combined result
+      const result = {
+        fileId: fileId,
+        fileName: fileName,
+        fileType: fileType,
+        fileSize: file.length,
+        createResponse: createResponse.data,
+        uploadResponse: uploadResponse.data,
+        location: createResponse.headers.location
+      };
+
+      console.log(`🎉 John Deere upload SUCCESS:`, result);
+      return result;
+
+    } catch (error: any) {
+      console.log(`❌ John Deere upload failed:`);
+      console.log(`   Status: ${error.response?.status}`);
+      console.log(`   Status text: ${error.response?.statusText}`);
+      console.log(`   Response headers:`, error.response?.headers);
+      console.log(`   Response data:`, error.response?.data);
+      console.log(`   Request URL:`, error.config?.url);
+      console.log(`   Request method:`, error.config?.method);
+      
+      throw new Error(`Error uploading file to John Deere: ${error.message}`);
+    }
+  }
+
+  async getBoundariesForField(boundaryUri: string): Promise<any> {
+    try {
+      const response = await this.axiosInstance.get(boundaryUri.replace('https://api.deere.com/platform', ''));
+      return response.data;
+    } catch (error: any) {
+      this.handleApiError(error, `getBoundariesForField for URI ${boundaryUri}`);
+      throw error;
+    }
+  }
+
+  async uploadFileViaTransfer(organizationId: string, file: Buffer, fileName: string, contentType: string, fileType: string = 'OTHER'): Promise<any> {
+    try {
+      console.log(`🔧 Trying alternative upload via fileTransfers endpoint:`);
+      console.log(`   Organization ID: ${organizationId}`);
+      console.log(`   File name: ${fileName}`);
+      console.log(`   Content type: ${contentType}`);
+      console.log(`   File type: ${fileType}`);
+      console.log(`   File size: ${file.length} bytes`);
+
+      // Use form-data package for proper multipart handling
       const form = new FormData();
+      
+      // Append the file with proper options
       form.append('file', file, {
         filename: fileName,
-        contentType: contentType,
+        contentType: contentType
       });
-
+      
+      // Add file type
+      form.append('type', fileType);
+      
+      console.log(`🚀 Making request to: /organizations/${organizationId}/fileTransfers`);
+      
       const response = await this.axiosInstance.post(
-        `/organizations/${organizationId}/files`,
+        `/organizations/${organizationId}/fileTransfers`,
         form,
         {
           headers: {
@@ -836,17 +1047,22 @@ export class JohnDeereAPIClient {
         }
       );
 
-      // After a successful upload, the response is a 204 No Content, 
-      // but the location header contains the URL to the newly created file.
-      if (response.status === 204 && response.headers.location) {
-        return { success: true, fileUrl: response.headers.location };
-      }
-      
-      return response.data;
+      console.log(`✅ File transfer upload SUCCESS:`, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: response.data
+      });
 
-    } catch (error) {
-      this.handleApiError(error, 'uploadFile');
-      throw error;
+      return response.data;
+    } catch (error: any) {
+      console.log(`❌ FileTransfer upload error:`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        headers: error.config?.headers
+      });
+      
+      throw new Error(`Error uploading file via fileTransfers: ${error.message}`);
     }
   }
 
@@ -914,154 +1130,6 @@ export class JohnDeereAPIClient {
       throw error;
     }
   }
-
-  /**
-   * Helper method to get comprehensive farm data for an organization
-   */
-  async getComprehensiveFarmData(organizationId: string): Promise<{
-    organization: JDOrganization
-    fields: JDField[]
-    equipment: JDEquipment[]
-    operations: JDFieldOperation[]
-    assets: JDAsset[]
-    farms: any[]
-  }> {
-    try {
-      const orgDetails = await this.axiosInstance.get(`/organizations/${organizationId}`)
-      const organization = orgDetails.data
-
-      const [fields, equipment, assets, farms] = await Promise.all([
-        this.getFields(organizationId),
-        this.getEquipment(organizationId),
-        this.getAssets(organizationId),
-        this.getFarms(organizationId),
-      ])
-
-      // Get all field operations for the organization
-      const operations = await this.getFieldOperationsForOrganization(organizationId);
-      
-      return {
-        organization,
-        fields,
-        equipment,
-        operations,
-        assets,
-        farms,
-      }
-    } catch (error: any) {
-      this.handleApiError(error, 'getComprehensiveFarmData')
-      throw new Error(
-        'Failed to fetch comprehensive farm data: ' +
-          (error.message || 'Unknown error')
-      )
-    }
-  }
-
-  /**
-   * Get farms for a specific organization (for connection testing - no mock fallback)
-   */
-  async getFarmsForConnectionTest(organizationId: string): Promise<any[]> {
-    try {
-      const response = await this.axiosInstance.get(`/organizations/${organizationId}/farms`)
-      return response.data.values || []
-    } catch (error: any) {
-      // Don't fall back to mock data for connection testing
-      throw error
-    }
-  }
-
-  /**
-   * Get assets for a specific organization (for connection testing - no mock fallback) 
-   */
-  async getAssetsForConnectionTest(organizationId: string): Promise<JDAsset[]> {
-    try {
-      const response = await this.axiosInstance.get(`/organizations/${organizationId}/assets`)
-      return response.data.values || []
-    } catch (error: any) {
-      // Don't fall back to mock data for connection testing
-      throw error
-    }
-  }
-
-  async getBoundariesForField(boundaryLink: string): Promise<JDBoundary | null> {
-    try {
-      if (!boundaryLink) {
-        console.warn(`No boundary link provided.`);
-        return null;
-      }
-
-      // The link is a full URL, so we need to make a request to it directly
-      const response = await this.axiosInstance.get(boundaryLink);
-      return response.data;
-    } catch (error) {
-      this.handleApiError(error, `getBoundariesForField`);
-      throw error;
-    }
-  }
-
-  async getFilesForConnectionTest(organizationId: string): Promise<any[]> {
-    try {
-      console.log(`🔍 Testing Files API access for organization ${organizationId}`);
-      
-      // First check if we have the files scope in our token
-      const token = await this.getValidAccessToken();
-      if (token) {
-        try {
-          const payload = token.split('.')[1];
-          const paddedPayload = payload + '='.repeat(4 - payload.length % 4);
-          const decoded = JSON.parse(Buffer.from(paddedPayload, 'base64').toString());
-          const scopes = decoded.scp || [];
-          
-          if (!scopes.includes('files')) {
-            console.log(`❌ Files scope not present in token. Available scopes:`, scopes);
-            throw new Error('MISSING_FILES_SCOPE');
-          }
-          
-          console.log(`✅ Files scope is present in token`);
-        } catch (decodeError) {
-          if (decodeError instanceof Error && decodeError.message === 'MISSING_FILES_SCOPE') {
-            throw decodeError;
-          }
-          console.log(`⚠️ Could not decode token to check scopes:`, decodeError);
-        }
-      }
-      
-      // Try the standard files endpoint
-      const response = await this.axiosInstance.get(`/organizations/${organizationId}/files`, {
-        params: { limit: 5 },
-        headers: {
-          'Accept': 'application/vnd.deere.axiom.v3+json',
-          'Content-Type': 'application/vnd.deere.axiom.v3+json',
-        }
-      });
-      
-      console.log(`✅ Files API successful, response:`, response.data);
-      return response.data?.values || [];
-    } catch (error: any) {
-      // Handle specific case where files scope is missing
-      if (error.message === 'MISSING_FILES_SCOPE') {
-        console.log(`❌ Files scope missing from token - need to re-authorize`);
-        throw new Error('Files scope not granted. Please re-authorize with files permissions.');
-      }
-      
-      console.log(`❌ Files API failed:`, {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        headers: error.response?.headers,
-        data: error.response?.data,
-        url: error.config?.url,
-        message: error.message
-      });
-      
-      // Check if this is a scope/permission issue
-      if (error.response?.status === 403 && error.response?.headers?.['response-code-details'] === 'ext_authz_denied') {
-        throw new Error('Files API access denied. Missing files scope or organization permissions.');
-      }
-      
-      this.handleApiError(error, 'getFilesForConnectionTest');
-      throw error;
-    }
-  }
 }
 
 // Singleton instance
@@ -1069,8 +1137,8 @@ let johnDeereClient: JohnDeereAPIClient | null = null
 
 export function getJohnDeereAPIClient(): JohnDeereAPIClient {
   if (!johnDeereClient) {
-    const environment = (process.env.JOHN_DEERE_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox'
+    const environment = (process.env.JOHN_DEERE_ENVIRONMENT as 'sandbox' | 'production') || 'production'
     johnDeereClient = new JohnDeereAPIClient(environment)
   }
   return johnDeereClient
-} 
+}

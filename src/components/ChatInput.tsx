@@ -5,7 +5,16 @@ import { Send, Paperclip, X, Upload, Loader2 } from 'lucide-react'
 import FileDropZone from './FileDropZone'
 
 interface ChatInputProps {
-  onSendMessage: (message: string, uploadedFiles?: { name: string; url: string }[]) => void;
+  onSendMessage: (message: string, uploadedFiles?: { 
+    name: string; 
+    url: string;
+    uploadSuccess?: boolean;
+    fileId?: string;
+    fileType?: string;
+    fileSize?: number;
+    message?: string;
+    endpoint?: string;
+  }[]) => void;
   disabled?: boolean
   organizationId?: string | null;
   placeholder?: string;
@@ -51,7 +60,17 @@ export default function ChatInput({ onSendMessage, disabled, organizationId, pla
           }
 
           const result = await response.json();
-          return { name: file.name, url: result.fileUrl };
+          return { 
+            name: file.name, 
+            url: result.fileUrl,
+            // Add detailed upload success information
+            uploadSuccess: result.uploadSuccess,
+            fileId: result.fileId,
+            fileType: result.fileType,
+            fileSize: result.fileSize,
+            message: result.message,
+            endpoint: result.endpoint
+          };
         });
 
         uploadedFiles = await Promise.all(uploadPromises);
