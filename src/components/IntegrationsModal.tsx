@@ -419,6 +419,23 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         'Integration with other ag platforms',
         'More features coming soon!'
       ]
+    },
+    {
+      id: 'claas',
+      name: 'CLAAS Telematics',
+      description: 'Connect your CLAAS equipment for real-time monitoring, performance analytics, and fleet management insights. (Coming soon)',
+      logo: '/assets/logos/claas-logo.png',
+      logoFallback: '🚜',
+      category: 'Equipment Management',
+      isConnected: false,
+      features: [
+        'Real-time equipment monitoring',
+        'Machine performance analytics',
+        'Fuel consumption tracking',
+        'Maintenance scheduling and alerts',
+        'Fleet management dashboard',
+        'More features coming soon!'
+      ]
     }
   ];
 
