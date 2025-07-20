@@ -926,8 +926,23 @@ Based on the current weather conditions for your ${fieldArea} field:
     
     // Use the new visualization parser - extract visualizations and clean content
     const { visualizations, cleanedContent } = parseVisualizationsFromResponse(response.content, functionResults)
-    const messageContent = cleanedContent
     
+    // 🧹 CLEAN UP: Remove any technical validation text that might have slipped through
+    let messageContent = cleanedContent
+    
+    // Remove validation confidence text patterns
+    messageContent = messageContent.replace(/Response Validation\s*\d+%?\s*confidence/gi, '')
+    messageContent = messageContent.replace(/The LLM response accurately[^.]+\./gi, '')
+    messageContent = messageContent.replace(/confidence:\s*\d+%?/gi, '')
+    messageContent = messageContent.replace(/validation (passed|failed|completed)/gi, '')
+    messageContent = messageContent.replace(/\b\d+%?\s*confidence\b/gi, '')
+    
+    // Clean up any resulting extra whitespace or newlines
+    messageContent = messageContent.replace(/\n\s*\n\s*\n/g, '\n\n') // Remove triple+ newlines
+    messageContent = messageContent.trim()
+    
+    console.log('🧹 Cleaned response content from', cleanedContent.length, 'to', messageContent.length, 'characters')
+
     console.log('📊 Auto-generated visualizations:', visualizations.length, 'items')
     if (visualizations.length > 0) {
       console.log('📊 Visualization data:', JSON.stringify(visualizations, null, 2))
