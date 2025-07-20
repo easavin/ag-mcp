@@ -165,44 +165,44 @@ export class JohnDeereTools {
     return [
       {
         name: 'get_organizations',
-        description: definitions[0].description,
-        inputSchema: definitions[0].inputSchema,
+        description: definitions[0]?.description || 'Get John Deere organizations',
+        inputSchema: definitions[0]?.inputSchema || { type: 'object', properties: {}, required: [] },
         handler: this.getOrganizations.bind(this)
       },
       {
         name: 'get_fields',
-        description: definitions[1].description,
-        inputSchema: definitions[1].inputSchema,
+        description: definitions[1]?.description || 'Get John Deere fields',
+        inputSchema: definitions[1]?.inputSchema || { type: 'object', properties: {}, required: [] },
         handler: this.getFields.bind(this)
       },
       {
         name: 'get_equipment',
-        description: definitions[2].description,
-        inputSchema: definitions[2].inputSchema,
+        description: definitions[2]?.description || 'Get John Deere equipment',
+        inputSchema: definitions[2]?.inputSchema || { type: 'object', properties: {}, required: [] },
         handler: this.getEquipment.bind(this)
       },
       {
         name: 'get_operations',
-        description: definitions[3].description,
-        inputSchema: definitions[3].inputSchema,
+        description: definitions[3]?.description || 'Get John Deere operations',
+        inputSchema: definitions[3]?.inputSchema || { type: 'object', properties: {}, required: [] },
         handler: this.getOperations.bind(this)
       },
       {
         name: 'get_field_boundary',
-        description: definitions[4].description,
-        inputSchema: definitions[4].inputSchema,
+        description: definitions[4]?.description || 'Get field boundary data',
+        inputSchema: definitions[4]?.inputSchema || { type: 'object', properties: {}, required: [] },
         handler: this.getFieldBoundary.bind(this)
       },
       {
         name: 'list_john_deere_files',
-        description: definitions[5].description,
-        inputSchema: definitions[5].inputSchema,
+        description: definitions[5]?.description || 'List John Deere files',
+        inputSchema: definitions[5]?.inputSchema || { type: 'object', properties: {}, required: [] },
         handler: this.listFiles.bind(this)
       },
       {
         name: 'upload_file_to_john_deere',
-        description: definitions[6].description,
-        inputSchema: definitions[6].inputSchema,
+        description: definitions[6]?.description || 'Upload file to John Deere',
+        inputSchema: definitions[6]?.inputSchema || { type: 'object', properties: {}, required: [] },
         handler: this.uploadFile.bind(this)
       }
     ]
