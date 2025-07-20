@@ -873,54 +873,52 @@ Based on the current weather conditions for your ${fieldArea} field:
     
     if (enableReasoning) {
       console.log('🤔 Starting reasoning validation...')
-      const validation = await llmService.validateResponse(
-        originalUserQuery,
-        response,
-        functionResults
-      )
+      try {
+        const validation = await llmService.validateResponse(
+          originalUserQuery,
+          response,
+          functionResults
+        )
 
-      // Add reasoning to response metadata
-      response.reasoning = validation
+        // Add reasoning to response metadata
+        response.reasoning = validation
 
-      // If validation fails and confidence is low, attempt correction
-      if (!validation.isValid && validation.confidence < 0.7) {
-        console.log('🔄 Response validation failed, attempting correction...')
-        console.log('❌ Validation issue:', validation.explanation)
-        
-        try {
-          const correctedResponse = await llmService.generateCorrectedResponse(
-            chatMessages,
-            response,
-            validation,
-            {
-              maxTokens: options?.maxTokens || 4000,
-              temperature: options?.temperature || 0.7,
-              systemPrompt: systemPrompt,
-              enableFunctions: enableFunctions,
+        // If validation fails and confidence is low, attempt correction
+        if (!validation.isValid && validation.confidence < 0.7) {
+          console.log('🔄 Response validation failed, attempting correction...')
+          console.log('❌ Validation issue:', validation.explanation)
+          
+          try {
+            const correctedResponse = await llmService.generateCorrectedResponse(
+              chatMessages,
+              response,
+              validation,
+              {
+                maxTokens: options?.maxTokens || 4000,
+                temperature: options?.temperature || 0.7,
+                systemPrompt: systemPrompt,
+                enableFunctions: enableFunctions,
+              }
+            )
+            
+            // Use corrected response if it's better
+            if (correctedResponse.content && correctedResponse.content.length > 0) {
+              console.log('✅ Using corrected response')
+              response = correctedResponse
             }
-          )
-          
-          // Keep original function calls and results but use corrected content
-          correctedResponse.functionCalls = response.functionCalls
-          correctedResponse.reasoning = {
-            ...validation,
-            explanation: `Original response corrected: ${validation.explanation}`
+          } catch (correctionError) {
+            console.error('❌ Correction attempt failed:', correctionError)
+            // Continue with original response
           }
-          
-          response = correctedResponse
-          console.log('✅ Response corrected successfully')
-        } catch (correctionError) {
-          console.error('❌ Failed to generate correction:', correctionError)
-          // Keep original response if correction fails
-          console.log('⚠️ Using original response despite validation failure')
+        } else {
+          console.log('✅ Response validation passed:', validation.explanation)
         }
-      } else if (validation.isValid) {
-        console.log('✅ Response validation passed:', validation.explanation)
-      } else {
-        console.log('⚠️ Response validation failed but confidence too high for auto-correction:', validation.confidence)
+      } catch (validationError) {
+        console.error('❌ Reasoning validation failed:', validationError)
+        // Continue without validation
       }
     } else {
-      console.log('⚠️ Reasoning validation disabled')
+      console.log('⚠️ Reasoning validation disabled (set ENABLE_REASONING_VALIDATION=true to enable)')
     }
 
     // Parse potential visualization data from LLM response

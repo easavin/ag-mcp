@@ -193,9 +193,9 @@ export class LLMService {
   ): Promise<LLMResponse> {
     const { maxTokens = 4000, temperature = 0.7, systemPrompt, enableFunctions = true } = options || {}
 
-    // For function calls, prefer OpenAI as it's more reliable
-    // For regular chat, try Gemini first
-    if (this.geminiClient && !enableFunctions) {
+    // Try Gemini first for all requests (including function calls)
+    // Gemini 2.0 Flash has excellent function calling capabilities
+    if (this.geminiClient) {
       try {
         console.log('Attempting to use Gemini 2.0 Flash...')
         const result = await this.generateWithGemini(messages, {

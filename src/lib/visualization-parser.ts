@@ -76,14 +76,53 @@ export function parseVisualizationsFromResponse(content: string, functionResults
   
   while ((standaloneMatch = standaloneJsonRegex.exec(content)) !== null) {
     try {
-      const jsonData = JSON.parse(standaloneMatch[0])
+      // Attempt to parse the JSON - if it fails, try to fix common issues
+      let jsonString = standaloneMatch[0]
+      let jsonData
       
-      if (jsonData.content && jsonData.visualizations && Array.isArray(jsonData.visualizations)) {
+      try {
+        jsonData = JSON.parse(jsonString)
+      } catch (initialError) {
+        console.log('⚠️ Initial JSON parse failed, attempting to fix common issues...')
+        
+        // Try to fix common JSON issues
+        // 1. Fix trailing commas
+        jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1')
+        
+        // 2. Fix unescaped quotes in strings
+        jsonString = jsonString.replace(/"([^"]*)"([^",}\]]*)"([^"]*)":/g, '"$1\\"$2\\"$3":')
+        
+        // 3. Fix missing quotes around property names
+        jsonString = jsonString.replace(/(\w+):/g, '"$1":')
+        
+        // 4. Fix single quotes to double quotes
+        jsonString = jsonString.replace(/'/g, '"')
+        
+        try {
+          jsonData = JSON.parse(jsonString)
+          console.log('✅ Successfully fixed JSON syntax issues')
+        } catch (secondError) {
+          console.error('❌ Could not fix JSON parsing issues:', secondError)
+          console.log('🔍 Problematic JSON string:', jsonString.substring(0, 200) + '...')
+          continue // Skip this JSON block
+        }
+      }
+      
+      if (jsonData && jsonData.content && jsonData.visualizations && Array.isArray(jsonData.visualizations)) {
         console.log('✅ Found standalone JSON with visualizations array:', jsonData.visualizations.length, 'items')
+        
+        // Validate visualizations before adding them
+        const validVisualizations = jsonData.visualizations.filter((viz: any) => {
+          if (!viz.type || !viz.title) {
+            console.warn('⚠️ Skipping invalid visualization (missing type or title):', viz)
+            return false
+          }
+          return true
+        })
         
         // Use the content from JSON and remove the JSON block
         cleanedContent = jsonData.content || cleanedContent
-        visualizations.push(...jsonData.visualizations)
+        visualizations.push(...validVisualizations)
         jsonBlocks.push(standaloneMatch[0])
         
         // Remove this JSON block from content
@@ -91,6 +130,8 @@ export function parseVisualizationsFromResponse(content: string, functionResults
       }
     } catch (error) {
       console.error('❌ Error parsing standalone JSON:', error)
+      console.log('🔍 Failed JSON content:', standaloneMatch[0].substring(0, 200) + '...')
+      // Continue processing instead of failing completely
     }
   }
   

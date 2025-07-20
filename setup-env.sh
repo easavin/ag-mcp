@@ -24,6 +24,10 @@ GOOGLE_API_KEY=your_google_api_key_here
 
 # OpenAI API Key (fallback) - Get from https://platform.openai.com/
 OPENAI_API_KEY=your_openai_api_key_here
+
+# Response Quality Control
+# Enable LLM response validation to improve answer quality
+ENABLE_REASONING_VALIDATION=true
 ENVEOF
 
 echo "✅ Created .env.local file"
