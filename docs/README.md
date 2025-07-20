@@ -27,6 +27,15 @@ Step-by-step guides for development and deployment.
 - **[Environment Setup](./ENVIRONMENT_SETUP.md)** - Development environment configuration
 - **[Phase 3 Setup](./PHASE3_SETUP.md)** - Advanced setup instructions
 
+### MCP Architecture Documentation
+Comprehensive documentation for the Model Context Protocol implementation.
+
+- **[MCP Implementation Plan](./MCP_IMPLEMENTATION_PLAN.md)** - Complete roadmap for transitioning to distributed MCP architecture
+- **[MCP Testing Strategy](./MCP_TESTING_STRATEGY.md)** - Comprehensive testing approach for MCP servers and integration
+- **[MCP Migration Guide](./MCP_MIGRATION_GUIDE.md)** - Step-by-step migration procedures and rollback plans
+- **[MCP Architecture Overview](./MCP_ARCHITECTURE_OVERVIEW.md)** - High-level architectural design and component descriptions
+- **[MCP Quick Reference](./MCP_QUICK_REFERENCE.md)** - Essential commands, configurations, and troubleshooting guide
+
 ## 🚀 Quick Start
 
 ### For Developers
@@ -51,6 +60,12 @@ Step-by-step guides for development and deployment.
 2. Follow the corresponding integration plan
 3. Review multi-platform architecture in Climate FieldView plan
 
+### For MCP Architecture Implementation
+1. Read [MCP Architecture Overview](./MCP_ARCHITECTURE_OVERVIEW.md) for system design
+2. Follow [MCP Implementation Plan](./MCP_IMPLEMENTATION_PLAN.md) for step-by-step development
+3. Use [MCP Testing Strategy](./MCP_TESTING_STRATEGY.md) for comprehensive testing
+4. Execute [MCP Migration Guide](./MCP_MIGRATION_GUIDE.md) for production deployment
+
 ## 🔧 Development Workflow
 
 ### Phase 1: Weather Integration (Current)
@@ -69,6 +84,7 @@ Step-by-step guides for development and deployment.
 
 ## 📊 Integration Status
 
+### Platform Integrations
 | Platform | Status | API Reference | Integration Plan |
 |----------|--------|---------------|------------------|
 | Weather (Open-Meteo) | ✅ Complete | [Reference](./WEATHER_API_REFERENCE.md) | [Plan](./WEATHER_INTEGRATION_PLAN.md) |
@@ -76,6 +92,14 @@ Step-by-step guides for development and deployment.
 | Auravant | ✅ Complete | [Reference](./AURAVANT_API_REFERENCE.md) | [Plan](./AURAVANT_INTEGRATION_PLAN.md) |
 | EU Commission | ✅ Complete | [Reference](./EU_COMMISSION_API_REFERENCE.md) | - |
 | Climate FieldView | 📋 Planned | [Reference](./CLIMATE_FIELDVIEW_API_REFERENCE.md) | [Plan](./CLIMATE_FIELDVIEW_INTEGRATION_PLAN.md) |
+
+### Architecture Improvements
+| Component | Status | Documentation | Implementation Plan |
+|-----------|--------|---------------|-------------------|
+| MCP Architecture | 📋 Planned | [Overview](./MCP_ARCHITECTURE_OVERVIEW.md) | [Implementation](./MCP_IMPLEMENTATION_PLAN.md) |
+| Distributed Servers | 📋 In Progress | [Testing Strategy](./MCP_TESTING_STRATEGY.md) | [Migration Guide](./MCP_MIGRATION_GUIDE.md) |
+| Performance Optimization | 📋 Planned | - | - |
+| Service Mesh | 📋 Future | - | - |
 
 ## 🤝 Contributing to Documentation
 
