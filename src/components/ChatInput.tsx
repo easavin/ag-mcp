@@ -125,7 +125,6 @@ export default function ChatInput({ onSendMessage, disabled, organizationId, pla
   useEffect(() => {
     if (!disabled && autoFocus && textareaRef.current) {
       const timer = setTimeout(() => {
-        console.log('🎯 Auto-focusing chat input after response received');
         textareaRef.current?.focus();
       }, 300); // Increased delay to ensure the UI has fully updated
       

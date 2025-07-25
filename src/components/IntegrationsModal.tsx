@@ -147,7 +147,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       const shouldBeConnected = selectedDataSources.includes('eu-commission');
-      console.log('🇪🇺 EU Commission: Syncing state - should be connected:', shouldBeConnected, 'current sources:', selectedDataSources);
       setEuCommissionConnected(shouldBeConnected);
     }, 100); // Small delay to prevent rapid state changes
     
@@ -158,7 +157,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       const shouldBeConnected = selectedDataSources.includes('usda');
-      console.log('🇺🇸 USDA: Syncing state - should be connected:', shouldBeConnected, 'current sources:', selectedDataSources);
       setUsdaConnected(shouldBeConnected);
     }, 100); // Small delay to prevent rapid state changes
     
@@ -196,8 +194,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   // Listen for auth completion
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      console.log('📨 IntegrationsModal - Received message:', event.data, 'from origin:', event.origin)
-      
       // Ensure the message is from our domain
       if (event.origin !== window.location.origin) {
         console.warn('⚠️ IntegrationsModal - Ignoring message from different origin:', event.origin)
@@ -206,13 +202,10 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
 
       if (event.data.type === 'JOHN_DEERE_AUTH_CALLBACK') {
         const { code, state } = event.data
-        console.log('✅ IntegrationsModal - Received OAuth callback with code:', code?.substring(0, 10) + '...', 'state:', state)
         
         try {
-          console.log('🔄 IntegrationsModal - Exchanging code for tokens...')
           // Use the auth store's callback handler
           await handleJohnDeereCallback(code, state)
-          console.log('🎉 IntegrationsModal - OAuth flow completed successfully!')
           
           // Refresh connection status
           await checkConnectionStatus()
@@ -241,15 +234,12 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
 
   const handleJohnDeereConnect = async () => {
     setIsConnecting(true);
-    console.log('🚀 IntegrationsModal - Starting John Deere OAuth flow...')
     
     try {
-      console.log('📡 IntegrationsModal - Fetching authorization URL...')
       const response = await fetch('/api/auth/johndeere/authorize', { method: 'POST' });
       const data = await response.json();
       
       if (data.authorizationUrl) {
-        console.log('🔗 IntegrationsModal - Opening popup with URL:', data.authorizationUrl)
         const authWindow = window.open(
           data.authorizationUrl,
           'JohnDeereAuth',
@@ -260,8 +250,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
           console.error('❌ IntegrationsModal - Failed to open popup window')
           alert('Please allow pop-ups for this site to connect with John Deere.');
           setIsConnecting(false);
-        } else {
-          console.log('✅ IntegrationsModal - Popup opened successfully, waiting for OAuth callback...')
         }
       } else {
         throw new Error('No authorization URL received');
@@ -296,7 +284,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       
       if (response.ok) {
         setConnectionStatus(data);
-        console.log('✅ IntegrationsModal - Updated connection status:', data);
       } else {
         setConnectionStatus({ status: 'error', error: data.error || 'Failed to check connection status' });
       }

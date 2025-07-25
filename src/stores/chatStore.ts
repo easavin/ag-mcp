@@ -340,30 +340,19 @@ export const useChatStore = create<ChatState>()(
       },
 
       loadSessions: async () => {
-        console.log('🔄 Starting loadSessions...')
         set({ isLoading: true, error: null })
         try {
-          console.log('📡 Fetching sessions from API...')
           const response = await fetch('/api/chat/sessions')
-          
-          console.log('📡 Response status:', response.status, response.ok)
           
           if (!response.ok) {
             console.error('❌ API request failed:', response.status, response.statusText)
             throw new Error('Failed to load sessions')
           }
 
-          console.log('📦 Parsing JSON response...')
           const rawSessions = await response.json()
-          console.log('📦 Raw sessions:', rawSessions.length, 'sessions received')
-          
-          console.log('🔄 Converting dates...')
           const sessions: ChatSession[] = rawSessions.map(convertDates)
-          console.log('✅ Sessions converted successfully:', sessions.length)
           
-          console.log('💾 Updating store state...')
           set({ sessions, isLoading: false })
-          console.log('✅ loadSessions completed successfully')
         } catch (error) {
           console.error('❌ Error in loadSessions:', error)
           console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace')

@@ -51,11 +51,11 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   // Content Security Policy
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.js requires unsafe-eval and unsafe-inline
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms", // Next.js requires unsafe-eval and unsafe-inline, Clarity domains
     "style-src 'self' 'unsafe-inline'", // Tailwind requires unsafe-inline
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://sandboxapi.deere.com https://partnersandbox.deere.com https://partnerapi.deere.com https://equipmentapi.deere.com https://signin.johndeere.com",
+    "connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://sandboxapi.deere.com https://partnersandbox.deere.com https://partnerapi.deere.com https://equipmentapi.deere.com https://signin.johndeere.com https://www.clarity.ms https://*.clarity.ms",
     "frame-ancestors 'none'",
   ].join('; ')
   
@@ -85,6 +85,11 @@ function addCorsHeaders(response: NextResponse, request: NextRequest): NextRespo
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  
+  // Skip middleware for favicon requests
+  if (pathname === '/favicon.ico') {
+    return NextResponse.next()
+  }
   
   // Handle CORS preflight requests
   if (request.method === 'OPTIONS') {
