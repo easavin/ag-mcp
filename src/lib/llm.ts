@@ -1,29 +1,36 @@
 import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant' | 'system' | 'function'
   content: string
-  fileAttachments?: string[]
+  fileAttachments?: {
+    filename: string
+    fileType: string
+    fileSize: number
+  }[]
 }
 
 export interface LLMResponse {
   content: string
   model: string
   usage?: {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
   }
-  functionCalls?: {
-    name: string
-    arguments: any
-  }[]
+  functionCalls?: FunctionCall[]
   reasoning?: {
     isValid: boolean
     confidence: number
     explanation: string
     suggestions?: string[]
   }
+}
+
+export interface FunctionCall {
+  name: string
+  arguments: any
 }
 
 export interface LLMFunction {
@@ -36,46 +43,147 @@ export interface LLMFunction {
   }
 }
 
-export interface FunctionCall {
-  name: string
-  arguments: any
+interface LLMConfig {
+  gemini: {
+    apiKey: string
+    model: string
+  }
+  openai: {
+    apiKey: string
+    model: string
+  }
 }
 
+// John Deere specific functions
+const JOHN_DEERE_FUNCTIONS: LLMFunction[] = [
+  {
+    name: 'getOrganizations',
+    description: 'Get all organizations for the authenticated user',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'getFields',
+    description: 'Get all fields for an organization. Automatically fetches organization if needed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID (optional - will auto-fetch if not provided)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'getEquipment',
+    description: 'Get all equipment/machines for an organization. Automatically fetches organization if needed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID (optional - will auto-fetch if not provided)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'getOperations',
+    description: 'Get all field operations for the user. Automatically fetches organization if needed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID (optional - will auto-fetch if not provided)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'getComprehensiveData',
+    description: 'Get comprehensive farm data including fields, equipment, and operations for an organization',
+    parameters: {
+      type: 'object',
+      properties: {
+        orgId: {
+          type: 'string',
+          description: 'Organization ID'
+        }
+      },
+      required: ['orgId']
+    }
+  }
+]
+
+// Import MCP tools (will be added via imports in the actual file)
+let ALL_MCP_TOOLS: any[] = []
+try {
+  const mcpModule = require('@/lib/mcp-tools')
+  ALL_MCP_TOOLS = mcpModule.ALL_MCP_TOOLS || []
+} catch (error) {
+  console.warn('⚠️ MCP tools not available:', error)
+}
+
+// Convert MCP tools to function format for LLM
+function convertMCPToolsToFunctions(mcpTools: any[]): LLMFunction[] {
+  return mcpTools.map(tool => ({
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters
+  }))
+}
+
+// All available functions (John Deere + MCP Tools)
+const ALL_FUNCTIONS = [
+  ...JOHN_DEERE_FUNCTIONS,
+  ...convertMCPToolsToFunctions(ALL_MCP_TOOLS)
+]
+
 export class LLMService {
-  private openai: OpenAI | null = null
+  private geminiClient: GoogleGenerativeAI | null = null
+  private openaiClient: OpenAI | null = null
+  private config: LLMConfig
 
   constructor() {
-    this.initializeProviders()
-  }
+    this.config = {
+      gemini: {
+        apiKey: process.env.GOOGLE_API_KEY || '',
+        model: 'gemini-2.0-flash-exp', // Latest Gemini 2.0 Flash model
+      },
+      openai: {
+        apiKey: process.env.OPENAI_API_KEY || '',
+        model: 'gpt-4o-mini', // OpenAI GPT-4o-mini as fallback
+      },
+    }
 
-  private initializeProviders() {
-    // Initialize OpenAI
-    if (process.env.OPENAI_API_KEY) {
-      this.openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+    // Initialize clients if API keys are available
+    if (this.config.gemini.apiKey) {
+      this.geminiClient = new GoogleGenerativeAI(this.config.gemini.apiKey)
+      console.log('✅ Gemini initialized')
+    } else {
+      console.warn('⚠️ Google API key not found')
+    }
+
+    if (this.config.openai.apiKey) {
+      this.openaiClient = new OpenAI({
+        apiKey: this.config.openai.apiKey,
       })
       console.log('✅ OpenAI initialized')
     } else {
       console.warn('⚠️ OpenAI API key not found')
-      throw new Error('OpenAI API key is required')
-    }
-  }
-
-  getAvailableProviders(): { openai: boolean } {
-    return {
-      openai: !!this.openai
-    }
-  }
-
-  getConfig() {
-    return {
-      preferredProvider: 'openai',
-      availableProviders: this.getAvailableProviders(),
     }
   }
 
   /**
-   * Generate chat completion using OpenAI
+   * Generate a chat completion using Gemini as primary, OpenAI as fallback
    */
   async generateChatCompletion(
     messages: ChatMessage[],
@@ -87,73 +195,159 @@ export class LLMService {
       functions?: LLMFunction[]
     }
   ): Promise<LLMResponse> {
-    const maxTokens = options?.maxTokens || 4000
-    const temperature = options?.temperature || 0.7
-    const systemPrompt = options?.systemPrompt
-    const enableFunctions = options?.enableFunctions || false
-    const functions = options?.functions || []
+    const { maxTokens = 4000, temperature = 0.7, systemPrompt, enableFunctions = true, functions } = options || {}
+
+    // Use provided functions or default to all functions
+    const functionsToUse = functions || ALL_FUNCTIONS
 
     console.log('🤖 Generating chat completion...', {
-      provider: 'openai',
       messageCount: messages.length,
       maxTokens,
       temperature,
       enableFunctions,
-      functionCount: functions.length
+      functionCount: functionsToUse.length
     })
 
-    if (!this.openai) {
-      throw new Error('OpenAI not initialized')
+    // Try Gemini first for all requests (including function calls)
+    // Gemini 2.0 Flash has excellent function calling capabilities
+    if (this.geminiClient) {
+      try {
+        console.log('Attempting to use Gemini 2.0 Flash...')
+        const result = await this.generateWithGemini(messages, {
+          maxTokens,
+          temperature,
+          systemPrompt,
+          enableFunctions,
+          functions: functionsToUse,
+        })
+        
+        // Check if Gemini returned an empty response
+        if (!result.content && (!result.functionCalls || result.functionCalls.length === 0)) {
+          console.warn('⚠️ Gemini returned empty response, falling back to OpenAI')
+          throw new Error('Gemini returned empty response')
+        }
+        
+        return result
+      } catch (error) {
+        console.warn('Gemini failed, falling back to OpenAI:', error)
+      }
     }
 
-    return await this.generateOpenAICompletion(messages, {
-      maxTokens,
-      temperature,
-      systemPrompt,
-      enableFunctions,
-      functions
-    })
+    // Fallback to OpenAI
+    if (this.openaiClient) {
+      try {
+        console.log('Using OpenAI GPT-4o-mini as fallback...')
+        return await this.generateWithOpenAI(messages, {
+          maxTokens,
+          temperature,
+          systemPrompt,
+          enableFunctions,
+          functions: functionsToUse,
+        })
+      } catch (error) {
+        console.error('OpenAI also failed:', error)
+        throw new Error('Both LLM providers failed')
+      }
+    }
+
+    throw new Error('No LLM providers configured')
   }
 
   /**
-   * Generate completion using OpenAI
+   * Generate response using Google Gemini
    */
-  private async generateOpenAICompletion(
+  private async generateWithGemini(
     messages: ChatMessage[],
     options: {
       maxTokens: number
       temperature: number
       systemPrompt?: string
-      enableFunctions: boolean
+      enableFunctions?: boolean
       functions: LLMFunction[]
     }
   ): Promise<LLMResponse> {
-    if (!this.openai) {
-      throw new Error('OpenAI not initialized')
+    if (!this.geminiClient) {
+      throw new Error('Gemini client not initialized')
+    }
+
+    const modelConfig: any = {
+      model: this.config.gemini.model,
+      generationConfig: {
+        maxOutputTokens: options.maxTokens,
+        temperature: options.temperature,
+      },
+    }
+
+    // Add function calling if enabled
+    if (options.enableFunctions && options.functions.length > 0) {
+      console.log('🔧 Adding functions to Gemini:', options.functions.length)
+      modelConfig.tools = [{
+        functionDeclarations: options.functions
+      }]
+    }
+
+    const model = this.geminiClient.getGenerativeModel(modelConfig)
+
+    // Convert messages to Gemini format
+    const geminiMessages = this.convertToGeminiFormat(messages, options.systemPrompt)
+    console.log('📤 Sending to Gemini:', geminiMessages.length, 'messages')
+
+    const result = await model.generateContent({
+      contents: geminiMessages,
+    })
+
+    const response = await result.response
+    console.log('📥 Gemini response status:', response)
+    
+    const text = response.text()
+    console.log('📝 Gemini response text length:', text?.length || 0)
+
+    // Check for function calls
+    const functionCalls: FunctionCall[] = []
+    if (response.functionCalls && Array.isArray(response.functionCalls) && response.functionCalls.length > 0) {
+      for (const call of response.functionCalls) {
+        functionCalls.push({
+          name: call.name,
+          arguments: call.args || {}
+        })
+      }
+    }
+
+    return {
+      content: text,
+      model: this.config.gemini.model,
+      functionCalls,
+      usage: {
+        promptTokens: response.usageMetadata?.promptTokenCount || 0,
+        completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
+        totalTokens: response.usageMetadata?.totalTokenCount || 0,
+      },
+    }
+  }
+
+  /**
+   * Generate response using OpenAI
+   */
+  private async generateWithOpenAI(
+    messages: ChatMessage[],
+    options: {
+      maxTokens: number
+      temperature: number
+      systemPrompt?: string
+      enableFunctions?: boolean
+      functions: LLMFunction[]
+    }
+  ): Promise<LLMResponse> {
+    if (!this.openaiClient) {
+      throw new Error('OpenAI client not initialized')
     }
 
     // Prepare messages for OpenAI format
-    const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
-
-    // Add system prompt if provided
-    if (options.systemPrompt) {
-      openaiMessages.push({
-        role: 'system',
-        content: options.systemPrompt
-      })
-    }
-
-    // Add chat messages
-    messages.forEach(msg => {
-      openaiMessages.push({
-        role: msg.role,
-        content: msg.content
-      })
-    })
+    const openaiMessages = this.convertToOpenAIFormat(messages, options.systemPrompt)
 
     // Prepare function calling if enabled
     const completionOptions: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
+      model: this.config.openai.model,
       messages: openaiMessages,
       max_tokens: options.maxTokens,
       temperature: options.temperature,
@@ -178,7 +372,7 @@ export class LLMService {
       toolCount: completionOptions.tools?.length || 0
     })
 
-    const response = await this.openai.chat.completions.create(completionOptions)
+    const response = await this.openaiClient.chat.completions.create(completionOptions)
 
     const choice = response.choices[0]
     if (!choice) {
@@ -186,7 +380,7 @@ export class LLMService {
     }
 
     // Extract function calls if present
-    const functionCalls: { name: string; arguments: any }[] = []
+    const functionCalls: FunctionCall[] = []
     if (choice.message.tool_calls) {
       for (const toolCall of choice.message.tool_calls) {
         if (toolCall.type === 'function') {
@@ -207,11 +401,131 @@ export class LLMService {
       content: choice.message.content || '',
       model: response.model,
       usage: response.usage ? {
-        prompt_tokens: response.usage.prompt_tokens,
-        completion_tokens: response.usage.completion_tokens,
-        total_tokens: response.usage.total_tokens
+        promptTokens: response.usage.prompt_tokens,
+        completionTokens: response.usage.completion_tokens,
+        totalTokens: response.usage.total_tokens
       } : undefined,
       functionCalls: functionCalls.length > 0 ? functionCalls : undefined
+    }
+  }
+
+  /**
+   * Convert messages to Gemini format
+   */
+  private convertToGeminiFormat(
+    messages: ChatMessage[],
+    systemPrompt?: string
+  ): Array<{ role: string; parts: Array<{ text: string }> }> {
+    const geminiMessages: Array<{ role: string; parts: Array<{ text: string }> }> = []
+
+    // Add system prompt as first user message if provided
+    if (systemPrompt) {
+      geminiMessages.push({
+        role: 'user',
+        parts: [{ text: systemPrompt }],
+      })
+      geminiMessages.push({
+        role: 'model',
+        parts: [{ text: 'I understand. I will help you with your farming operations and data analysis.' }],
+      })
+    }
+
+    // Convert chat messages
+    for (const message of messages) {
+      let content = message.content
+
+      // Add file attachment information if present
+      if (message.fileAttachments && message.fileAttachments.length > 0) {
+        const fileInfo = message.fileAttachments
+          .map(file => `[File: ${file.filename} (${file.fileType}, ${(file.fileSize / 1024).toFixed(1)}KB)]`)
+          .join('\n')
+        content = `${content}\n\n${fileInfo}`
+      }
+
+      // Handle function messages - convert to user messages with clear function result formatting
+      if (message.role === 'function') {
+        content = `Function result: ${content}`
+      }
+
+      geminiMessages.push({
+        role: message.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: content }],
+      })
+    }
+
+    return geminiMessages
+  }
+
+  /**
+   * Convert messages to OpenAI format
+   */
+  private convertToOpenAIFormat(
+    messages: ChatMessage[],
+    systemPrompt?: string
+  ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
+    const openaiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
+
+    // Add system prompt if provided
+    if (systemPrompt) {
+      openaiMessages.push({
+        role: 'system',
+        content: systemPrompt,
+      })
+    }
+
+    // Convert chat messages
+    for (const message of messages) {
+      let content = message.content
+
+      // Add file attachment information if present
+      if (message.fileAttachments && message.fileAttachments.length > 0) {
+        const fileInfo = message.fileAttachments
+          .map(file => `[File: ${file.filename} (${file.fileType}, ${(file.fileSize / 1024).toFixed(1)}KB)]`)
+          .join('\n')
+        content = `${content}\n\n${fileInfo}`
+      }
+
+      // Convert function messages to user messages with clear formatting
+      if (message.role === 'function') {
+        openaiMessages.push({
+          role: 'user',
+          content: `Function result: ${content}`,
+        })
+      } else {
+        openaiMessages.push({
+          role: message.role as 'user' | 'assistant' | 'system',
+          content,
+        })
+      }
+    }
+
+    return openaiMessages
+  }
+
+  /**
+   * Check which LLM providers are available
+   */
+  getAvailableProviders(): { gemini: boolean; openai: boolean } {
+    return {
+      gemini: !!this.geminiClient,
+      openai: !!this.openaiClient,
+    }
+  }
+
+  /**
+   * Get the current configuration
+   */
+  getConfig(): LLMConfig {
+    return {
+      ...this.config,
+      gemini: {
+        ...this.config.gemini,
+        apiKey: this.config.gemini.apiKey ? '[REDACTED]' : '',
+      },
+      openai: {
+        ...this.config.openai,
+        apiKey: this.config.openai.apiKey ? '[REDACTED]' : '',
+      },
     }
   }
 
