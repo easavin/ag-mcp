@@ -36,6 +36,11 @@ export interface LLMFunction {
   }
 }
 
+export interface FunctionCall {
+  name: string
+  arguments: any
+}
+
 export class LLMService {
   private openai: OpenAI | null = null
 
