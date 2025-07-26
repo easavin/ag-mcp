@@ -118,8 +118,6 @@ function ChatInterface() {
     }
   }
 
-
-
   // Enhanced data source selection handler that re-processes last farm data question
   const handleDataSourceSelect = async (sourceId: string, dataType: string) => {
     console.log('🔧 Data source selected:', sourceId, 'for', dataType)
@@ -204,7 +202,7 @@ function ChatInterface() {
                       justifyContent: 'center',
                       gap: '12px',
                       flexWrap: 'wrap',
-                      marginBottom: '48px'
+                      marginBottom: '64px' // Increased from 48px to 64px for more space
                     }}>
                       <button
                         onClick={() => {
@@ -276,7 +274,7 @@ function ChatInterface() {
 
                   {/* New content section with title and scrolling logos */}
                   <div style={{
-                    marginBottom: '32px'
+                    marginBottom: '48px' // Increased bottom margin for better spacing
                   }}>
                     <h2 style={{
                       fontSize: '24px',
@@ -289,7 +287,7 @@ function ChatInterface() {
                     </h2>
                     
                     <div style={{ width: '100%', margin: '0 auto' }}>
-                      <ScrollingLogos />
+                      <ScrollingLogos speed={0.8} />
                     </div>
                   </div>
                 </div>
@@ -358,4 +356,3 @@ function ChatInterface() {
 export default function Home() {
   return <ChatInterface />
 }
-

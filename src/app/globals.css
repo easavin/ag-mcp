@@ -1846,3 +1846,125 @@ input[type="file"] {
 .jd-org-list {
   @apply list-disc list-inside text-gray-700 bg-white p-4 rounded-lg border border-gray-200;
 }
+/* Prevent horizontal scroll on all containers */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Ensure main containers don't cause overflow */
+.chat-layout,
+.responsive-layout,
+.main-content {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* ScrollingLogos specific container fixes */
+.scrolling-logos-container {
+  max-width: 100vw;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Welcome section mobile improvements */
+.welcome-container {
+  max-width: 100%;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  box-sizing: border-box;
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 767px) {
+  /* Prevent any element from causing horizontal scroll */
+  * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Ensure layout containers are properly constrained */
+  .chat-main {
+    padding: 1rem 0.5rem;
+    overflow-x: hidden;
+  }
+  
+  .messages-content {
+    padding: 16px 8px;
+    max-width: 100%;
+  }
+  
+  /* Welcome area mobile optimizations */
+  .welcome-container {
+    padding: 1rem 0.5rem 2rem 0.5rem;
+    max-width: 100%;
+  }
+  
+  .welcome-title {
+    font-size: 1.75rem;
+    line-height: 1.2;
+    text-align: center;
+    word-wrap: break-word;
+  }
+  
+  .welcome-subtitle {
+    font-size: 0.95rem;
+    line-height: 1.4;
+    text-align: center;
+    word-wrap: break-word;
+    max-width: 100%;
+  }
+  
+  /* Input container mobile fixes */
+  .chat-input-container {
+    padding: 1rem 0.5rem;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .chat-input-wrapper {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Modal mobile fixes */
+  .modal-content {
+    width: 95%;
+    max-width: calc(100vw - 2rem);
+    margin: 1rem;
+    box-sizing: border-box;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .welcome-title {
+    font-size: 1.5rem;
+  }
+  
+  .welcome-subtitle {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .scrolling-logos-container {
+    padding: 0 0.25rem;
+  }
+}
+
+/* Landscape mobile orientation */
+@media (max-height: 500px) and (orientation: landscape) {
+  .welcome-container {
+    padding: 0.5rem;
+  }
+  
+  .welcome-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .welcome-subtitle {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+}
