@@ -34,6 +34,7 @@ export default function ScrollingLogos({ speed = 1, className = '' }: ScrollingL
     const newContainerWidth = containerRect.width
     
     // Calculate the width of one set of logos (logo width + gap)
+    // Calculate exactly one set width for perfect looping
     const logoWidth = 40
     const gap = 72
     const singleLogoWidth = logoWidth + gap
@@ -82,7 +83,8 @@ export default function ScrollingLogos({ speed = 1, className = '' }: ScrollingL
     const animate = () => {
       currentOffset += speed
       
-      // Use modulo for seamless loop
+      // Use modulo for seamless loop - the key is to reset exactly at the width of one complete set
+      // This ensures no gap appears between the end of first set and start of second set
       const displayOffset = currentOffset % logoSetWidth
       
       setOffset(displayOffset)
@@ -151,10 +153,39 @@ export default function ScrollingLogos({ speed = 1, className = '' }: ScrollingL
           </div>
         ))}
         
-        {/* Duplicate set for seamless loop */}
+        {/* Second set for seamless loop */}
         {logos.map((logo, index) => (
           <div 
             key={`second-${index}`} 
+            className="logo-item"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              minWidth: '40px',
+            }}
+          >
+            <Image
+              src={logo.src}
+              alt={logo.alt}
+              width={logo.width}
+              height={logo.height}
+              style={{ 
+                objectFit: 'contain',
+                maxWidth: '100%',
+                height: 'auto',
+              }}
+              unoptimized
+              loading="lazy"
+            />
+          </div>
+        ))}
+        
+        {/* Third set to ensure perfect seamless loop */}
+        {logos.map((logo, index) => (
+          <div 
+            key={`third-${index}`} 
             className="logo-item"
             style={{
               display: 'flex',
