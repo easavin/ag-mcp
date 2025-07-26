@@ -176,7 +176,7 @@ function ChatInterface() {
               width: '100%',
               ...(messages.length === 0 ? { justifyContent: 'center', alignItems: 'center', flex: 1 } : {})
             }}>
-              {messages.length === 0 && !isLoading && (
+              {messages.length === 0 && !isLoading && !user && (
                 <div style={{ textAlign: 'center', padding: '48px 0' }}>
                   <h1 style={{ 
                     fontSize: '32px', 
@@ -195,126 +195,124 @@ function ChatInterface() {
                   </p>
                   
                   {/* Authentication buttons for non-authenticated users */}
-                  {!user && (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '12px',
-                      flexWrap: 'wrap',
-                      marginBottom: '64px' // Increased spacing
-                    }}>
-                      <button
-                        onClick={() => {
-                          setAuthModalMode('signin')
-                          setShowAuthModal(true)
-                        }}
-                        style={{
-                          padding: '12px 20px',
-                          fontSize: '15px',
-                          fontWeight: '500',
-                          color: 'rgba(255, 255, 255, 0.9)',
-                          backgroundColor: 'transparent',
-                          border: '1px solid rgba(255, 255, 255, 0.3)',
-                          borderRadius: '24px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          fontFamily: 'inherit'
-                        }}
-                        onMouseEnter={(e) => {
-                          const target = e.target as HTMLButtonElement
-                          target.style.color = 'white'
-                          target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
-                          target.style.borderColor = 'rgba(255, 255, 255, 0.5)'
-                        }}
-                        onMouseLeave={(e) => {
-                          const target = e.target as HTMLButtonElement
-                          target.style.color = 'rgba(255, 255, 255, 0.9)'
-                          target.style.backgroundColor = 'transparent'
-                          target.style.borderColor = 'rgba(255, 255, 255, 0.3)'
-                        }}
-                      >
-                        Log in
-                      </button>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                    marginBottom: '64px' // Increased spacing
+                  }}>
+                    <button
+                      onClick={() => {
+                        setAuthModalMode('signin')
+                        setShowAuthModal(true)
+                      }}
+                      style={{
+                        padding: '12px 20px',
+                        fontSize: '15px',
+                        fontWeight: '500',
+                        color: 'rgba(255, 255, 255, 0.9)',
+                        backgroundColor: 'transparent',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        borderRadius: '24px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        fontFamily: 'inherit'
+                      }}
+                      onMouseEnter={(e) => {
+                        const target = e.target as HTMLButtonElement
+                        target.style.color = 'white'
+                        target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
+                        target.style.borderColor = 'rgba(255, 255, 255, 0.5)'
+                      }}
+                      onMouseLeave={(e) => {
+                        const target = e.target as HTMLButtonElement
+                        target.style.color = 'rgba(255, 255, 255, 0.9)'
+                        target.style.backgroundColor = 'transparent'
+                        target.style.borderColor = 'rgba(255, 255, 255, 0.3)'
+                      }}
+                    >
+                      Log in
+                    </button>
+                    
+                    {/* ANIMATED SIGN UP BUTTON */}
+                    <button
+                      onClick={() => {
+                        setAuthModalMode('signup')
+                        setShowAuthModal(true)
+                      }}
+                      style={{
+                        position: 'relative',
+                        padding: '12px 24px',
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        color: '#1f2937',
+                        backgroundColor: 'white',
+                        border: 'none',
+                        borderRadius: '24px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        fontFamily: 'inherit',
+                        overflow: 'hidden'
+                      }}
+                      onMouseEnter={(e) => {
+                        const target = e.target as HTMLButtonElement
+                        target.style.backgroundColor = '#f3f4f6'
+                        target.style.transform = 'scale(1.05)'
+                        target.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                      }}
+                      onMouseLeave={(e) => {
+                        const target = e.target as HTMLButtonElement
+                        target.style.backgroundColor = 'white'
+                        target.style.transform = 'scale(1)'
+                        target.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                      }}
+                    >
+                      <span style={{ 
+                        position: 'relative', 
+                        zIndex: 2,
+                        color: '#1f2937',
+                        fontWeight: '600'
+                      }}>
+                        Sign up for free
+                      </span>
                       
-                      {/* ANIMATED SIGN UP BUTTON */}
-                      <button
-                        onClick={() => {
-                          setAuthModalMode('signup')
-                          setShowAuthModal(true)
-                        }}
+                      {/* Animated border effect */}
+                      <div
                         style={{
-                          position: 'relative',
-                          padding: '12px 24px',
-                          fontSize: '15px',
-                          fontWeight: '600',
-                          color: '#1f2937',
+                          position: 'absolute',
+                          top: '-2px',
+                          left: '-2px',
+                          right: '-2px',
+                          bottom: '-2px',
+                          borderRadius: '26px',
+                          background: 'linear-gradient(45deg, #3b82f6, #8b5cf6, #ef4444, #f59e0b, #10b981, #3b82f6)',
+                          backgroundSize: '400% 400%',
+                          animation: 'gradientBorder 3s ease infinite',
+                          zIndex: 0,
+                          opacity: 1
+                        }}
+                      />
+                      
+                      {/* Inner white background */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '1px',
+                          left: '1px',
+                          right: '1px',
+                          bottom: '1px',
                           backgroundColor: 'white',
-                          border: 'none',
-                          borderRadius: '24px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                          fontFamily: 'inherit',
-                          overflow: 'hidden'
+                          borderRadius: '23px',
+                          zIndex: 1
                         }}
-                        onMouseEnter={(e) => {
-                          const target = e.target as HTMLButtonElement
-                          target.style.backgroundColor = '#f3f4f6'
-                          target.style.transform = 'scale(1.05)'
-                          target.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-                        }}
-                        onMouseLeave={(e) => {
-                          const target = e.target as HTMLButtonElement
-                          target.style.backgroundColor = 'white'
-                          target.style.transform = 'scale(1)'
-                          target.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                        }}
-                      >
-                        <span style={{ 
-                          position: 'relative', 
-                          zIndex: 2,
-                          color: '#1f2937',
-                          fontWeight: '600'
-                        }}>
-                          Sign up for free
-                        </span>
-                        
-                        {/* Animated border effect */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '-2px',
-                            left: '-2px',
-                            right: '-2px',
-                            bottom: '-2px',
-                            borderRadius: '26px',
-                            background: 'linear-gradient(45deg, #3b82f6, #8b5cf6, #ef4444, #f59e0b, #10b981, #3b82f6)',
-                            backgroundSize: '400% 400%',
-                            animation: 'gradientBorder 3s ease infinite',
-                            zIndex: 0,
-                            opacity: 1
-                          }}
-                        />
-                        
-                        {/* Inner white background */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '1px',
-                            left: '1px',
-                            right: '1px',
-                            bottom: '1px',
-                            backgroundColor: 'white',
-                            borderRadius: '23px',
-                            zIndex: 1
-                          }}
-                        />
-                      </button>
-                    </div>
-                  )}
+                      />
+                    </button>
+                  </div>
 
-                  {/* New content section with title and scrolling logos */}
+                  {/* New content section with title and scrolling logos - ONLY for non-authenticated users */}
                   <div style={{
                     marginBottom: '48px' // Increased bottom margin
                   }}>
@@ -333,6 +331,27 @@ function ChatInterface() {
                       <ScrollingLogos />
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Welcome message for authenticated users with empty chats */}
+              {messages.length === 0 && !isLoading && user && (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <h1 style={{ 
+                    fontSize: '32px', 
+                    fontWeight: '600', 
+                    color: '#f5f5f5', 
+                    marginBottom: '16px' 
+                  }}>
+                    Welcome to Farm MCP
+                  </h1>
+                  <p style={{ 
+                    color: '#a0a0a0', 
+                    marginBottom: '32px',
+                    fontSize: '18px'
+                  }}>
+                    Your AI-powered agricultural management assistant for precision Ag apps
+                  </p>
                 </div>
               )}
 
