@@ -9,6 +9,8 @@ export interface ChatMessage {
     fileType: string
     fileSize: number
   }[]
+  functionCall?: FunctionCall
+  functionResult?: any
 }
 
 export interface LLMResponse {
