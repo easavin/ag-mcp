@@ -1,5 +1,4 @@
 import OpenAI from 'openai'
-import Anthropic from '@anthropic-ai/sdk'
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -39,8 +38,6 @@ export interface LLMFunction {
 
 export class LLMService {
   private openai: OpenAI | null = null
-  private anthropic: Anthropic | null = null
-  private preferredProvider: 'openai' | 'anthropic' = 'openai'
 
   constructor() {
     this.initializeProviders()
@@ -55,42 +52,25 @@ export class LLMService {
       console.log('✅ OpenAI initialized')
     } else {
       console.warn('⚠️ OpenAI API key not found')
+      throw new Error('OpenAI API key is required')
     }
-
-    // Initialize Anthropic
-    if (process.env.ANTHROPIC_API_KEY) {
-      this.anthropic = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
-      })
-      console.log('✅ Anthropic initialized')
-    } else {
-      console.warn('⚠️ Anthropic API key not found')
-    }
-
-    // Determine preferred provider
-    if (process.env.PREFERRED_LLM_PROVIDER) {
-      this.preferredProvider = process.env.PREFERRED_LLM_PROVIDER as 'openai' | 'anthropic'
-    }
-
-    console.log(`🎯 Preferred LLM provider: ${this.preferredProvider}`)
   }
 
   getAvailableProviders(): string[] {
     const providers = []
     if (this.openai) providers.push('openai')
-    if (this.anthropic) providers.push('anthropic')
     return providers
   }
 
   getConfig() {
     return {
-      preferredProvider: this.preferredProvider,
+      preferredProvider: 'openai',
       availableProviders: this.getAvailableProviders(),
     }
   }
 
   /**
-   * Generate chat completion using the preferred provider
+   * Generate chat completion using OpenAI
    */
   async generateChatCompletion(
     messages: ChatMessage[],
@@ -109,7 +89,7 @@ export class LLMService {
     const functions = options?.functions || []
 
     console.log('🤖 Generating chat completion...', {
-      provider: this.preferredProvider,
+      provider: 'openai',
       messageCount: messages.length,
       maxTokens,
       temperature,
@@ -117,41 +97,17 @@ export class LLMService {
       functionCount: functions.length
     })
 
-    // Try preferred provider first, fallback to alternative
-    const providers: Array<'openai' | 'anthropic'> = 
-      this.preferredProvider === 'openai' 
-        ? ['openai', 'anthropic'] 
-        : ['anthropic', 'openai']
-
-    let lastError: Error | null = null
-
-    for (const provider of providers) {
-      try {
-        if (provider === 'openai' && this.openai) {
-          return await this.generateOpenAICompletion(messages, {
-            maxTokens,
-            temperature,
-            systemPrompt,
-            enableFunctions,
-            functions
-          })
-        } else if (provider === 'anthropic' && this.anthropic) {
-          return await this.generateAnthropicCompletion(messages, {
-            maxTokens,
-            temperature,
-            systemPrompt,
-            enableFunctions,
-            functions
-          })
-        }
-      } catch (error) {
-        console.error(`❌ ${provider} generation failed:`, error)
-        lastError = error as Error
-        continue
-      }
+    if (!this.openai) {
+      throw new Error('OpenAI not initialized')
     }
 
-    throw lastError || new Error('No LLM providers available')
+    return await this.generateOpenAICompletion(messages, {
+      maxTokens,
+      temperature,
+      systemPrompt,
+      enableFunctions,
+      functions
+    })
   }
 
   /**
@@ -249,92 +205,6 @@ export class LLMService {
         prompt_tokens: response.usage.prompt_tokens,
         completion_tokens: response.usage.completion_tokens,
         total_tokens: response.usage.total_tokens
-      } : undefined,
-      functionCalls: functionCalls.length > 0 ? functionCalls : undefined
-    }
-  }
-
-  /**
-   * Generate completion using Anthropic Claude
-   */
-  private async generateAnthropicCompletion(
-    messages: ChatMessage[],
-    options: {
-      maxTokens: number
-      temperature: number
-      systemPrompt?: string
-      enableFunctions: boolean
-      functions: LLMFunction[]
-    }
-  ): Promise<LLMResponse> {
-    if (!this.anthropic) {
-      throw new Error('Anthropic not initialized')
-    }
-
-    // Prepare messages for Anthropic format
-    const anthropicMessages: Anthropic.Messages.MessageParam[] = []
-
-    messages.forEach(msg => {
-      if (msg.role !== 'system') {
-        anthropicMessages.push({
-          role: msg.role,
-          content: msg.content
-        })
-      }
-    })
-
-    // Prepare request options
-    const requestOptions: Anthropic.Messages.MessageCreateParams = {
-      model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
-      messages: anthropicMessages,
-      max_tokens: options.maxTokens,
-      temperature: options.temperature,
-    }
-
-    // Add system prompt if provided
-    if (options.systemPrompt) {
-      requestOptions.system = options.systemPrompt
-    }
-
-    // Add tools if enabled and available
-    if (options.enableFunctions && options.functions.length > 0) {
-      requestOptions.tools = options.functions.map(func => ({
-        name: func.name,
-        description: func.description,
-        input_schema: func.parameters
-      }))
-    }
-
-    console.log('🤖 Anthropic request:', {
-      model: requestOptions.model,
-      messageCount: anthropicMessages.length,
-      toolCount: requestOptions.tools?.length || 0
-    })
-
-    const response = await this.anthropic.messages.create(requestOptions)
-
-    // Extract content and function calls
-    let content = ''
-    const functionCalls: { name: string; arguments: any }[] = []
-
-    for (const contentBlock of response.content) {
-      if (contentBlock.type === 'text') {
-        content += contentBlock.text
-      } else if (contentBlock.type === 'tool_use') {
-        functionCalls.push({
-          name: contentBlock.name,
-          arguments: contentBlock.input
-        })
-      }
-    }
-
-    return {
-      content,
-      model: response.model,
-      usage: response.usage ? {
-        prompt_tokens: response.usage.input_tokens,
-        completion_tokens: response.usage.output_tokens,
-        total_tokens: response.usage.input_tokens + response.usage.output_tokens
       } : undefined,
       functionCalls: functionCalls.length > 0 ? functionCalls : undefined
     }
