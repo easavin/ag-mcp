@@ -10,6 +10,7 @@ import ProgressIndicator, { useProgressIndicator } from '@/components/ProgressIn
 import DataSourceIndicator from '@/components/DataSourceIndicator'
 import MultiSourceIndicator from '@/components/MultiSourceIndicator'
 import AuthModal from '@/components/AuthModal'
+import ScrollingLogos from '@/components/ScrollingLogos'
 import { useChatStore } from '@/stores/chatStore'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -202,7 +203,8 @@ function ChatInterface() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '12px',
-                      flexWrap: 'wrap'
+                      flexWrap: 'wrap',
+                      marginBottom: '48px'
                     }}>
                       <button
                         onClick={() => {
@@ -271,6 +273,25 @@ function ChatInterface() {
                       </button>
                     </div>
                   )}
+
+                  {/* New content section with title and scrolling logos */}
+                  <div style={{
+                    marginBottom: '32px'
+                  }}>
+                    <h2 style={{
+                      fontSize: '24px',
+                      fontWeight: '600',
+                      color: '#f5f5f5',
+                      marginBottom: '24px',
+                      textAlign: 'center'
+                    }}>
+                      Connect and chat with all your data
+                    </h2>
+                    
+                    <div style={{ width: '100%', margin: '0 auto' }}>
+                      <ScrollingLogos />
+                    </div>
+                  </div>
                 </div>
               )}
 
