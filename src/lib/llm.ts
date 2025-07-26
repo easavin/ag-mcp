@@ -61,10 +61,10 @@ export class LLMService {
     }
   }
 
-  getAvailableProviders(): string[] {
-    const providers = []
-    if (this.openai) providers.push('openai')
-    return providers
+  getAvailableProviders(): { openai: boolean } {
+    return {
+      openai: !!this.openai
+    }
   }
 
   getConfig() {
