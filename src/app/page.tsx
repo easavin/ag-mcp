@@ -202,7 +202,7 @@ function ChatInterface() {
                       justifyContent: 'center',
                       gap: '12px',
                       flexWrap: 'wrap',
-                      marginBottom: '64px' // Increased from 48px to 64px for more space
+                      marginBottom: '64px' // Increased spacing
                     }}>
                       <button
                         onClick={() => {
@@ -236,12 +236,15 @@ function ChatInterface() {
                       >
                         Log in
                       </button>
+                      
+                      {/* ANIMATED SIGN UP BUTTON */}
                       <button
                         onClick={() => {
                           setAuthModalMode('signup')
                           setShowAuthModal(true)
                         }}
                         style={{
+                          position: 'relative',
                           padding: '12px 24px',
                           fontSize: '15px',
                           fontWeight: '600',
@@ -252,7 +255,8 @@ function ChatInterface() {
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                          fontFamily: 'inherit'
+                          fontFamily: 'inherit',
+                          overflow: 'hidden'
                         }}
                         onMouseEnter={(e) => {
                           const target = e.target as HTMLButtonElement
@@ -267,14 +271,52 @@ function ChatInterface() {
                           target.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                         }}
                       >
-                        Sign up for free
+                        <span style={{ 
+                          position: 'relative', 
+                          zIndex: 2,
+                          color: '#1f2937',
+                          fontWeight: '600'
+                        }}>
+                          Sign up for free
+                        </span>
+                        
+                        {/* Animated border effect */}
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '-2px',
+                            left: '-2px',
+                            right: '-2px',
+                            bottom: '-2px',
+                            borderRadius: '26px',
+                            background: 'linear-gradient(45deg, #3b82f6, #8b5cf6, #ef4444, #f59e0b, #10b981, #3b82f6)',
+                            backgroundSize: '400% 400%',
+                            animation: 'gradientBorder 3s ease infinite',
+                            zIndex: 0,
+                            opacity: 1
+                          }}
+                        />
+                        
+                        {/* Inner white background */}
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '1px',
+                            left: '1px',
+                            right: '1px',
+                            bottom: '1px',
+                            backgroundColor: 'white',
+                            borderRadius: '23px',
+                            zIndex: 1
+                          }}
+                        />
                       </button>
                     </div>
                   )}
 
                   {/* New content section with title and scrolling logos */}
                   <div style={{
-                    marginBottom: '48px' // Increased bottom margin for better spacing
+                    marginBottom: '48px' // Increased bottom margin
                   }}>
                     <h2 style={{
                       fontSize: '24px',
@@ -287,7 +329,8 @@ function ChatInterface() {
                     </h2>
                     
                     <div style={{ width: '100%', margin: '0 auto' }}>
-                      <ScrollingLogos speed={0.8} />
+                      {/* @ts-ignore */}
+                      <ScrollingLogos />
                     </div>
                   </div>
                 </div>

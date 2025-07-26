@@ -40,9 +40,12 @@ export default function ScrollingLogos({ speed = 1, className = '' }: ScrollingL
     const singleLogoWidth = logoWidth + gap
     const calculatedSetWidth = logos.length * singleLogoWidth
     
-    setContainerWidth(newContainerWidth)
-    setLogoSetWidth(calculatedSetWidth)
-  }, [])
+    // Only update if dimensions actually changed to prevent infinite loops
+    if (newContainerWidth !== containerWidth || calculatedSetWidth !== logoSetWidth) {
+      setContainerWidth(newContainerWidth)
+      setLogoSetWidth(calculatedSetWidth)
+    }
+  }, [containerWidth, logoSetWidth]) // Add dependencies to prevent infinite loops
 
   // Intersection Observer for performance optimization
   useEffect(() => {
@@ -62,16 +65,28 @@ export default function ScrollingLogos({ speed = 1, className = '' }: ScrollingL
 
   // Resize observer for responsive behavior
   useEffect(() => {
-    const resizeObserver = new ResizeObserver(updateDimensions)
+    let resizeObserver: ResizeObserver | null = null
     
     if (containerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        // Debounce the resize calls to prevent infinite loops
+        setTimeout(() => {
+          updateDimensions()
+        }, 100)
+      })
+      
       resizeObserver.observe(containerRef.current)
     }
 
+    // Initial calculation
     updateDimensions()
 
-    return () => resizeObserver.disconnect()
-  }, [updateDimensions])
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+      }
+    }
+  }, []) // Remove updateDimensions from dependencies to prevent loops
 
   // Animation loop - only runs when visible
   useEffect(() => {
