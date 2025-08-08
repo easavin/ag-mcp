@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { mcpToolExecutor, ALL_MCP_TOOLS } from '@/lib/mcp-tools'
 import { JohnDeereConnectionError, JohnDeereRCAError, JohnDeerePermissionError } from '@/lib/johndeere-api'
 import { parseVisualizationsFromResponse } from '@/lib/visualization-parser'
+import { sanitizeResponseContent } from '@/lib/response-sanitizer'
 
 // Function to execute John Deere API calls
 async function executeJohnDeereFunction(functionCall: FunctionCall, request: NextRequest): Promise<any> {
@@ -926,20 +927,9 @@ Based on the current weather conditions for your ${fieldArea} field:
     
     // Use the new visualization parser - extract visualizations and clean content
     const { visualizations, cleanedContent } = parseVisualizationsFromResponse(response.content, functionResults)
-    
-    // 🧹 CLEAN UP: Remove any technical validation text that might have slipped through
-    let messageContent = cleanedContent
-    
-    // Remove validation confidence text patterns
-    messageContent = messageContent.replace(/Response Validation\s*\d+%?\s*confidence/gi, '')
-    messageContent = messageContent.replace(/The LLM response accurately[^.]+\./gi, '')
-    messageContent = messageContent.replace(/confidence:\s*\d+%?/gi, '')
-    messageContent = messageContent.replace(/validation (passed|failed|completed)/gi, '')
-    messageContent = messageContent.replace(/\b\d+%?\s*confidence\b/gi, '')
-    
-    // Clean up any resulting extra whitespace or newlines
-    messageContent = messageContent.replace(/\n\s*\n\s*\n/g, '\n\n') // Remove triple+ newlines
-    messageContent = messageContent.trim()
+
+    // 🧹 CLEAN UP: Sanitize content for user-facing output
+    const messageContent = sanitizeResponseContent(cleanedContent)
     
     console.log('🧹 Cleaned response content from', cleanedContent.length, 'to', messageContent.length, 'characters')
 

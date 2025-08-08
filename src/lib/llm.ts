@@ -33,6 +33,7 @@ export interface LLMResponse {
 export interface FunctionCall {
   name: string
   arguments: any
+  callId?: string
 }
 
 export interface LLMFunction {
@@ -158,11 +159,11 @@ export class LLMService {
     this.config = {
       gemini: {
         apiKey: process.env.GOOGLE_API_KEY || '',
-        model: 'gemini-2.0-flash-exp', // Latest Gemini 2.0 Flash model
+        model: process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp',
       },
       openai: {
         apiKey: process.env.OPENAI_API_KEY || '',
-        model: 'gpt-4o-mini', // OpenAI GPT-4o-mini as fallback
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
       },
     }
 
@@ -294,25 +295,31 @@ export class LLMService {
     const geminiMessages = this.convertToGeminiFormat(messages, options.systemPrompt)
     console.log('📤 Sending to Gemini:', geminiMessages.length, 'messages')
 
-    const result = await model.generateContent({
-      contents: geminiMessages,
-    })
+    const result = await model.generateContent({ contents: geminiMessages })
 
     const response = await result.response
     console.log('📥 Gemini response status:', response)
-    
+
     const text = response.text()
     console.log('📝 Gemini response text length:', text?.length || 0)
 
-    // Check for function calls
+    // Extract function calls from candidates parts (Gemini 1.5/2.0)
     const functionCalls: FunctionCall[] = []
-    if (response.functionCalls && Array.isArray(response.functionCalls) && response.functionCalls.length > 0) {
-      for (const call of response.functionCalls) {
-        functionCalls.push({
-          name: call.name,
-          arguments: call.args || {}
-        })
+    try {
+      const candidates: any[] = (response as any).candidates || []
+      for (const cand of candidates) {
+        const parts: any[] = cand.content?.parts || []
+        for (const part of parts) {
+          if (part.functionCall && part.functionCall.name) {
+            functionCalls.push({
+              name: part.functionCall.name,
+              arguments: part.functionCall.args || {}
+            })
+          }
+        }
       }
+    } catch (e) {
+      console.warn('Failed to parse Gemini function calls:', e)
     }
 
     return {
@@ -390,7 +397,8 @@ export class LLMService {
             const args = JSON.parse(toolCall.function.arguments)
             functionCalls.push({
               name: toolCall.function.name,
-              arguments: args
+              arguments: args,
+              callId: toolCall.id
             })
           } catch (error) {
             console.warn('Failed to parse function arguments:', toolCall.function.arguments)
@@ -464,8 +472,9 @@ export class LLMService {
   private convertToOpenAIFormat(
     messages: ChatMessage[],
     systemPrompt?: string
-  ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
-    const openaiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
+  ): Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string }> {
+    const openaiMessages: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string }> = []
+    let lastAssistantToolCallId: string | undefined
 
     // Add system prompt if provided
     if (systemPrompt) {
@@ -487,17 +496,31 @@ export class LLMService {
         content = `${content}\n\n${fileInfo}`
       }
 
-      // Convert function messages to user messages with clear formatting
       if (message.role === 'function') {
-        openaiMessages.push({
-          role: 'user',
-          content: `Function result: ${content}`,
-        })
+        // Prefer native tool message when we have a previous assistant tool call id
+        if (lastAssistantToolCallId) {
+          openaiMessages.push({
+            role: 'tool',
+            content,
+            tool_call_id: lastAssistantToolCallId,
+          })
+        } else {
+          // Fallback to user-style function result text
+          openaiMessages.push({
+            role: 'user',
+            content: `Function result: ${content}`,
+          })
+        }
       } else {
+        // Assistant/user/system messages
         openaiMessages.push({
           role: message.role as 'user' | 'assistant' | 'system',
           content,
         })
+        // Track tool call id from assistant messages (single-call support)
+        if (message.role === 'assistant' && message.functionCall?.callId) {
+          lastAssistantToolCallId = message.functionCall.callId
+        }
       }
     }
 

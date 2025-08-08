@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-// Rate limiting store (in production, use Redis or similar)
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
+import { defaultRateLimiter } from '@/lib/rate-limit'
 
 // Rate limiting configuration
 const RATE_LIMIT_CONFIG = {
@@ -15,29 +13,6 @@ function getRateLimitKey(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for')
   const ip = forwarded ? forwarded.split(',')[0] : request.ip || 'unknown'
   return ip
-}
-
-function checkRateLimit(key: string, maxRequests: number): boolean {
-  const now = Date.now()
-  const windowMs = RATE_LIMIT_CONFIG.windowMs
-  
-  const record = rateLimitStore.get(key)
-  
-  if (!record || now > record.resetTime) {
-    // New window or expired record
-    rateLimitStore.set(key, {
-      count: 1,
-      resetTime: now + windowMs
-    })
-    return true
-  }
-  
-  if (record.count >= maxRequests) {
-    return false
-  }
-  
-  record.count++
-  return true
 }
 
 function addSecurityHeaders(response: NextResponse): NextResponse {
@@ -99,14 +74,9 @@ export function middleware(request: NextRequest) {
   
   // Rate limiting
   const rateLimitKey = getRateLimitKey(request)
-  let maxRequests = RATE_LIMIT_CONFIG.maxRequests
-  
-  // Stricter rate limiting for API routes
-  if (pathname.startsWith('/api/')) {
-    maxRequests = RATE_LIMIT_CONFIG.apiMaxRequests
-  }
-  
-  if (!checkRateLimit(rateLimitKey, maxRequests)) {
+  const maxRequests = pathname.startsWith('/api/') ? RATE_LIMIT_CONFIG.apiMaxRequests : RATE_LIMIT_CONFIG.maxRequests
+  const { allowed, resetTime } = await defaultRateLimiter.allow(rateLimitKey, maxRequests, RATE_LIMIT_CONFIG.windowMs)
+  if (!allowed) {
     return new NextResponse(
       JSON.stringify({
         error: 'Too many requests',
@@ -116,7 +86,7 @@ export function middleware(request: NextRequest) {
         status: 429,
         headers: {
           'Content-Type': 'application/json',
-          'Retry-After': '900', // 15 minutes
+          'Retry-After': Math.ceil((resetTime - Date.now()) / 1000).toString(),
         },
       }
     )

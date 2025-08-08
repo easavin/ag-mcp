@@ -43,6 +43,7 @@ model ChatSession {
   messages Message[]
 
   @@map("chat_sessions")
+  @@index([userId])
 }
 
 model Message {
@@ -58,6 +59,8 @@ model Message {
   session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("messages")
+  @@index([sessionId])
+  @@index([sessionId, createdAt])
 }
 
 model JohnDeereToken {
