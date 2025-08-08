@@ -472,8 +472,8 @@ export class LLMService {
   private convertToOpenAIFormat(
     messages: ChatMessage[],
     systemPrompt?: string
-  ): Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string }> {
-    const openaiMessages: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string }> = []
+  ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+    const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
     let lastAssistantToolCallId: string | undefined
 
     // Add system prompt if provided
@@ -499,24 +499,21 @@ export class LLMService {
       if (message.role === 'function') {
         // Prefer native tool message when we have a previous assistant tool call id
         if (lastAssistantToolCallId) {
-          openaiMessages.push({
-            role: 'tool',
-            content,
-            tool_call_id: lastAssistantToolCallId,
-          })
+          openaiMessages.push({ role: 'tool', content, tool_call_id: lastAssistantToolCallId })
         } else {
           // Fallback to user-style function result text
-          openaiMessages.push({
-            role: 'user',
-            content: `Function result: ${content}`,
-          })
+          openaiMessages.push({ role: 'user', content: `Function result: ${content}` })
         }
       } else {
         // Assistant/user/system messages
-        openaiMessages.push({
-          role: message.role as 'user' | 'assistant' | 'system',
-          content,
-        })
+        if (message.role === 'assistant') {
+          openaiMessages.push({ role: 'assistant', content })
+        } else if (message.role === 'user') {
+          openaiMessages.push({ role: 'user', content })
+        } else {
+          // system
+          openaiMessages.push({ role: 'system', content })
+        }
         // Track tool call id from assistant messages (single-call support)
         if (message.role === 'assistant' && message.functionCall?.callId) {
           lastAssistantToolCallId = message.functionCall.callId

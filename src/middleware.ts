@@ -58,7 +58,7 @@ function addCorsHeaders(response: NextResponse, request: NextRequest): NextRespo
   return response
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   // Skip middleware for favicon requests
