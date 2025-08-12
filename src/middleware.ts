@@ -26,11 +26,12 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   // Content Security Policy
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms", // Next.js requires unsafe-eval and unsafe-inline, Clarity domains
+    // Allow Next.js, Microsoft Clarity, and Vercel Analytics scripts
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.clarity.ms https://*.clarity.ms https://va.vercel-scripts.com", // Next.js requires unsafe-eval and unsafe-inline, Clarity + Vercel Analytics domains
     "style-src 'self' 'unsafe-inline'", // Tailwind requires unsafe-inline
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://sandboxapi.deere.com https://partnersandbox.deere.com https://partnerapi.deere.com https://equipmentapi.deere.com https://signin.johndeere.com https://www.clarity.ms https://*.clarity.ms",
+    "connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://sandboxapi.deere.com https://partnersandbox.deere.com https://partnerapi.deere.com https://equipmentapi.deere.com https://signin.johndeere.com https://www.clarity.ms https://*.clarity.ms https://va.vercel-scripts.com",
     "frame-ancestors 'none'",
   ].join('; ')
   

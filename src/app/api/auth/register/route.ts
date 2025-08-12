@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,8 +25,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For now, we'll use a simple password validation
-    // In production, you'd hash passwords with bcrypt
+    // Basic password validation
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters long' },
@@ -33,12 +33,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Hash password before storing
+    const hashedPassword = await bcrypt.hash(password, 10)
+
     // Create new user
     const user = await prisma.user.create({
       data: {
         email,
         name: email.split('@')[0], // Use email prefix as default name
-        password, // Store password (in production, hash this with bcrypt)
+        password: hashedPassword,
         johnDeereConnected: false,
       }
     })

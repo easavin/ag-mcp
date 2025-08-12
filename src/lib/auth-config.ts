@@ -26,13 +26,36 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // Validate password (hashed)
+        // Validate password (prefer hashed; auto-migrate plaintext to hashed for legacy rows)
         if (!user.password) {
           // No stored password — do not allow fallback passwords in any environment
           return null
         }
 
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
+        let isPasswordValid = false
+        const storedPassword = user.password
+
+        // Detect bcrypt hash format
+        const looksHashed = storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$')
+
+        if (looksHashed) {
+          isPasswordValid = await bcrypt.compare(credentials.password, storedPassword)
+        } else {
+          // Legacy plaintext password support: compare directly, then upgrade to bcrypt
+          if (credentials.password === storedPassword) {
+            isPasswordValid = true
+            try {
+              const newHash = await bcrypt.hash(credentials.password, 10)
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { password: newHash },
+              })
+            } catch (e) {
+              // If hashing or update fails, still allow this login but keep plaintext (avoid lockout)
+            }
+          }
+        }
+
         if (!isPasswordValid) return null
 
         return {
