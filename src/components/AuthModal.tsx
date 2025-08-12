@@ -98,20 +98,20 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
       zIndex: 50
     }}>
       <div style={{
-        backgroundColor: '#1f2937',
+        backgroundColor: isSignUp ? '#f3f4f6' : '#1f2937', // light for sign up, dark for sign in
         borderRadius: '16px',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
         maxWidth: '28rem',
         width: '100%',
         maxHeight: '90vh',
         overflowY: 'auto',
-        border: '1px solid #374151'
+        border: `1px solid ${isSignUp ? '#e5e7eb' : '#374151'}`
       }}>
         {/* Header */}
         <div style={{
           position: 'relative',
           padding: '24px',
-          borderBottom: '1px solid #374151'
+          borderBottom: `1px solid ${isSignUp ? '#e5e7eb' : '#374151'}`
         }}>
           <button
             onClick={onClose}
@@ -139,16 +139,16 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
               padding: '8px',
-              backgroundColor: '#065f46',
+              backgroundColor: isSignUp ? '#dcfce7' : '#065f46',
               borderRadius: '8px'
             }}>
-              <Sprout style={{ width: '24px', height: '24px', color: '#10b981' }} />
+              <Sprout style={{ width: '24px', height: '24px', color: isSignUp ? '#065f46' : '#10b981' }} />
             </div>
             <div>
               <h2 style={{
                 fontSize: '20px',
                 fontWeight: '600',
-                color: '#f9fafb',
+                color: isSignUp ? '#111827' : '#f9fafb',
                 margin: 0,
                 marginBottom: '4px'
               }}>
@@ -156,7 +156,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
               </h2>
               <p style={{
                 fontSize: '14px',
-                color: '#9ca3af',
+                color: isSignUp ? '#4b5563' : '#9ca3af',
                 margin: 0
               }}>
                 Connect your FMS accounts and unlock powerful farm management tools
@@ -165,59 +165,62 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
           </div>
         </div>
 
-        {/* Benefits */}
-        <div style={{
-          padding: '24px',
-          backgroundColor: '#111827'
-        }}>
-          <h3 style={{
-            fontSize: '14px',
-            fontWeight: '500',
-            color: '#f9fafb',
-            margin: 0,
-            marginBottom: '12px'
+        {/* Benefits (only for Sign Up) */}
+        {isSignUp && (
+          <div style={{
+            padding: '24px',
+            backgroundColor: isSignUp ? '#ffffff' : '#111827',
+            borderBottom: isSignUp ? '1px solid #e5e7eb' : undefined
           }}>
-            What you'll get:
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{
-                padding: '4px',
-                backgroundColor: '#065f46',
-                borderRadius: '4px'
-              }}>
-                <Sprout style={{ width: '16px', height: '16px', color: '#10b981' }} />
+            <h3 style={{
+              fontSize: '14px',
+              fontWeight: '500',
+              color: isSignUp ? '#111827' : '#f9fafb',
+              margin: 0,
+              marginBottom: '12px'
+            }}>
+              What you'll get:
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  padding: '4px',
+                  backgroundColor: isSignUp ? '#dcfce7' : '#065f46',
+                  borderRadius: '4px'
+                }}>
+                  <Sprout style={{ width: '16px', height: '16px', color: isSignUp ? '#065f46' : '#10b981' }} />
+                </div>
+                <span style={{ fontSize: '14px', color: isSignUp ? '#374151' : '#d1d5db' }}>
+                  Access to your field data and equipment
+                </span>
               </div>
-              <span style={{ fontSize: '14px', color: '#d1d5db' }}>
-                Access to your field data and equipment
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{
-                padding: '4px',
-                backgroundColor: '#1e3a8a',
-                borderRadius: '4px'
-              }}>
-                <Zap style={{ width: '16px', height: '16px', color: '#3b82f6' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  padding: '4px',
+                  backgroundColor: isSignUp ? '#dbeafe' : '#1e3a8a',
+                  borderRadius: '4px'
+                }}>
+                  <Zap style={{ width: '16px', height: '16px', color: isSignUp ? '#1e3a8a' : '#3b82f6' }} />
+                </div>
+                <span style={{ fontSize: '14px', color: isSignUp ? '#374151' : '#d1d5db' }}>
+                  AI-powered agricultural insights and recommendations
+                </span>
               </div>
-              <span style={{ fontSize: '14px', color: '#d1d5db' }}>
-                AI-powered agricultural insights and recommendations
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{
-                padding: '4px',
-                backgroundColor: '#581c87',
-                borderRadius: '4px'
-              }}>
-                <Shield style={{ width: '16px', height: '16px', color: '#a855f7' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  padding: '4px',
+                  backgroundColor: isSignUp ? '#ede9fe' : '#581c87',
+                  borderRadius: '4px'
+                }}>
+                  <Shield style={{ width: '16px', height: '16px', color: isSignUp ? '#6d28d9' : '#a855f7' }} />
+                </div>
+                <span style={{ fontSize: '14px', color: isSignUp ? '#374151' : '#d1d5db' }}>
+                  Secure, personalized farm management dashboard
+                </span>
               </div>
-              <span style={{ fontSize: '14px', color: '#d1d5db' }}>
-                Secure, personalized farm management dashboard
-              </span>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{
@@ -231,7 +234,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
               display: 'block',
               fontSize: '14px',
               fontWeight: '500',
-              color: '#f3f4f6',
+              color: isSignUp ? '#111827' : '#f3f4f6',
               marginBottom: '4px'
             }}>
               Email address
@@ -245,15 +248,15 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
               style={{
                 width: '100%',
                 padding: '12px',
-                border: '1px solid #4b5563',
+                border: `1px solid ${isSignUp ? '#d1d5db' : '#4b5563'}`,
                 borderRadius: '8px',
                 fontSize: '14px',
                 outline: 'none',
                 transition: 'border-color 0.2s, box-shadow 0.2s',
                 fontFamily: 'inherit',
                 boxSizing: 'border-box',
-                backgroundColor: '#374151',
-                color: '#f9fafb'
+                backgroundColor: isSignUp ? '#ffffff' : '#374151',
+                color: isSignUp ? '#111827' : '#f9fafb'
               }}
               placeholder="Enter your email"
               onFocus={(e) => {
@@ -261,7 +264,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
                 e.target.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.2)'
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = '#4b5563'
+                e.target.style.borderColor = isSignUp ? '#d1d5db' : '#4b5563'
                 e.target.style.boxShadow = 'none'
               }}
             />
@@ -272,7 +275,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
               display: 'block',
               fontSize: '14px',
               fontWeight: '500',
-              color: '#f3f4f6',
+              color: isSignUp ? '#111827' : '#f3f4f6',
               marginBottom: '4px'
             }}>
               Password
@@ -286,15 +289,15 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
               style={{
                 width: '100%',
                 padding: '12px',
-                border: '1px solid #4b5563',
+                border: `1px solid ${isSignUp ? '#d1d5db' : '#4b5563'}`,
                 borderRadius: '8px',
                 fontSize: '14px',
                 outline: 'none',
                 transition: 'border-color 0.2s, box-shadow 0.2s',
                 fontFamily: 'inherit',
                 boxSizing: 'border-box',
-                backgroundColor: '#374151',
-                color: '#f9fafb'
+                backgroundColor: isSignUp ? '#ffffff' : '#374151',
+                color: isSignUp ? '#111827' : '#f9fafb'
               }}
               placeholder="Enter your password"
               onFocus={(e) => {
@@ -302,7 +305,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
                 e.target.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.2)'
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = '#4b5563'
+                e.target.style.borderColor = isSignUp ? '#d1d5db' : '#4b5563'
                 e.target.style.boxShadow = 'none'
               }}
             />
@@ -310,10 +313,10 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
 
           {error && (
             <div style={{
-              color: '#f87171',
+              color: '#b91c1c',
               fontSize: '14px',
-              backgroundColor: '#1f2937',
-              border: '1px solid #ef4444',
+              backgroundColor: isSignUp ? '#fee2e2' : '#1f2937',
+              border: `1px solid ${isSignUp ? '#fecaca' : '#ef4444'}`,
               borderRadius: '8px',
               padding: '12px'
             }}>
@@ -357,7 +360,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
               onClick={() => setIsSignUp(!isSignUp)}
               style={{
                 fontSize: '14px',
-                color: '#10b981',
+                color: isSignUp ? '#065f46' : '#10b981',
                 backgroundColor: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
@@ -365,10 +368,10 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'signin' }: A
                 fontFamily: 'inherit'
               }}
               onMouseEnter={(e) => {
-                (e.target as HTMLButtonElement).style.color = '#059669'
+                ;(e.target as HTMLButtonElement).style.color = isSignUp ? '#047857' : '#059669'
               }}
               onMouseLeave={(e) => {
-                (e.target as HTMLButtonElement).style.color = '#10b981'
+                ;(e.target as HTMLButtonElement).style.color = isSignUp ? '#065f46' : '#10b981'
               }}
             >
               {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
