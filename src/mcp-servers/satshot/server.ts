@@ -1,6 +1,6 @@
 // Satshot MCP Server
 
-import { Tool } from '@modelcontextprotocol/sdk/types'
+import { Tool } from '@modelcontextprotocol/sdk/types.js'
 import { BaseMCPServer } from '../base/mcp-server-base'
 import { MCPServerConfig, MCPToolResult } from '../base/types'
 import { MCPUtils } from '../base/utils'
@@ -10,7 +10,6 @@ import { SatshotTools } from './tools'
 export class SatshotMCPServer extends BaseMCPServer {
   private auth!: SatshotAuth
   private satshotTools!: SatshotTools
-  private startTime: number
 
   constructor() {
     const config: MCPServerConfig = {
@@ -23,7 +22,6 @@ export class SatshotMCPServer extends BaseMCPServer {
     }
 
     super(config)
-    this.startTime = Date.now()
   }
 
   setupToolHandlers(): void {
@@ -148,10 +146,11 @@ export class SatshotMCPServer extends BaseMCPServer {
    * Get server information
    */
   public getServerInfo() {
+    const metrics = this.getMetrics()
     return {
       ...this.auth.getServerInfo(),
       tools: this.tools.size,
-      uptime: Date.now() - this.startTime
+      uptime: metrics.uptime
     }
   }
 

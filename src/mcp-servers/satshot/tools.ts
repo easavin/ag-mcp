@@ -1,6 +1,6 @@
 // Satshot Tools Implementation
 
-import { Tool } from '@modelcontextprotocol/sdk/types'
+import { Tool } from '@modelcontextprotocol/sdk/types.js'
 import { MCPToolResult, MCPTool } from '../base/types'
 import { MCPUtils } from '../base/utils'
 import { SatshotAuth } from './auth'
