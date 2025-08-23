@@ -234,6 +234,26 @@ export default function MessageBubble({
     return auravantPatterns.some(pattern => pattern.test(content))
   }
 
+  // Check if this message contains Satshot data
+  const isSatshotResponse = () => {
+    if (isUser || isSystem) return false
+    
+    // Look for patterns that indicate this is Satshot data
+    const satshotPatterns = [
+      /Satshot/i,
+      /satellite imagery/i,
+      /field mapping/i,
+      /NDVI/i,
+      /vegetation index/i,
+      /GIS/i,
+      /satellite data/i,
+      /from Satshot/i,
+      /agricultural GIS/i,
+    ]
+    
+    return satshotPatterns.some(pattern => pattern.test(content))
+  }
+
   // Check if this message should show a data source selector
   const shouldShowDataSourceSelector = () => {
     if (isUser || isSystem) return false

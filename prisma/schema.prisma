@@ -18,6 +18,7 @@ model User {
   password          String?   // Optional for backward compatibility with existing users
   johnDeereConnected Boolean  @default(false)
   auravantConnected Boolean   @default(false)
+  satshotConnected  Boolean   @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -25,6 +26,7 @@ model User {
   chatSessions      ChatSession[]
   johnDeereTokens   JohnDeereToken?
   auravantToken     AuravantToken?
+  satshotToken      SatshotToken?
   livestockHerds    LivestockHerd[]
   workOrders        WorkOrder[]
 
@@ -162,6 +164,28 @@ model AuravantToken {
   expiresAt   DateTime?
   
   @@map("auravant_tokens")
+}
+
+// Satshot GIS authentication tokens
+model SatshotToken {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Session-based authentication
+  sessionToken String   // "idtoken" from Satshot login
+  username     String?  // Store username for re-authentication
+  server       String   @default("us") // 'us', 'ca', 'mexico'
+  
+  // Session metadata
+  expiresAt    DateTime?
+  lastUsed     DateTime @default(now())
+  
+  // Metadata
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@map("satshot_tokens")
 }
 
 // Livestock management (unique to Auravant)

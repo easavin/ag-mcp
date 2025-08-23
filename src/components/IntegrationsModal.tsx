@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import AuravantConnectionHelper from './AuravantConnectionHelper';
+import { Satellite } from 'lucide-react';
 
 interface IntegrationsModalProps {
   isOpen: boolean;
@@ -85,6 +86,9 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   // USDA state - improved initialization  
   const [usdaConnected, setUsdaConnected] = useState(false);
 
+  // Satshot state
+  const [satshotStatus, setSatshotStatus] = useState<{ connected: boolean }>({ connected: false });
+
   // Initialize connection states after component mounts
   useEffect(() => {
     setEuCommissionConnected(selectedDataSources.includes('eu-commission'));
@@ -126,6 +130,56 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
     if (selectedDataSources.includes('usda')) {
       console.log('🇺🇸 USDA: Removing from selected data sources');
       toggleDataSource('usda');
+    }
+  };
+
+  // Satshot handlers
+  const handleSatshotConnect = async () => {
+    console.log('🛰️ Satshot: Connecting...');
+    try {
+      const response = await fetch('/api/auth/satshot/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setSatshotStatus({ connected: true });
+        if (!selectedDataSources.includes('satshot')) {
+          console.log('🛰️ Satshot: Adding to selected data sources');
+          toggleDataSource('satshot');
+        }
+      } else {
+        console.error('🛰️ Satshot connection failed:', result.error);
+        // TODO: Show error message to user
+      }
+    } catch (error) {
+      console.error('🛰️ Satshot connection error:', error);
+    }
+  };
+
+  const handleSatshotDisconnect = async () => {
+    console.log('🛰️ Satshot: Disconnecting...');
+    try {
+      const response = await fetch('/api/auth/satshot/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setSatshotStatus({ connected: false });
+        if (selectedDataSources.includes('satshot')) {
+          console.log('🛰️ Satshot: Removing from selected data sources');
+          toggleDataSource('satshot');
+        }
+      } else {
+        console.error('🛰️ Satshot disconnection failed:', result.error);
+      }
+    } catch (error) {
+      console.error('🛰️ Satshot disconnection error:', error);
     }
   };
 
@@ -358,6 +412,23 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       ]
     },
     {
+      id: 'satshot',
+      name: 'Satshot GIS',
+      description: 'Connect to Satshot for professional GIS capabilities, satellite imagery analysis, and precision agriculture tools.',
+      logo: '/assets/logos/weather-logo.svg',
+      logoFallback: '🛰️',
+      category: 'GIS & Mapping',
+      isConnected: satshotStatus.connected,
+      features: [
+        'Satellite imagery and analysis',
+        'Field mapping and boundaries',
+        'Vegetation index calculations (NDVI, EVI)',
+        'Agricultural GIS tools',
+        'Precision agriculture insights',
+        'Multi-temporal change detection'
+      ]
+    },
+    {
       id: 'eu-commission',
       name: 'EU Agricultural Markets',
       description: 'Access European Commission agricultural market data including prices, production statistics, and trade information.',
@@ -552,7 +623,11 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
               <div key={integration.id} className="integration-card">
                 <div className="integration-header">
                   <div className="integration-logo">
-                    <LogoImage src={integration.logo} alt={integration.name} fallback={integration.logoFallback} />
+                    {integration.id === 'satshot' ? (
+                      <Satellite className="w-8 h-8" style={{ color: '#8B5CF6' }} />
+                    ) : (
+                      <LogoImage src={integration.logo} alt={integration.name} fallback={integration.logoFallback} />
+                    )}
                   </div>
                   <div className="integration-info">
                     <h3 className="integration-name">{integration.name}</h3>
@@ -596,6 +671,8 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                   />
                 )}
 
+
+
                 {/* Integration Actions */}
                 {integration.id === 'weather' ? (
                   <div className="integration-actions">
@@ -632,9 +709,15 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                               <p>Direct access to USDA agricultural data</p>
                             </div>
                           )}
+                          {integration.id === 'satshot' && (
+                            <div className="connection-details">
+                              <p>Connected to Satshot GIS</p>
+                              <p>Access to satellite imagery and agricultural GIS tools</p>
+                            </div>
+                          )}
                         </div>
                         <div className="action-buttons">
-                          {integration.id !== 'eu-commission' && integration.id !== 'usda' && (
+                          {integration.id !== 'eu-commission' && integration.id !== 'usda' && integration.id !== 'satshot' && (
                             <button 
                               className="refresh-btn"
                               onClick={integration.id === 'johndeere' ? checkConnectionStatus : checkAuravantStatus}
@@ -652,6 +735,8 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                                 handleEuCommissionDisconnect();
                               } else if (integration.id === 'usda') {
                                 handleUsdaDisconnect();
+                              } else if (integration.id === 'satshot') {
+                                handleSatshotDisconnect();
                               }
                             }}
                           >
@@ -660,12 +745,33 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                         </div>
                       </div>
                     ) : (
-                      <button 
-                        className="connect-btn"
-                        disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}
-                      >
-                        Coming soon
-                      </button>
+                      // Show "Coming soon" only for climate-fieldview and claas
+                      integration.id === 'climate-fieldview' || integration.id === 'claas' ? (
+                        <button 
+                          className="connect-btn"
+                          disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                        >
+                          Coming soon
+                        </button>
+                      ) : (
+                        // Show Connect button for all other integrations
+                        <button 
+                          className="connect-btn"
+                          onClick={() => {
+                            if (integration.id === 'johndeere') {
+                              handleJohnDeereConnect();
+                            } else if (integration.id === 'eu-commission') {
+                              handleEuCommissionConnect();
+                            } else if (integration.id === 'usda') {
+                              handleUsdaConnect();
+                            } else if (integration.id === 'satshot') {
+                              handleSatshotConnect();
+                            }
+                          }}
+                        >
+                          Connect
+                        </button>
+                      )
                     )}
                   </div>
                 ) : null}

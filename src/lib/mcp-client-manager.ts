@@ -40,7 +40,8 @@ export class MCPClientManager {
         { name: 'john-deere', port: 8001, enabled: true },
         { name: 'usda', port: 8003, enabled: true },
         { name: 'eu-commission', port: 8004, enabled: true },
-        { name: 'auravant', port: 8005, enabled: true }
+        { name: 'auravant', port: 8005, enabled: true },
+        { name: 'satshot', port: 8006, enabled: true }
       ],
       reconnectAttempts: 3,
       reconnectDelay: 5000,

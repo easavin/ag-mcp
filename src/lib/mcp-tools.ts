@@ -787,6 +787,169 @@ export const FILE_MANAGEMENT_TOOLS: MCPTool[] = [
   }
 ];
 
+// Satshot GIS Tools
+export const SATSHOT_TOOLS: MCPTool[] = [
+  {
+    name: 'get_satshot_maps',
+    description: 'Get available maps from Satshot GIS system for field visualization and analysis',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'number',
+          description: 'Maximum number of maps to return (1-100)',
+          minimum: 1,
+          maximum: 100
+        },
+        mapType: {
+          type: 'string',
+          enum: ['field', 'farm', 'region', 'all'],
+          description: 'Type of maps to filter by'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'get_satshot_fields',
+    description: 'Get field boundaries and information from Satshot GIS system',
+    parameters: {
+      type: 'object',
+      properties: {
+        region: {
+          type: 'string',
+          description: 'Region or area to filter fields'
+        },
+        cropType: {
+          type: 'string',
+          description: 'Filter fields by crop type'
+        },
+        minArea: {
+          type: 'number',
+          description: 'Minimum field area in acres'
+        },
+        includeGeometry: {
+          type: 'boolean',
+          description: 'Include field boundary geometry data'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'analyze_field_imagery',
+    description: 'Analyze satellite imagery for crop health, NDVI, and field conditions using Satshot',
+    parameters: {
+      type: 'object',
+      properties: {
+        fieldId: {
+          type: 'string',
+          description: 'Field identifier for analysis'
+        },
+        analysisType: {
+          type: 'string',
+          enum: ['ndvi', 'evi', 'stress', 'yield_prediction', 'change_detection'],
+          description: 'Type of satellite imagery analysis to perform'
+        },
+        dateRange: {
+          type: 'object',
+          properties: {
+            start: { type: 'string', format: 'date' },
+            end: { type: 'string', format: 'date' }
+          },
+          description: 'Date range for imagery analysis'
+        },
+        resolution: {
+          type: 'number',
+          description: 'Analysis resolution in meters (1-30)',
+          minimum: 1,
+          maximum: 30
+        }
+      },
+      required: ['fieldId']
+    }
+  },
+  {
+    name: 'get_available_scenes',
+    description: 'Get available satellite scenes for a location or field from Satshot',
+    parameters: {
+      type: 'object',
+      properties: {
+        fieldId: {
+          type: 'string',
+          description: 'Field ID to get scenes for'
+        },
+        latitude: {
+          type: 'number',
+          description: 'Latitude coordinate (-90 to 90)'
+        },
+        longitude: {
+          type: 'number',
+          description: 'Longitude coordinate (-180 to 180)'
+        },
+        dateRange: {
+          type: 'object',
+          properties: {
+            start: { type: 'string', format: 'date' },
+            end: { type: 'string', format: 'date' }
+          },
+          description: 'Date range for scene availability'
+        },
+        maxCloudCover: {
+          type: 'number',
+          description: 'Maximum acceptable cloud cover percentage (0-100)',
+          minimum: 0,
+          maximum: 100
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'export_satshot_data',
+    description: 'Export field boundaries, analysis results, or maps from Satshot in various formats',
+    parameters: {
+      type: 'object',
+      properties: {
+        dataType: {
+          type: 'string',
+          enum: ['field_boundaries', 'analysis_results', 'imagery', 'report'],
+          description: 'Type of data to export'
+        },
+        format: {
+          type: 'string',
+          enum: ['shapefile', 'kml', 'geojson', 'tiff', 'pdf', 'csv'],
+          description: 'Export format for the data'
+        },
+        itemIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'IDs of items to export'
+        },
+        includeMetadata: {
+          type: 'boolean',
+          description: 'Include metadata in the export'
+        }
+      },
+      required: ['dataType', 'itemIds']
+    }
+  },
+  {
+    name: 'test_satshot_connection',
+    description: 'Test connection to Satshot GIS system and verify authentication status',
+    parameters: {
+      type: 'object',
+      properties: {
+        includeAuth: {
+          type: 'boolean',
+          description: 'Test authentication as well as basic connection'
+        }
+      },
+      required: []
+    }
+  }
+];
+
 // All MCP Tools combined
 export const ALL_MCP_TOOLS: MCPTool[] = [
   ...FIELD_OPERATION_TOOLS,
@@ -796,6 +959,7 @@ export const ALL_MCP_TOOLS: MCPTool[] = [
   ...EU_COMMISSION_TOOLS,
   ...USDA_TOOLS,
   ...AURAVANT_TOOLS,
+  ...SATSHOT_TOOLS,
   ...FILE_MANAGEMENT_TOOLS,
 ]
 
@@ -838,6 +1002,11 @@ export class MCPToolExecutor {
     // Auravant
     if (AURAVANT_TOOLS.find(tool => tool.name === toolName)) {
       return this.executeAuravant(toolName, parameters);
+    }
+
+    // Satshot
+    if (SATSHOT_TOOLS.find(tool => tool.name === toolName)) {
+      return this.executeSatshot(toolName, parameters);
     }
 
     // File Management
@@ -957,6 +1126,120 @@ export class MCPToolExecutor {
         return this.createAuravantHerd(parameters);
       default:
         return { success: false, message: 'Unknown Auravant tool' };
+    }
+  }
+
+  private async executeSatshot(toolName: string, parameters: any): Promise<MCPToolResult> {
+    try {
+      // Route to appropriate Satshot API endpoint
+      let endpoint = ''
+      let method = 'GET'
+      let body = null
+
+      switch (toolName) {
+        case 'get_satshot_maps':
+          endpoint = '/api/satshot/maps'
+          const queryParams = new URLSearchParams()
+          if (parameters.limit) queryParams.append('limit', parameters.limit.toString())
+          if (parameters.mapType) queryParams.append('mapType', parameters.mapType)
+          endpoint += queryParams.toString() ? `?${queryParams.toString()}` : ''
+          break
+
+        case 'load_satshot_map':
+          endpoint = '/api/satshot/maps'
+          const mapParams = new URLSearchParams()
+          mapParams.append('mapId', parameters.mapId)
+          if (parameters.includeLayers !== undefined) {
+            mapParams.append('includeLayers', parameters.includeLayers.toString())
+          }
+          endpoint += `?${mapParams.toString()}`
+          break
+
+        case 'get_satshot_fields':
+          endpoint = '/api/satshot/fields'
+          const fieldParams = new URLSearchParams()
+          if (parameters.region) fieldParams.append('region', parameters.region)
+          if (parameters.cropType) fieldParams.append('cropType', parameters.cropType)
+          if (parameters.minArea) fieldParams.append('minArea', parameters.minArea.toString())
+          if (parameters.includeGeometry !== undefined) {
+            fieldParams.append('includeGeometry', parameters.includeGeometry.toString())
+          }
+          endpoint += fieldParams.toString() ? `?${fieldParams.toString()}` : ''
+          break
+
+        case 'analyze_field_imagery':
+          endpoint = '/api/satshot/analysis'
+          method = 'POST'
+          body = JSON.stringify(parameters)
+          break
+
+        case 'get_available_scenes':
+          endpoint = '/api/satshot/scenes'
+          const sceneParams = new URLSearchParams()
+          if (parameters.fieldId) sceneParams.append('fieldId', parameters.fieldId)
+          if (parameters.latitude) sceneParams.append('latitude', parameters.latitude.toString())
+          if (parameters.longitude) sceneParams.append('longitude', parameters.longitude.toString())
+          if (parameters.dateRange) sceneParams.append('dateRange', JSON.stringify(parameters.dateRange))
+          if (parameters.maxCloudCover) sceneParams.append('maxCloudCover', parameters.maxCloudCover.toString())
+          endpoint += sceneParams.toString() ? `?${sceneParams.toString()}` : ''
+          break
+
+        case 'export_satshot_data':
+          endpoint = '/api/satshot/exports'
+          method = 'POST'
+          body = JSON.stringify(parameters)
+          break
+
+        case 'test_satshot_connection':
+          endpoint = '/api/satshot'
+          method = 'POST'
+          body = JSON.stringify({ tool: 'test_satshot_connection', args: parameters })
+          break
+
+        default:
+          return {
+            success: false,
+            message: `Unknown Satshot tool: ${toolName}`
+          }
+      }
+
+      // Make the API call
+      const fetchOptions: RequestInit = {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+
+      if (body) {
+        fetchOptions.body = body
+      }
+
+      // Convert relative URL to absolute for server-side fetch
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+      const absoluteEndpoint = endpoint.startsWith('/') ? `${baseUrl}${endpoint}` : endpoint
+      const response = await fetch(absoluteEndpoint, fetchOptions)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(`Satshot API error: ${response.status} - ${errorData.error || response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      return {
+        success: data.success !== false,
+        message: data.message || `🛰️ ${toolName} completed successfully`,
+        data: data.data,
+        actionTaken: `Executed Satshot ${toolName}`
+      }
+
+    } catch (error) {
+      console.error(`Satshot tool execution failed: ${toolName}`, error)
+      return {
+        success: false,
+        message: `Satshot tool execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
     }
   }
 

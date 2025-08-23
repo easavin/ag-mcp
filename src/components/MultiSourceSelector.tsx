@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Cloud, Tractor, Wheat } from 'lucide-react'
+import { ChevronDown, ChevronUp, Cloud, Tractor, Wheat, Satellite } from 'lucide-react'
 
 interface DataSource {
   id: string
@@ -64,6 +64,15 @@ const DATA_SOURCES: DataSource[] = [
     description: 'North American agricultural market data, production statistics, trade info',
     category: 'environmental',
     color: '#DC2626',
+    available: true
+  },
+  {
+    id: 'satshot',
+    name: 'Satshot GIS',
+    icon: <Satellite className="w-5 h-5" />,
+    description: 'Satellite imagery, field mapping, precision agriculture GIS tools',
+    category: 'platform',
+    color: '#8B5CF6',
     available: true
   }
 ]

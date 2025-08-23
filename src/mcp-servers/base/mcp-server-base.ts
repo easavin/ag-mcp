@@ -13,8 +13,8 @@ import {
   HealthCheckResult, 
   ServerMetrics,
   MCPTool
-} from './types.js'
-import { MCPUtils } from './utils.js'
+} from './types'
+import { MCPUtils } from './utils'
 
 export abstract class BaseMCPServer {
   protected server: Server
