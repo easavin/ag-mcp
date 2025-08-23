@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import AuravantConnectionHelper from './AuravantConnectionHelper';
+
 import { Satellite } from 'lucide-react';
 
 interface IntegrationsModalProps {
@@ -399,11 +400,11 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
     {
       id: 'auravant',
       name: 'Auravant',
-      description: 'Connect your Auravant account to access agricultural data, livestock management, and work order planning.',
+      description: 'Connect your Auravant account to access agricultural data, livestock management, and work order planning. (Coming soon)',
       logo: '/assets/logos/auravant-logo.png',
       logoFallback: '🌾',
       category: 'Agricultural Platform',
-      isConnected: auravantStatus.connected,
+      isConnected: false,
       features: [
         'Access field and farm data',
         'Livestock herd management',
@@ -664,13 +665,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                 {/* Connection Status for John Deere */}
                 {integration.id === 'johndeere' && renderConnectionStatus()}
 
-                {/* Connection Helper for Auravant */}
-                {integration.id === 'auravant' && (
-                  <AuravantConnectionHelper 
-                    onStatusChange={(status) => setAuravantStatus(status)}
-                  />
-                )}
-
 
 
                 {/* Integration Actions */}
@@ -745,8 +739,8 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                         </div>
                       </div>
                     ) : (
-                      // Show "Coming soon" only for climate-fieldview and claas
-                      integration.id === 'climate-fieldview' || integration.id === 'claas' ? (
+                      // Show "Coming soon" only for climate-fieldview, claas, and auravant
+                      integration.id === 'climate-fieldview' || integration.id === 'claas' || integration.id === 'auravant' ? (
                         <button 
                           className="connect-btn"
                           disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}
