@@ -398,21 +398,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       ]
     },
     {
-      id: 'auravant',
-      name: 'Auravant',
-      description: 'Connect your Auravant account to access agricultural data, livestock management, and work order planning. (Coming soon)',
-      logo: '/assets/logos/auravant-logo.png',
-      logoFallback: '🌾',
-      category: 'Agricultural Platform',
-      isConnected: false,
-      features: [
-        'Access field and farm data',
-        'Livestock herd management',
-        'Work order planning and recommendations',
-        'Labour operation tracking'
-      ]
-    },
-    {
       id: 'satshot',
       name: 'Satshot GIS',
       description: 'Connect to Satshot for professional GIS capabilities, satellite imagery analysis, and precision agriculture tools.',
@@ -494,6 +479,21 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
         'Maintenance scheduling and alerts',
         'Fleet management dashboard',
         'More features coming soon!'
+      ]
+    },
+    {
+      id: 'auravant',
+      name: 'Auravant',
+      description: 'Connect your Auravant account to access agricultural data, livestock management, and work order planning. (Coming soon)',
+      logo: '/assets/logos/auravant-logo.png',
+      logoFallback: '🌾',
+      category: 'Agricultural Platform',
+      isConnected: false,
+      features: [
+        'Access field and farm data',
+        'Livestock herd management',
+        'Work order planning and recommendations',
+        'Labour operation tracking'
       ]
     }
   ];
@@ -680,7 +680,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                       </p>
                     </div>
                   </div>
-                ) : integration.id !== 'auravant' ? (
+                ) : (
                   <div className="integration-actions">
                     {integration.isConnected ? (
                       <div className="connected-actions">
@@ -768,7 +768,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                       )
                     )}
                   </div>
-                ) : null}
+                )}
               </div>
             ))}
           </div>
