@@ -1,11 +1,179 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getLLMService, AGRICULTURAL_SYSTEM_PROMPT, ChatMessage, FunctionCall } from '@/lib/llm'
+import { getLLMService, AGRICULTURAL_SYSTEM_PROMPT, ChatMessage, InternalChatMessage, FunctionCall } from '@/lib/llm'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { mcpToolExecutor, ALL_MCP_TOOLS } from '@/lib/mcp-tools'
 import { JohnDeereConnectionError, JohnDeereRCAError, JohnDeerePermissionError } from '@/lib/johndeere-api'
 import { parseVisualizationsFromResponse } from '@/lib/visualization-parser'
 import { sanitizeResponseContent } from '@/lib/response-sanitizer'
+
+function calculateFieldArea(boundaryData: any): string | null {
+  try {
+    // Try to extract area from boundary data if available
+    if (boundaryData?.area) {
+      return `${boundaryData.area} ha`
+    }
+
+    // If no area data, return null
+    return null
+  } catch (error) {
+    console.error('Error calculating field area:', error)
+    return null
+  }
+}
+
+function extractCoordinatesFromBoundary(boundaryData: any): { lat: number, lng: number } | null {
+  try {
+    console.log('🔍 Extracting coordinates from boundary data...')
+    console.log('📊 Full boundary structure:', JSON.stringify(boundaryData, null, 2).substring(0, 1000))
+
+    let coordinates = null
+
+    // NEW: Handle the actual John Deere API response structure from logs
+    if (boundaryData?.data?.boundary?.values?.[0]) {
+      const boundaryValue = boundaryData.data.boundary.values[0]
+      console.log('🔍 Boundary value structure:', JSON.stringify(boundaryValue, null, 2).substring(0, 500))
+
+      // Look for multipolygons in the boundary value
+      if (boundaryValue.multipolygons?.[0]?.rings?.[0]?.points) {
+        const points = boundaryValue.multipolygons[0].rings[0].points
+        const lats = points.map((p: any) => p.lat).filter((lat: any) => lat !== undefined)
+        const lons = points.map((p: any) => p.lon).filter((lon: any) => lon !== undefined)
+
+        if (lats.length > 0 && lons.length > 0) {
+          coordinates = {
+            lat: lats.reduce((sum: number, lat: number) => sum + lat, 0) / lats.length,
+            lng: lons.reduce((sum: number, lon: number) => sum + lon, 0) / lons.length
+          }
+        }
+      }
+    }
+
+    // Keep existing extraction logic as fallbacks for other structures
+    if (!coordinates && boundaryData?.lat && boundaryData?.lon) {
+      coordinates = { lat: boundaryData.lat, lng: boundaryData.lon }
+    } else if (!coordinates && boundaryData?.latitude && boundaryData?.longitude) {
+      coordinates = { lat: boundaryData.latitude, lng: boundaryData.longitude }
+    }
+
+    // Look in geometry or features
+    if (!coordinates && boundaryData?.geometry?.coordinates) {
+      const coords = boundaryData.geometry.coordinates
+      if (Array.isArray(coords) && coords.length > 0) {
+        if (Array.isArray(coords[0]) && coords[0].length >= 2) {
+          coordinates = { lat: coords[0][1], lng: coords[0][0] }
+        } else if (coords.length >= 2) {
+          coordinates = { lat: coords[1], lng: coords[0] }
+        }
+      }
+    }
+
+    // Look in features array
+    if (!coordinates && boundaryData?.features && Array.isArray(boundaryData.features)) {
+      for (const feature of boundaryData.features) {
+        if (feature?.geometry?.coordinates) {
+          const coords = feature.geometry.coordinates
+          if (Array.isArray(coords) && coords.length > 0) {
+            if (Array.isArray(coords[0]) && coords[0].length >= 2) {
+              coordinates = { lat: coords[0][1], lng: coords[0][0] }
+              break
+            } else if (coords.length >= 2) {
+              coordinates = { lat: coords[1], lng: coords[0] }
+              break
+            }
+          }
+        }
+      }
+    }
+
+    // Look for center or centroid properties
+    if (!coordinates && boundaryData?.center) {
+      const center = boundaryData.center
+      if (Array.isArray(center) && center.length >= 2) {
+        coordinates = { lat: center[1], lng: center[0] }
+      } else if (center?.lat && center?.lon) {
+        coordinates = { lat: center.lat, lng: center.lon }
+      }
+    }
+
+    // Fallback: Look for multipolygons structure (John Deere specific)
+    if (!coordinates && boundaryData?.values?.[0]?.multipolygons?.[0]?.rings?.[0]?.points) {
+      const points = boundaryData.values[0].multipolygons[0].rings[0].points
+      const lats = points.map((p: any) => p.lat).filter((lat: any) => lat !== undefined)
+      const lons = points.map((p: any) => p.lon).filter((lon: any) => lon !== undefined)
+
+      if (lats.length > 0 && lons.length > 0) {
+        coordinates = {
+          lat: lats.reduce((sum: number, lat: number) => sum + lat, 0) / lats.length,
+          lng: lons.reduce((sum: number, lon: number) => sum + lon, 0) / lons.length
+        }
+      }
+    }
+
+    if (coordinates) {
+      console.log(`✅ Extracted coordinates: ${coordinates.lat}, ${coordinates.lng}`)
+      return coordinates
+    } else {
+      console.warn('⚠️ Could not find coordinates in boundary data structure')
+      // Log the actual structure we received for debugging
+      console.log('📊 Received boundary data keys:', Object.keys(boundaryData || {}))
+      if (boundaryData?.data) {
+        console.log('📊 Data keys:', Object.keys(boundaryData.data))
+      }
+      if (boundaryData?.data?.boundary) {
+        console.log('📊 Boundary keys:', Object.keys(boundaryData.data.boundary))
+      }
+      return null
+    }
+  } catch (error) {
+    console.error('❌ Error extracting coordinates:', error)
+    return null
+  }
+}
+
+function generateWeatherForecastResponse(functionResults: any[], originalQuery: string): string {
+  const fieldResult = functionResults.find(result => result.name === 'get_field_boundary')
+  const weatherResult = functionResults.find(result => result.name === 'getWeatherForecast')
+
+  if (!fieldResult?.result?.data || !weatherResult?.result?.data) {
+    return "I have retrieved your field and weather data, but encountered an issue formatting the response. Please try again."
+  }
+
+  const fieldData = fieldResult.result.data
+  const weatherData = weatherResult.result.data
+
+  const fieldName = fieldData.fieldName || 'your field'
+  const coordinates = fieldData.coordinates
+
+  // Get the actual number of days from forecast data
+  const forecast = weatherData.forecast?.daily || []
+  const actualDays = Math.min(forecast.length, 10) // Cap at 10 for reasonable display
+
+  // Generate comprehensive weather response
+  return `# Weather Forecast for ${fieldName}
+
+## Field Location
+- **Field**: ${fieldName}
+- **Coordinates**: ${coordinates?.lat?.toFixed(3)}, ${coordinates?.lng?.toFixed(3)}
+
+## Current Weather
+${weatherData.current ? `- **Temperature**: ${weatherData.current.temperature}°C
+- **Conditions**: ${weatherData.current.weatherCondition}
+- **Humidity**: ${weatherData.current.humidity}%
+- **Wind**: ${weatherData.current.windSpeed} km/h` : 'Current weather data not available'}
+
+## ${actualDays}-Day Forecast
+${weatherData.forecast?.daily ? weatherData.forecast.daily.slice(0, actualDays).map((day: any, index: number) =>
+`**Day ${index + 1}**: ${day.maxTemp || 'N/A'}°C / ${day.minTemp || 'N/A'}°C - ${day.weatherCondition || 'Clear'}`
+).join('\n') : 'Forecast data not available'}
+
+## Agricultural Recommendations
+${weatherData.agriculture ? `- **Soil Temperature**: ${weatherData.agriculture.soilTemperature?.surface}°C
+- **Spraying Conditions**: ${weatherData.agriculture.sprayConditions?.suitable ? 'Suitable' : 'Not suitable'}
+- **UV Index**: ${weatherData.agriculture.uvIndex}` : 'Agricultural data not available'}
+
+*Weather forecast generated automatically using field coordinates*`
+}
 
 // Function to execute John Deere API calls
 async function executeJohnDeereFunction(functionCall: FunctionCall, request: NextRequest): Promise<any> {
@@ -18,14 +186,15 @@ async function executeJohnDeereFunction(functionCall: FunctionCall, request: Nex
     let url: string
     
     // Helper function to make authenticated internal API calls
-    const makeAuthenticatedCall = async (apiUrl: string) => {
+    const makeAuthenticatedCall = async (apiUrl: string, method: string = 'GET', body?: string) => {
       return await fetch(apiUrl, {
-        method: 'GET',
+        method: method,
         headers: {
           'Content-Type': 'application/json',
           // Forward the original request cookies for authentication
           'Cookie': request.headers.get('cookie') || '',
         },
+        body: body,
       })
     }
     
@@ -80,6 +249,62 @@ async function executeJohnDeereFunction(functionCall: FunctionCall, request: Nex
         break
       case 'getComprehensiveData':
         url = `${baseUrl}/api/johndeere/organizations/${args.orgId}/comprehensive`
+        break
+      case 'get_field_boundary':
+        // First get the field by name to get the fieldId
+        if (!args.organizationId) {
+          console.log('🔄 No organizationId provided for get_field_boundary, fetching organizations first...')
+          const orgResponse = await makeAuthenticatedCall(`${baseUrl}/api/johndeere/organizations`)
+          if (orgResponse.ok) {
+            const orgData = await orgResponse.json()
+            if (orgData.organizations && orgData.organizations.length > 0) {
+              args.organizationId = orgData.organizations[0].id
+              console.log(`🏢 Using organization: ${orgData.organizations[0].name} (${args.organizationId})`)
+            }
+          }
+        }
+
+        if (!args.fieldName) {
+          throw new Error('fieldName is required for get_field_boundary')
+        }
+
+        // Get fields to find the fieldId by name
+        console.log(`🔍 Finding field "${args.fieldName}" in organization ${args.organizationId}`)
+        const fieldsResponse = await makeAuthenticatedCall(`${baseUrl}/api/johndeere/organizations/${args.organizationId}/fields`)
+
+        if (fieldsResponse.ok) {
+          const fieldsData = await fieldsResponse.json()
+          const field = fieldsData.fields?.find((f: any) => f.name.toLowerCase() === args.fieldName.toLowerCase())
+
+          if (field) {
+            console.log(`✅ Found field: ${field.name} (${field.id})`)
+            // Use POST method for boundary endpoint and include fieldName in body
+            const boundaryUrl = `${baseUrl}/api/johndeere/organizations/${args.organizationId}/fields/${field.id}/boundary`
+            console.log(`📡 Making boundary API call to: ${boundaryUrl}`)
+
+            const response = await makeAuthenticatedCall(
+              boundaryUrl,
+              'POST',
+              JSON.stringify({ fieldName: args.fieldName, organizationId: args.organizationId })
+            )
+
+            console.log(`📡 Boundary API response status: ${response.status}`)
+
+            if (!response.ok) {
+              const errorText = await response.text()
+              console.error(`❌ Boundary API call failed: ${response.status} - ${errorText}`)
+              throw new Error(`Boundary API call failed: ${response.status} - ${errorText}`)
+            }
+
+            const boundaryData = await response.json()
+            console.log(`✅ Boundary data retrieved successfully`)
+            return boundaryData
+          } else {
+            throw new Error(`Field "${args.fieldName}" not found in organization ${args.organizationId}`)
+          }
+        } else {
+          throw new Error(`Failed to get fields for organization ${args.organizationId}`)
+        }
         break
       default:
         throw new Error(`Unknown John Deere function: ${name}`)
@@ -199,9 +424,15 @@ async function executeJohnDeereFunction(functionCall: FunctionCall, request: Nex
 // Unified function executor that handles both John Deere functions and MCP tools
 async function executeFunction(functionCall: FunctionCall, request: NextRequest): Promise<any> {
   const { name, arguments: args } = functionCall
-  
+
   console.log(`🔧 Executing function: ${name}`, args)
-  
+
+  // Handle get_field_boundary through John Deere API instead of MCP
+  if (name === 'get_field_boundary') {
+    console.log('🌾 Executing get_field_boundary through John Deere API')
+    return executeJohnDeereFunction(functionCall, request)
+  }
+
   // Check if it's an MCP tool
   const mcpTool = ALL_MCP_TOOLS.find(tool => tool.name === name)
   if (mcpTool) {
@@ -223,6 +454,128 @@ async function executeFunction(functionCall: FunctionCall, request: NextRequest)
   
   // Otherwise, it's a John Deere function
   return executeJohnDeereFunction(functionCall, request)
+}
+
+/**
+ * Generate a fallback response when LLM fails
+ */
+function generateFallbackResponse(functionResults: any[], originalQuery: string): string {
+  console.log('🔄 Generating fallback response for failed LLM call')
+
+  // Check what function results we have
+  const hasFields = functionResults.some(result => result.name === 'getFields' && result.result?.fields)
+  const hasBoundaryError = functionResults.some(result => result.name === 'get_field_boundary' && result.result?.error)
+  const hasBoundarySuccess = functionResults.some(result => result.name === 'get_field_boundary' && result.result && !result.result.error)
+  const hasWeather = functionResults.some(result => result.name === 'getWeatherForecast' && result.result?.success)
+
+  if (hasFields && originalQuery.toLowerCase().includes('boundary') && hasBoundarySuccess) {
+    // User asked for boundary data and it was retrieved successfully
+    const fieldName = originalQuery.match(/field\s+([^.]+)/i)?.[1] || 'requested'
+    return `Great! I successfully retrieved the boundary data for your field "${fieldName}".
+
+## What I Accomplished:
+✅ **Field Found**: Located your field "${fieldName}" in the farm
+✅ **Boundary Retrieved**: Successfully got the field boundary data from John Deere
+✅ **Data Available**: The boundary information is now available for analysis
+
+The boundary data includes coordinates, area information, and other field details that can be used for precision farming operations.
+
+**Note**: The AI service is currently experiencing high load, so I can't provide the detailed analysis right now. Please try again in a few moments when the service is available, and I'll provide a comprehensive breakdown of your field boundary data including area, shape, and farming recommendations.`
+  }
+
+  if (hasFields && originalQuery.toLowerCase().includes('boundary') && hasBoundaryError) {
+    // User asked for boundary data but it failed
+    return `I found your fields but encountered an issue retrieving the boundary data. This is typically due to authentication or permission settings.
+
+## What I Found:
+- Successfully retrieved your field list
+- Found the field "${originalQuery.match(/field\s+([^.]+)/i)?.[1] || 'requested'}"
+
+## Next Steps:
+1. **Check your John Deere connection** - Make sure your account is properly connected
+2. **Verify permissions** - Ensure you have access to field boundary data
+3. **Contact support** - If the issue persists, reach out to your farm management administrator
+
+Would you like me to try again or help you check your connection settings?`
+  }
+
+  if (hasWeather) {
+    return `I have weather data available for your location. The LLM service is currently experiencing issues, but I can provide you with the weather information that was retrieved.
+
+Please try your query again in a few moments when the service is back online.`
+  }
+
+  return `The AI service is currently experiencing high load. I successfully retrieved your field information, but I'm having trouble generating the final response.
+
+## What I Found:
+- Successfully connected to your John Deere account
+- Retrieved your field data
+
+Please try your query again in a few moments. The system should be able to provide a complete response then.`
+}
+
+// Helper function to generate boundary response when LLM fails to provide content
+function generateBoundaryResponse(fieldData: any, originalQuery: string): string {
+  console.log('🔧 Generating boundary response for field data:', fieldData)
+
+  // Extract field information
+  const field = fieldData.field || fieldData
+  const boundary = fieldData.boundary || field.boundary || {}
+
+  const fieldName = field.name || 'Unknown Field'
+  const area = field.area ? `${field.area.value || field.area.measurement || 'Unknown'} ${field.area.unit || 'units'}` : 'Unknown area'
+
+  let response = `# Field Boundary Information for "${fieldName}"\n\n`
+
+  // Basic field information
+  response += `## Field Details\n`
+  response += `- **Field Name**: ${fieldName}\n`
+  response += `- **Area**: ${area}\n`
+
+  // Boundary information if available
+  if (boundary && Object.keys(boundary).length > 0) {
+    response += `- **Boundary Data Available**: ✅\n`
+
+    // Try to extract coordinates if available
+    if (boundary.coordinates || boundary.multipolygons || boundary.points) {
+      response += `- **Geographic Coordinates**: Available\n`
+      response += `- **Field Shape**: Defined by boundary coordinates\n`
+    } else {
+      response += `- **Boundary Type**: Basic boundary information\n`
+    }
+
+    // Add practical information
+    response += `\n## Practical Information\n`
+    response += `- **Field Mapping**: Boundary coordinates can be used for precision farming\n`
+    response += `- **Area Calculation**: ${area} total field area\n`
+    response += `- **Operations Planning**: Use boundary data for accurate field operations\n`
+    response += `- **Equipment Navigation**: Boundary data supports auto-steer systems\n`
+
+  } else {
+    response += `- **Boundary Data**: Not available in current response\n`
+    response += `- **Note**: Boundary coordinates may require additional permissions\n`
+  }
+
+  // Add recommendations
+  response += `\n## Recommendations\n`
+  response += `1. **Precision Operations**: Use boundary data for accurate planting and harvesting\n`
+  response += `2. **Equipment Efficiency**: Boundary mapping improves equipment utilization\n`
+  response += `3. **Yield Analysis**: Field boundaries enable accurate yield mapping\n`
+  response += `4. **Resource Management**: Precise boundaries help optimize inputs\n`
+
+  // Add next steps
+  response += `\n## Next Steps\n`
+  if (!boundary || Object.keys(boundary).length === 0) {
+    response += `- Check your John Deere permissions for field boundary access\n`
+    response += `- Ensure your organization has proper field data sharing enabled\n`
+    response += `- Contact your farm management administrator if needed\n`
+  } else {
+    response += `- Use this boundary data in your farming operations\n`
+    response += `- Export coordinates for use with precision equipment\n`
+    response += `- Set up automated field operations based on boundaries\n`
+  }
+
+  return response
 }
 
 export async function POST(request: NextRequest) {
@@ -414,6 +767,9 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
     // Store original user query for validation
     const originalUserQuery = chatMessages[chatMessages.length - 1]?.content || ''
     let functionResults: any[] = []
+    let originalFunctionCalls: any[] = []
+    let messagesWithFunctions: InternalChatMessage[] = []
+    let needsMultiStepFunctions = false
 
     // Handle function calls if present
     if (response.functionCalls && response.functionCalls.length > 0) {
@@ -448,7 +804,8 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
             return {
               name: functionCall.name,
               result,
-              error: result.error ? result.error : undefined
+              error: result.error ? result.error : undefined,
+              callId: functionCall.callId
             }
           })
         )
@@ -456,7 +813,7 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
         console.log('✅ All function calls completed:', functionResults.map(fr => ({ name: fr.name, hasError: !!fr.error })))
 
         // Preserve the original function calls before getting final response
-        const originalFunctionCalls = response.functionCalls
+        originalFunctionCalls = response.functionCalls
 
         // Check if any function results contain connection errors
         const hasConnectionErrors = functionResults.some(result => 
@@ -466,167 +823,345 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
           result.result?.error === 'access_denied'
         )
 
-        // Add function results to conversation and get final response
-        const messagesWithFunctions: ChatMessage[] = [
-          ...chatMessages,
-          {
-            role: 'assistant',
-            content: response.content,
-            functionCall: response.functionCalls[0], // For simplicity, use first function call
-          },
-          ...functionResults.map(result => ({
-            role: 'function' as const,
-            content: JSON.stringify(result.result),
-            functionResult: result,
-          }))
-        ]
-
-        console.log('🎯 Getting final response with function results...')
-        console.log('📝 Messages being sent to LLM:', messagesWithFunctions.map(m => ({
-          role: m.role,
-          contentLength: m.content?.length || 0,
-          contentPreview: m.content?.substring(0, 100) + (m.content?.length > 100 ? '...' : '')
-        })))
-        
         // Check if user asked about weather (needed for auto-completion)
-        const userAskedAboutWeather = originalUserQuery.toLowerCase().includes('weather') || 
+        const userAskedAboutWeather = originalUserQuery.toLowerCase().includes('weather') ||
           originalUserQuery.toLowerCase().includes('forecast') ||
           originalUserQuery.toLowerCase().includes('temperature') ||
           originalUserQuery.toLowerCase().includes('rain') ||
           originalUserQuery.toLowerCase().includes('wind')
         
-        // Debug: Check if we have boundary data with coordinates
-        const boundaryResult = functionResults.find(fr => fr.name === 'get_field_boundary')
-        if (boundaryResult && boundaryResult.result?.data?.values?.[0]) {
-          console.log('🔍 Sample boundary data structure:', JSON.stringify(boundaryResult.result.data.values[0], null, 2).substring(0, 500) + '...')
-          
-          // 🚨 AUTOMATIC WEATHER COMPLETION: Since LLM consistently fails to follow instructions,
-          // automatically extract coordinates and call weather API when user asks about weather
-          if (userAskedAboutWeather && hasWeather) {
-            console.log('🌤️ LLM failed to continue workflow - automatically extracting coordinates and calling weather API')
-            
-            const fieldData = boundaryResult.result.data.values[0]
-            let latitude, longitude
-            
-            // Extract coordinates from multipolygons structure
-            if (fieldData.multipolygons?.[0]?.rings?.[0]?.points) {
-              const points = fieldData.multipolygons[0].rings[0].points
-              if (points.length > 0) {
-                                 // Calculate center point from all coordinates
-                 const lats = points.map((p: any) => p.lat).filter((lat: any) => lat !== undefined)
-                 const lons = points.map((p: any) => p.lon).filter((lon: any) => lon !== undefined)
-                 
-                 if (lats.length > 0 && lons.length > 0) {
-                   latitude = lats.reduce((sum: number, lat: number) => sum + lat, 0) / lats.length
-                   longitude = lons.reduce((sum: number, lon: number) => sum + lon, 0) / lons.length
-                  console.log(`🌤️ Extracted center coordinates: ${latitude}, ${longitude}`)
+        // Check if we need to automatically call boundary function after getting fields
+        const hasGetFieldsResult = functionResults.some(result =>
+          result.name === 'getFields' && !result.error && (
+            result.result?.success ||
+            result.result?.fields ||
+            (result.result && !result.result.error)
+          )
+        )
+
+        console.log('🔍 Detailed function results analysis:', functionResults.map(result => ({
+          name: result.name,
+          hasError: result.error,
+          resultKeys: result.result ? Object.keys(result.result) : 'no result',
+          hasSuccess: result.result?.success,
+          hasFields: result.result?.fields ? 'yes' : 'no',
+          fieldsCount: result.result?.fields?.length || 0,
+          resultType: typeof result.result,
+          resultSample: result.result ? JSON.stringify(result.result).substring(0, 200) + '...' : 'no result'
+        })))
+
+        const userAskedForBoundary = originalUserQuery.toLowerCase().includes('boundary') ||
+                                     originalUserQuery.toLowerCase().includes('border') ||
+                                     originalUserQuery.toLowerCase().includes('shape') ||
+                                     originalUserQuery.toLowerCase().includes('coordinates')
+
+        // Check if we should auto-trigger boundary for location-dependent requests
+        const userAskedForLocationData = originalUserQuery.toLowerCase().includes('weather') ||
+                                        originalUserQuery.toLowerCase().includes('forecast') ||
+                                        originalUserQuery.toLowerCase().includes('rain') ||
+                                        originalUserQuery.toLowerCase().includes('temperature') ||
+                                        originalUserQuery.toLowerCase().includes('location')
+
+        const shouldAutoTriggerBoundary = hasGetFieldsResult &&
+                                        (userAskedForBoundary || userAskedForLocationData) &&
+                                        !originalFunctionCalls.some(fc => fc.name === 'get_field_boundary')
+
+        // Auto-trigger boundary call if user asked for boundary and we have fields
+        console.log('🔍 Auto-boundary check:', {
+          hasGetFieldsResult,
+          userAskedForBoundary,
+          userAskedForLocationData,
+          hasExistingBoundaryCall: originalFunctionCalls.some(fc => fc.name === 'get_field_boundary'),
+          originalUserQuery: originalUserQuery.toLowerCase(),
+          shouldTrigger: shouldAutoTriggerBoundary
+        })
+
+        if (shouldAutoTriggerBoundary) {
+          console.log(`🔄 Auto-triggering get_field_boundary function after successful getFields (reason: ${userAskedForBoundary ? 'boundary request' : 'location-dependent request'})`)
+
+          // Find the getFields result
+          const getFieldsResult = functionResults.find(result => result.name === 'getFields')
+          if (getFieldsResult?.result?.fields) {
+            const fields = getFieldsResult.result.fields
+            const userFieldQuery = originalUserQuery.toLowerCase()
+
+            // Try to find matching field by name with better matching logic
+            let targetField = null
+
+            // Extract potential field names from user query (words that could be field names)
+            const potentialFieldNames = originalUserQuery.toLowerCase()
+              .replace(/[^\w\s]/g, ' ') // Remove punctuation
+              .split(/\s+/) // Split by whitespace
+              .filter(word => word.length > 2 && word.length < 20) // Filter reasonable word lengths
+              .filter(word => !['field', 'boundary', 'border', 'shape', 'coordinates', 'want', 'get', 'the', 'for', 'my', 'and', 'with'].includes(word)) // Remove common words
+
+            console.log('🔍 Potential field names from query:', potentialFieldNames)
+            console.log('📋 Available fields:', fields.map((f: any) => f.name))
+
+            // Try exact match first
+            for (const field of fields) {
+              if (field.name) {
+                const fieldNameLower = field.name.toLowerCase()
+                if (potentialFieldNames.includes(fieldNameLower)) {
+                  targetField = field
+                  console.log(`✅ Exact match found: "${field.name}"`)
+                  break
                 }
               }
             }
-            
-            // If we have coordinates, make the weather call
-            if (latitude && longitude) {
+
+            // If no exact match, try partial match
+            if (!targetField) {
+              for (const field of fields) {
+                if (field.name) {
+                  const fieldNameLower = field.name.toLowerCase()
+                  for (const potentialName of potentialFieldNames) {
+                    if (fieldNameLower.includes(potentialName) || potentialName.includes(fieldNameLower)) {
+                      targetField = field
+                      console.log(`✅ Partial match found: "${field.name}" (query: "${potentialName}")`)
+                      break
+                    }
+                  }
+                  if (targetField) break
+                }
+              }
+            }
+
+            // If still no match but user clearly asked for boundary and there's only one field, use it
+            if (!targetField && fields.length === 1 && (originalUserQuery.toLowerCase().includes('boundary') || originalUserQuery.toLowerCase().includes('border') || originalUserQuery.toLowerCase().includes('shape') || originalUserQuery.toLowerCase().includes('coordinates'))) {
+              targetField = fields[0]
+              console.log(`🎯 Using only available field: "${targetField.name}" (user asked for boundary)`)
+            }
+
+            // If we found a matching field, auto-call boundary function
+            if (targetField) {
+              console.log(`🎯 Auto-calling boundary for field: ${targetField.name} (${targetField.id})`)
+
+              // Execute the boundary function automatically using the same method as other functions
               try {
-                console.log('🌤️ Automatically calling weather API...')
-                const weatherResult = await executeFunction({
-                  name: 'getWeatherForecast',
-                  arguments: { latitude, longitude }
+                console.log('🔧 Executing auto-boundary function call...')
+                const boundaryResult = await executeFunction({
+                  name: 'get_field_boundary',
+                  arguments: {
+                    fieldName: targetField.name,
+                    organizationId: getFieldsResult.result.organizationId || '905901'
+                  }
                 }, request)
                 
-                // Add weather result to function results
                 functionResults.push({
-                  name: 'getWeatherForecast',
-                  result: weatherResult,
-                  error: weatherResult.error ? weatherResult.error : undefined
+                  name: 'get_field_boundary',
+                  result: boundaryResult,
+                  callId: `auto_boundary_${Date.now()}`
                 })
-                
-                console.log('✅ Automatic weather API call completed')
+                                  console.log('✅ Auto-boundary function executed successfully')
+
+                  // ADD DEBUG CODE: Log the full boundary response structure
+                  console.log('🔍 FULL BOUNDARY RESPONSE DEBUG:')
+                  console.log(JSON.stringify(functionResults.find(r => r.name === 'get_field_boundary'), null, 2))
+
+                // Extract coordinates and call weather API BEFORE sending to LLM
+                if (boundaryResult && !boundaryResult.error && userAskedForLocationData) {
+                  console.log('🌦️ Extracting coordinates from boundary data for weather call...')
+
+                  try {
+                    // Extract coordinates from boundary data
+                    const coordinates = extractCoordinatesFromBoundary(boundaryResult)
+                    if (coordinates) {
+                      console.log(`📍 Extracted coordinates: ${coordinates.lat}, ${coordinates.lng}`)
+
+                                            // Parse requested days from user query
+                      const parseDaysFromQuery = (query: string): number => {
+                        console.log(`🔍 Parsing days from query: "${query}"`)
+
+                        // Look for patterns like "6 days", "7-day", "3 day forecast", etc.
+                        const dayPatterns = [
+                          /(\d+)\s*days?\s*weather/i,
+                          /(\d+)[-\s]*days?\s*forecast/i,
+                          /(\d+)\s*day\s*weather/i,
+                          /(\d+)[-\s]*day\s*forecast/i,
+                          /weather\s*for\s*(\d+)\s*days?/i,
+                          /forecast\s*for\s*(\d+)\s*days?/i,
+                          /(\d+)\s*day/i  // Simple "6 day" pattern
+                        ]
+
+                        for (const pattern of dayPatterns) {
+                          const match = query.match(pattern)
+                          if (match && match[1]) {
+                            const days = parseInt(match[1])
+                            if (days >= 1 && days <= 10) { // Reasonable range
+                              console.log(`✅ Parsed ${days} days from query using pattern: ${pattern}`)
+                              return days
+                            }
+                          }
+                        }
+
+                        console.log(`📅 No specific days found in query, defaulting to 5 days`)
+                        // Default to 5 if no specific number found
+                        return 5
+                      }
+
+                      const requestedDays = parseDaysFromQuery(originalUserQuery)
+                      console.log(`🌤️ Calling weather API for ${requestedDays} days with extracted coordinates...`)
+
+                      const weatherResult = await executeFunction({
+                        name: 'getWeatherForecast',
+                        arguments: {
+                          latitude: coordinates.lat,
+                          longitude: coordinates.lng,
+                          days: requestedDays
+                        }
+                      }, request)
+
+                      if (weatherResult && !weatherResult.error) {
+                        functionResults.push({
+                          name: 'getWeatherForecast',
+                          result: weatherResult,
+                          callId: `auto_weather_${Date.now()}`
+                        })
+                        console.log('✅ Weather API called successfully with extracted coordinates')
+
+                        // Remove the massive boundary data to prevent LLM overload
+                        // Keep only essential field info
+                        const fieldSummary = {
+                          fieldName: targetField?.name || 'Unknown Field',
+                          coordinates: coordinates,
+                          area: calculateFieldArea(boundaryResult),
+                          // Exclude massive geometry data
+                        }
+
+                        // Replace boundary result with summary
+                        const boundaryIndex = functionResults.findIndex(result => result.name === 'get_field_boundary')
+                        if (boundaryIndex !== -1) {
+                          functionResults[boundaryIndex] = {
+                            name: 'get_field_boundary',
+                            result: { success: true, data: fieldSummary },
+                            callId: functionResults[boundaryIndex].callId
+                          }
+                        }
+                      } else {
+                        console.warn('⚠️ Weather API call failed:', weatherResult?.error)
+                      }
+                    } else {
+                      console.warn('⚠️ Could not extract coordinates from boundary data')
+                    }
+                  } catch (error) {
+                    console.error('❌ Coordinate extraction or weather API call failed:', error)
+                  }
+                }
               } catch (error) {
-                console.error('❌ Failed to automatically call weather API:', error)
+                console.error('❌ Auto-boundary function failed:', error)
+                functionResults.push({
+                  name: 'get_field_boundary',
+                  result: { error: `Auto-boundary failed: ${error instanceof Error ? error.message : 'Unknown error'}` },
+                  callId: `auto_boundary_${Date.now()}`
+                })
               }
-            } else {
-              console.warn('⚠️ Could not extract coordinates from boundary data')
             }
           }
         }
-        
+
+        // Add function results to conversation and get final response
+        messagesWithFunctions = [
+          ...chatMessages,
+          // Create a single assistant message with all tool calls
+          {
+            role: 'assistant' as const,
+            content: response.content,
+            tool_calls: response.functionCalls.map((functionCall, index) => ({
+              id: functionCall.callId || `call_${index}_${Date.now()}`,
+              type: 'function' as const,
+              function: {
+                name: functionCall.name,
+                arguments: JSON.stringify(functionCall.arguments)
+              }
+            }))
+          },
+          // Add all tool results
+          ...functionResults.map(result => ({
+            role: 'tool' as const,
+            content: JSON.stringify(result.result),
+            tool_call_id: result.callId || `call_${functionResults.indexOf(result)}_${Date.now()}`,
+          }))
+        ]
+
+        console.log('🎯 Getting final response with function results...')
+
         // Check if we need to enable functions for multi-step workflows
-        
-        const needsMultiStepFunctions = originalFunctionCalls.some(fc => 
+        needsMultiStepFunctions = originalFunctionCalls.some(fc =>
           fc.name === 'get_field_boundary' || fc.name === 'getFields'
-        ) && functionResults.some(result => 
+        ) && functionResults.some(result =>
           result.result?.success && (result.result?.data || result.result?.fields)
-                ) && (userAskedAboutWeather || hasWeather)
+        ) && (userAskedAboutWeather || hasWeather)
+
+        // Only enable functions if we actually have boundary data to work with
+        const hasBoundaryData = functionResults.some(result =>
+          result.name === 'get_field_boundary' && result.result?.success && result.result?.data
+        )
+        if (!hasBoundaryData && userAskedAboutWeather) {
+          needsMultiStepFunctions = false
+        }
 
         console.log('🔍 Multi-step workflow check:', {
           userAskedAboutWeather,
           hasWeather,
           hasBoundaryCall: originalFunctionCalls.some(fc => fc.name === 'get_field_boundary'),
+          hasAutoBoundaryCall: functionResults.some(result => result.name === 'get_field_boundary' && result.callId?.startsWith('auto_boundary_')),
           hasSuccessfulBoundaryData: functionResults.some(result => result.result?.success && result.result?.data),
           needsMultiStepFunctions,
           originalUserQuery: originalUserQuery.substring(0, 100)
         })
 
-        
-        
         // Prepare enhanced system prompt based on whether there are connection errors
-        let finalSystemPrompt = systemPrompt
         if (hasConnectionErrors) {
-          finalSystemPrompt += `\n\n**IMPORTANT: Some function calls encountered connection/permission errors. Use the userMessage field from the error results to provide helpful guidance to the user. DO NOT show technical error details - only provide user-friendly explanations and guidance.**`
-        } else if (needsMultiStepFunctions) {
-          // Check if we now have both field and weather data
+          systemPrompt += `\n\n**IMPORTANT: Some function calls encountered connection/permission errors. Use the userMessage field from the error results to provide helpful guidance to the user. DO NOT show technical error details - only provide user-friendly explanations and guidance.**`
+        } else if (needsMultiStepFunctions || functionResults.some(result => result.name === 'get_field_boundary' && result.callId?.startsWith('auto_boundary_'))) {
+          // Check if we now have both field and weather data, or if we auto-called boundary
           const hasWeatherData = functionResults.some(result => result.name === 'getWeatherForecast' && result.result?.success)
           const hasFieldData = functionResults.some(result => result.name === 'get_field_boundary' && result.result?.success)
           
           if (hasWeatherData && hasFieldData) {
-            finalSystemPrompt += `\n\n**✅ COMPLETE WORKFLOW: You now have BOTH field boundary data AND weather forecast data. 
+            systemPrompt += `\n\n**✅ COMPLETE WORKFLOW: You now have BOTH field boundary data AND weather forecast data.
 PROVIDE A COMPREHENSIVE RESPONSE that includes:
 1. Field information (name, location, size from boundary data)
 2. Current weather conditions and forecast (from weather data)
 3. Agricultural insights about the weather for this specific field
 4. Any recommendations based on the weather data
 YOU HAVE ALL THE DATA - PROVIDE A DETAILED, HELPFUL RESPONSE.**`
-          } else if (hasFieldData) {
-            finalSystemPrompt += `\n\n**🚨 CRITICAL: CONTINUE WEATHER WORKFLOW**
+          } else if (hasWeatherData) {
+            systemPrompt += `\n\n**✅ WEATHER DATA AVAILABLE: You now have weather forecast data for the field.
 
-You just received field boundary data and the user asked about WEATHER for this field.
+**MANDATORY RESPONSE REQUIREMENTS:**
+1. **EXTRACT and DISPLAY weather information** from the function result data
+2. **Include field context**: reference the field name and location
+3. **Provide comprehensive weather details**: current conditions, forecast, temperature, precipitation
+4. **Include agricultural insights**: how weather affects farming operations
+5. **Be comprehensive** but user-friendly in your response
 
-**MANDATORY NEXT STEPS:**
-1. Look at the field boundary data in the function result
-2. Find coordinates (lat/lon) in the boundary data
-3. IMMEDIATELY call getWeatherForecast(latitude, longitude) with those coordinates
-4. Provide a comprehensive weather report for the field
+**DATA LOCATION**: Look for weather data in the function results under 'getWeatherForecast' result.data
 
-**COORDINATE EXTRACTION HELP:**
-- Look for "lat" and "lon" values in the boundary data
-- Or look for "latitude" and "longitude" 
-- Or look for geometry coordinates
-- Use the first coordinate pair you find
-
-**EXAMPLE:** If you see lat: 41.628, lon: -3.587, then call getWeatherForecast(41.628, -3.587)
-
-**ABSOLUTELY FORBIDDEN:**
-- Returning empty responses
-- Stopping after getting boundary data
-- Not calling the weather function
-
-**YOU MUST CALL getWeatherForecast() NOW - DO NOT STOP HERE**`
+**RESPONSE FORMAT:**
+- Start with field identification
+- Current weather conditions
+- 5-day forecast summary
+- Agricultural recommendations based on weather
+- Any weather-related alerts or warnings`
           } else {
-            finalSystemPrompt += `\n\n**🚀 START WORKFLOW: Begin the step-by-step process to answer the user's question. Make the appropriate function calls and explain your progress.**`
+            systemPrompt += `\n\n**🚀 START WORKFLOW: Begin the step-by-step process to answer the user's question. Make the appropriate function calls and explain your progress.**`
           }
-        } else {
-          // Check if we have connection errors for field boundary requests when user asked about weather
-          const hasBoundaryConnectionError = functionResults.some(result => 
-            result.name === 'get_field_boundary' && 
-            (result.result?.error === 'connection_required' || 
-             result.result?.error === 'rca_required' || 
-             result.result?.error === 'insufficient_permissions' ||
-             result.result?.error === 'access_denied' ||
-             result.error)
-          )
-          
-          if (userAskedAboutWeather && hasBoundaryConnectionError && hasWeather) {
-            finalSystemPrompt += `\n\n**🌤️ WEATHER QUERY WITH FIELD CONNECTION ERROR**
+        }
+
+        // Check if we have connection errors for field boundary requests when user asked about weather
+        const hasBoundaryConnectionError = functionResults.some(result => 
+          result.name === 'get_field_boundary' && 
+          (result.result?.error === 'connection_required' || 
+           result.result?.error === 'rca_required' || 
+           result.result?.error === 'insufficient_permissions' ||
+           result.result?.error === 'access_denied' ||
+           result.error)
+        )
+        
+        if (userAskedAboutWeather && hasBoundaryConnectionError && hasWeather) {
+          systemPrompt += `\n\n**🌤️ WEATHER QUERY WITH FIELD CONNECTION ERROR**
 
 The user asked about weather for a specific field, but there was an authentication/connection error accessing the field data.
 
@@ -636,19 +1171,9 @@ The user asked about weather for a specific field, but there was an authenticati
 3. Suggest they check their John Deere connection
 4. Offer general weather information for their location if they provide city/region
 
-**EXAMPLE RESPONSE:**
-"I'm unable to access the boundary data for field '14ha' due to a connection issue with your farm management system. However, I can still provide weather information! 
-
-You can:
-1. Provide coordinates (latitude, longitude) for the field
-2. Tell me the city/region where the field is located
-3. Check your John Deere connection in the integrations settings
-
-Would you like me to get weather information using coordinates or a location name?"
-
 **DO NOT return empty responses - always provide helpful alternatives.**`
-          } else {
-            finalSystemPrompt += `\n\n**CRITICAL: You have just received function results with actual farm data. You MUST provide a detailed response to the user's question using this data. 
+        } else {
+          systemPrompt += `\n\n**CRITICAL: You have just received function results with actual farm data. You MUST provide a detailed response to the user's question using this data. 
 
 **REQUIRED ACTIONS:**
 1. Analyze the function results data
@@ -656,24 +1181,59 @@ Would you like me to get weather information using coordinates or a location nam
 3. Provide a comprehensive answer with specific details
 4. Include recommendations based on the data
 
-**EXAMPLES:**
-- If field boundary data: Describe the field size, location, and provide harvesting recommendations
-- If weather data: Analyze conditions and give farming advice
-- If market data: Explain prices and market trends
-
 **YOU MUST RESPOND WITH ACTUAL CONTENT - DO NOT RETURN EMPTY RESPONSES.**`
+        }
+
+        // 🚨 EARLY WEATHER RESPONSE: Check if we can skip LLM entirely for pure weather queries
+        const earlyWeatherData = functionResults.some(result => result.name === 'getWeatherForecast' && result.result?.success)
+        const earlyFieldData = functionResults.some(result => result.name === 'get_field_boundary' && result.result?.success)
+        const isPureWeatherQuery = originalUserQuery.toLowerCase().includes('weather') ||
+                                  originalUserQuery.toLowerCase().includes('forecast') ||
+                                  originalUserQuery.toLowerCase().includes('temperature')
+
+        if (earlyWeatherData && earlyFieldData && isPureWeatherQuery && !needsMultiStepFunctions) {
+          console.log('🌤️ Pure weather query with complete data - generating direct response')
+          response = {
+            content: generateWeatherForecastResponse(functionResults, originalUserQuery),
+            model: 'direct-generation',
+            functionCalls: [],
+            usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+          }
+        } else {
+          // Call LLM for complex queries or when we need more processing
+          try {
+            response = await llmService.generateChatCompletion(messagesWithFunctions as ChatMessage[] | InternalChatMessage[], {
+              maxTokens: options?.maxTokens || 4000,
+              temperature: 0.1, // Lower temperature for more consistent function calling
+              systemPrompt: systemPrompt,
+              enableFunctions: needsMultiStepFunctions, // Enable functions for multi-step workflows
+            })
+          } catch (llmError) {
+            console.error('❌ LLM generation failed:', llmError)
+
+            // 🚨 DIRECT WEATHER RESPONSE: When LLMs fail, generate response directly
+            const hasWeatherData = functionResults.some(result => result.name === 'getWeatherForecast' && result.result?.success)
+            const hasFieldData = functionResults.some(result => result.name === 'get_field_boundary' && result.result?.success)
+
+            if (hasWeatherData && hasFieldData) {
+              console.log('🌤️ LLMs failed, generating direct weather response')
+              response = {
+                content: generateWeatherForecastResponse(functionResults, originalUserQuery),
+                model: 'direct-generation',
+                functionCalls: [],
+                usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+              }
+            } else {
+              // Create a fallback response using the available function results
+              response = {
+                content: generateFallbackResponse(functionResults, originalUserQuery),
+                model: 'fallback',
+                functionCalls: [],
+                usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+              }
+            }
           }
         }
-        
-        console.log('🎯 Enhanced system prompt being sent:', finalSystemPrompt.substring(finalSystemPrompt.length - 500))
-        console.log('🔧 Functions enabled for multi-step:', needsMultiStepFunctions)
-        
-        response = await llmService.generateChatCompletion(messagesWithFunctions, {
-          maxTokens: options?.maxTokens || 4000,
-          temperature: 0.1, // Lower temperature for more consistent function calling
-          systemPrompt: finalSystemPrompt,
-          enableFunctions: needsMultiStepFunctions, // Enable functions for multi-step workflows
-        })
 
         // Restore the original function calls to the response and add any automatic calls
         const automaticCalls = functionResults
@@ -696,230 +1256,20 @@ Would you like me to get weather information using coordinates or a location nam
           contentLength: response.content?.length
         })
         
-        // 🚨 FINAL FALLBACK: If LLM returns empty content despite having both field and weather data,
-        // generate the response at code level
-        if ((!response.content || response.content.trim().length === 0) && needsMultiStepFunctions) {
+        // 🚨 FINAL FALLBACK: If LLM returns empty content despite having data
+        if (!response.content || response.content.trim().length === 0) {
+          console.log('🚨 LLM returned empty content - generating fallback response')
+          
           const hasWeatherData = functionResults.some(result => result.name === 'getWeatherForecast' && result.result?.success)
           const hasFieldData = functionResults.some(result => result.name === 'get_field_boundary' && result.result?.success)
           
-          if (hasWeatherData && hasFieldData && userAskedAboutWeather) {
-            console.log('🚨 LLM returned empty content despite having complete data - generating fallback response')
-            
-            const fieldResult = functionResults.find(result => result.name === 'get_field_boundary')
-            const weatherResult = functionResults.find(result => result.name === 'getWeatherForecast')
-            
-            if (fieldResult?.result?.data?.values?.[0] && weatherResult?.result?.data) {
-              const fieldData = fieldResult.result.data.values[0]
-              const weatherData = weatherResult.result.data
-              
-              const fieldName = fieldData.name || 'Unknown Field'
-              const fieldArea = fieldData.area?.valueAsDouble ? `${fieldData.area.valueAsDouble.toFixed(1)} ${fieldData.area.unit}` : 'Unknown area'
-              
-              const current = weatherData.current
-              const forecast = weatherData.forecast?.daily?.[0]
-              const agriculture = weatherData.agriculture
-              
-              // Check if user asked for multi-day forecast
-              const isMultiDayForecast = originalUserQuery.toLowerCase().includes('forecast') || 
-                originalUserQuery.toLowerCase().includes('days') ||
-                originalUserQuery.toLowerCase().includes('week') ||
-                originalUserQuery.match(/\d+\s*day/i)
-              
-              console.log('🔍 Multi-day forecast requested:', isMultiDayForecast)
-              
-              if (isMultiDayForecast && weatherData.forecast?.daily) {
-                // Generate multi-day forecast with visualizations
-                const dailyForecast = weatherData.forecast.daily.slice(0, 4) // Get 4 days
-                
-                response.content = `# 4-Day Weather Forecast for Field "${fieldName}"
-
-## Field Information
-- **Name**: ${fieldName}
-- **Area**: ${fieldArea}
-- **Location**: ${weatherData.location?.latitude?.toFixed(3)}, ${weatherData.location?.longitude?.toFixed(3)}
-
-## 4-Day Forecast Summary
-
-\`\`\`json
-{
-  "type": "table",
-  "title": "4-Day Weather Forecast",
-  "data": [
-    {
-      "Day": "Today",
-      "High/Low (°C)": "${current?.temperature}° / ${current?.temperature}°",
-      "Weather": "${current?.weatherCondition}",
-      "Precipitation (mm)": "${current?.precipitation || 0}",
-      "Wind (km/h)": "${current?.windSpeed}",
-      "Humidity (%)": "${current?.humidity}"
-         }${dailyForecast.map((day: any, index: number) => `,
-     {
-       "Day": "Day ${index + 1}",
-      "High/Low (°C)": "${day.maxTemp || 'N/A'}° / ${day.minTemp || 'N/A'}°",
-      "Weather": "${day.weatherCondition || 'Clear'}",
-      "Precipitation (mm)": "${day.precipitation || 0}",
-      "Wind (km/h)": "${day.windSpeed || 'N/A'}",
-      "Humidity (%)": "N/A"
-    }`).join('')}
-  ]
-}
-\`\`\`
-
-\`\`\`json
-{
-  "type": "line",
-  "title": "Temperature Trend (4 Days)",
-  "data": [
-    {
-      "day": "Today",
-      "high": ${current?.temperature || 0},
-             "low": ${current?.temperature || 0}
-     }${dailyForecast.map((day: any, index: number) => `,
-     {
-       "day": "Day ${index + 1}",
-       "high": ${day.maxTemp || 0},
-      "low": ${day.minTemp || 0}
-    }`).join('')}
-  ],
-  "xAxis": "day",
-  "yAxis": "high",
-  "lines": [
-    {"key": "high", "color": "#ff6b6b", "label": "High °C"},
-    {"key": "low", "color": "#4ecdc4", "label": "Low °C"}
-  ]
-}
-\`\`\`
-
-\`\`\`json
-{
-  "type": "bar",
-  "title": "Precipitation Forecast (4 Days)",
-  "data": [
-    {
-      "day": "Today",
-             "precipitation": ${current?.precipitation || 0}
-     }${dailyForecast.map((day: any, index: number) => `,
-     {
-       "day": "Day ${index + 1}",
-       "precipitation": ${day.precipitation || 0}
-    }`).join('')}
-  ],
-  "xAxis": "day",
-  "yAxis": "precipitation",
-  "color": "#45b7d1"
-}
-\`\`\`
-
-## Agricultural Recommendations
-${agriculture ? `- **Soil Temperature**: ${agriculture.soilTemperature?.surface}°C (surface), ${agriculture.soilTemperature?.depth6cm}°C (6cm depth)
-- **Soil Moisture**: ${agriculture.soilMoisture?.surface?.toFixed(3)} (surface)
-- **Spraying Conditions**: ${agriculture.sprayConditions?.suitable ? 'Currently suitable' : 'Currently not suitable'}` : 'Agricultural data not available'}
-
-## Planning Recommendations
-Based on the 4-day forecast for your ${fieldArea} field:
-- **Today**: ${current?.weatherCondition?.toLowerCase()}, ${current?.temperature}°C
-- **Best Days for Field Work**: ${dailyForecast.filter((day: any) => (day.precipitation || 0) < 2).length > 0 ? 'Days with low precipitation' : 'Monitor weather closely'}
-- **Irrigation Planning**: ${dailyForecast.some((day: any) => (day.precipitation || 0) > 5) ? 'Rain expected - reduce irrigation' : 'Consider irrigation needs'}
-- **Spray Applications**: Plan for days with low wind and no precipitation
-
-*4-day weather forecast provided by AgMCP Weather Service*`
-              } else {
-                // Generate current weather report
-                response.content = `# Weather Report for Field "${fieldName}"
-
-## Field Information
-- **Name**: ${fieldName}
-- **Area**: ${fieldArea}
-- **Location**: ${weatherData.location?.latitude?.toFixed(3)}, ${weatherData.location?.longitude?.toFixed(3)}
-
-## Current Weather Conditions
-- **Temperature**: ${current?.temperature}°C
-- **Weather**: ${current?.weatherCondition}
-- **Humidity**: ${current?.humidity}%
-- **Wind**: ${current?.windSpeed} km/h from ${current?.windDirection}°
-- **Pressure**: ${current?.pressure} hPa
-- **Precipitation**: ${current?.precipitation} mm
-
-## Tomorrow's Forecast
-${forecast ? `- **High/Low**: ${forecast.temperatureMax || forecast.temperature2mMax}°C / ${forecast.temperatureMin || forecast.temperature2mMin}°C
-- **Precipitation**: ${forecast.precipitationSum || forecast.precipitationSum || 0} mm (${forecast.precipitationProbabilityMax || forecast.precipitationProbabilityMean || 0}% chance)
-- **Wind**: Up to ${forecast.windSpeedMax || forecast.windSpeed10mMax || 'N/A'} km/h` : 'Forecast data not available'}
-
-## Agricultural Conditions
-${agriculture ? `- **Soil Temperature**: ${agriculture.soilTemperature?.surface}°C (surface), ${agriculture.soilTemperature?.depth6cm}°C (6cm depth)
-- **Soil Moisture**: ${agriculture.soilMoisture?.surface?.toFixed(3)} (surface)
-- **Evapotranspiration**: ${agriculture.evapotranspiration} mm
-- **UV Index**: ${agriculture.uvIndex}
-- **Spraying Conditions**: ${agriculture.sprayConditions?.suitable ? 'Suitable' : 'Not suitable'}` : 'Agricultural data not available'}
-
-## Recommendations
-Based on the current weather conditions for your ${fieldArea} field:
-- Current conditions are ${current?.weatherCondition?.toLowerCase()}
-- ${agriculture?.sprayConditions?.suitable ? 'Good conditions for spraying operations' : 'Consider waiting for better spraying conditions'}
-- Monitor soil moisture levels for irrigation planning
-- ${forecast?.precipitationSum > 5 ? 'Significant rain expected tomorrow - plan field operations accordingly' : 'Dry conditions expected - consider irrigation needs'}
-
-*Weather data provided by AgMCP Weather Service*`
-              }
-
-              console.log('✅ Generated fallback weather response:', response.content.length, 'characters')
-            }
+          if (hasWeatherData && hasFieldData) {
+            response.content = generateWeatherForecastResponse(functionResults, originalUserQuery)
+          } else {
+            response.content = generateFallbackResponse(functionResults, originalUserQuery)
           }
         }
       }
-    }
-
-    // 🤔 REASONING VALIDATION SYSTEM (Optional)
-    const enableReasoning = process.env.ENABLE_REASONING_VALIDATION === 'true'
-    
-    if (enableReasoning) {
-      console.log('🤔 Starting reasoning validation...')
-      try {
-        const validation = await llmService.validateResponse(
-          originalUserQuery,
-          response,
-          functionResults
-        )
-
-        // Add reasoning to response metadata
-        response.reasoning = validation
-
-        // If validation fails and confidence is low, attempt correction
-        if (!validation.isValid && validation.confidence < 0.7) {
-          console.log('🔄 Response validation failed, attempting correction...')
-          console.log('❌ Validation issue:', validation.explanation)
-          
-          try {
-            const correctedResponse = await llmService.generateCorrectedResponse(
-              chatMessages,
-              response,
-              validation,
-              {
-                maxTokens: options?.maxTokens || 4000,
-                temperature: options?.temperature || 0.7,
-                systemPrompt: systemPrompt,
-                enableFunctions: enableFunctions,
-              }
-            )
-            
-            // Use corrected response if it's better
-            if (correctedResponse.content && correctedResponse.content.length > 0) {
-              console.log('✅ Using corrected response')
-              response = correctedResponse
-            }
-          } catch (correctionError) {
-            console.error('❌ Correction attempt failed:', correctionError)
-            // Continue with original response
-          }
-        } else {
-          console.log('✅ Response validation passed:', validation.explanation)
-        }
-      } catch (validationError) {
-        console.error('❌ Reasoning validation failed:', validationError)
-        // Continue without validation
-      }
-    } else {
-      console.log('⚠️ Reasoning validation disabled (set ENABLE_REASONING_VALIDATION=true to enable)')
     }
 
     // Parse potential visualization data from LLM response
@@ -1026,4 +1376,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}

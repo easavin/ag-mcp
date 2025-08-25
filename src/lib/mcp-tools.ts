@@ -594,8 +594,8 @@ export const AURAVANT_TOOLS: MCPTool[] = [
           description: 'End date filter (YYYY-MM-DD)'
         },
         status: {
-          type: 'number',
-          enum: [1, 2, 3],
+          type: 'string',
+          enum: ['1', '2', '3'],
           description: 'Operation status: 1=Planned, 2=Executed, 3=Cancelled'
         }
       },
@@ -1277,13 +1277,47 @@ export class MCPToolExecutor {
   }
 
   private async getFieldRecommendations(params: any): Promise<MCPToolResult> {
-    const recommendations = this.generateMockRecommendations(params)
+    try {
+      // Use the main application's API for real recommendations
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
 
-    return {
-      success: true,
-      message: `🌾 Generated **AI recommendations** for field ${params.fieldId}`,
-      data: recommendations,
-      actionTaken: 'Generated field recommendations'
+      const recommendationsResponse = await fetch(`${baseUrl}/api/field-recommendations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(params)
+      })
+
+      if (!recommendationsResponse.ok) {
+        // Fallback to mock data if the endpoint doesn't exist or fails
+        console.log('Using fallback recommendations due to API unavailability')
+        const recommendations = this.generateMockRecommendations(params)
+        return {
+          success: true,
+          message: `🌾 Generated **AI recommendations** for field ${params.fieldId} (using fallback)`,
+          data: recommendations,
+          actionTaken: 'Generated field recommendations'
+        }
+      }
+
+      const recommendations = await recommendationsResponse.json()
+      return {
+        success: true,
+        message: `🌾 Retrieved **AI recommendations** for field ${params.fieldId}`,
+        data: recommendations,
+        actionTaken: 'Retrieved field recommendations from API'
+      }
+    } catch (error: any) {
+      // Fallback to mock data on error
+      console.log('Error fetching recommendations, using fallback:', error.message)
+      const recommendations = this.generateMockRecommendations(params)
+      return {
+        success: true,
+        message: `🌾 Generated **AI recommendations** for field ${params.fieldId} (fallback)`,
+        data: recommendations,
+        actionTaken: 'Generated field recommendations (fallback)'
+      }
     }
   }
 
@@ -1375,16 +1409,36 @@ export class MCPToolExecutor {
 
   private async getFieldOperationHistory(params: { fieldId: string, organizationId: string }): Promise<MCPToolResult> {
     try {
-      const apiClient = getJohnDeereAPIClient();
-      const operations = await apiClient.getFieldOperations(params.organizationId, params.fieldId);
-      
+      // Use the main application's API endpoint for operation history
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+
+      const operationsResponse = await fetch(`${baseUrl}/api/johndeere/organizations/${params.organizationId}/fields/${params.fieldId}/operations`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!operationsResponse.ok) {
+        return {
+          success: false,
+          message: `Failed to get operation history for field ${params.fieldId}. Please check your permissions.`
+        };
+      }
+
+      const operationsData = await operationsResponse.json()
+
       return {
         success: true,
         message: `Retrieved operation history for field ${params.fieldId}.`,
-        data: operations
+        data: operationsData
       };
     } catch (error: any) {
-      return { success: false, message: `Failed to get history for field ${params.fieldId}: ${error.message}` };
+      console.error('Error in getFieldOperationHistory:', error)
+      return {
+        success: false,
+        message: `Failed to get history for field ${params.fieldId}: ${error.message || 'Unknown error'}`
+      };
     }
   }
 
@@ -1418,42 +1472,86 @@ export class MCPToolExecutor {
 
   private async getFieldBoundary(params: { organizationId?: string, fieldName: string }): Promise<MCPToolResult> {
     try {
-      const apiClient = getJohnDeereAPIClient();
+      // Use the main application's API endpoint which has proper authentication context
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+
       let orgId = params.organizationId;
 
-      // If orgId is not provided, fetch the default one
+      // If orgId is not provided, we need to get it from the organizations endpoint
       if (!orgId) {
-        const orgs = await apiClient.getOrganizations();
-        if (orgs && orgs.length > 0) {
-          orgId = orgs[0].id;
+        const orgsResponse = await fetch(`${baseUrl}/api/johndeere/organizations`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (!orgsResponse.ok) {
+          return { success: false, message: 'Failed to fetch organizations. Please check your authentication.' };
+        }
+
+        const orgsData = await orgsResponse.json()
+        if (orgsData && orgsData.length > 0) {
+          orgId = orgsData[0].id;
           console.log(`🏢 Auto-detected organization ID: ${orgId}`);
         } else {
           return { success: false, message: 'Could not find any John Deere organizations.' };
         }
       }
-      
-      const fields = await apiClient.getFields(orgId);
-      const field = fields.find(f => f.name.toLowerCase() === params.fieldName.toLowerCase());
+
+      // Get fields for the organization
+      const fieldsResponse = await fetch(`${baseUrl}/api/johndeere/organizations/${orgId}/fields`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!fieldsResponse.ok) {
+        return { success: false, message: `Failed to fetch fields for organization ${orgId}. Please check your permissions.` };
+      }
+
+      const fieldsData = await fieldsResponse.json()
+      const fields = fieldsData.fields || []
+      const field = fields.find((f: any) => f.name.toLowerCase() === params.fieldName.toLowerCase());
 
       if (!field) {
-        return { success: false, message: `Could not find a field named "${params.fieldName}".` };
+        return { success: false, message: `Could not find a field named "${params.fieldName}". Available fields: ${fields.map((f: any) => f.name).join(', ')}` };
       }
 
-      const boundaryLink = field.links.find(link => link.rel === 'boundaries')?.uri;
+      // Use the boundary API endpoint
+      const boundaryResponse = await fetch(`${baseUrl}/api/johndeere/organizations/${orgId}/fields/${field.id}/boundary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fieldName: params.fieldName,
+          organizationId: orgId
+        })
+      })
 
-      if (!boundaryLink) {
-        return { success: false, message: `No boundary data link found for field "${params.fieldName}".` };
+      if (!boundaryResponse.ok) {
+        const errorData = await boundaryResponse.json().catch(() => ({ error: 'Unknown error' }))
+        return {
+          success: false,
+          message: `Failed to get boundary for field "${params.fieldName}": ${errorData.error || boundaryResponse.statusText}`
+        };
       }
 
-      const boundaryData = await apiClient.getBoundariesForField(boundaryLink);
+      const boundaryData = await boundaryResponse.json()
 
       return {
         success: true,
-        message: `Successfully retrieved boundary data for field "${params.fieldName}".`,
-        data: boundaryData
+        message: boundaryData.message || `Successfully retrieved boundary data for field "${params.fieldName}".`,
+        data: boundaryData.data
       };
     } catch (error: any) {
-      return { success: false, message: `Failed to get boundary for field "${params.fieldName}": ${error.message}` };
+      console.error('Error in getFieldBoundary:', error)
+      return {
+        success: false,
+        message: `Failed to get boundary for field "${params.fieldName}": ${error.message || 'Unknown error'}`
+      };
     }
   }
 

@@ -158,28 +158,142 @@ export function parseVisualizationsFromResponse(content: string, functionResults
         
         const forecast = weatherData.forecast?.daily || []
         if (forecast.length > 0) {
-          // Create chart for temperature trend
-          const chartData = forecast.slice(0, 5).map((day: any, index: number) => ({
+          // Get the actual number of days from the forecast data
+          const actualDays = forecast.length
+          console.log(`🌤️ Creating visualization for ${actualDays} days of weather data`)
+
+          // Create comprehensive temperature and precipitation chart
+          const chartData = forecast.slice(0, actualDays).map((day: any, index: number) => ({
             day: index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : `Day ${index + 1}`,
-            temperature: Math.round(day.maxTemp || day.temperature_2m_max || day.temperature || 0),
-            humidity: Math.round(day.humidity || day.relative_humidity_2m || 0)
+            high: Math.round(day.maxTemp || day.temperature_2m_max || day.temperature || 0),
+            low: Math.round(day.minTemp || day.temperature_2m_min || day.minTemp || day.temperature || 0),
+            precipitation: Math.round(day.precipitationProbability || day.precipitation_probability || 0),
+            humidity: Math.round(day.humidity || day.relative_humidity_2m || 0),
+            weatherCondition: day.weatherCondition || day.weather_description || 'Clear'
           }))
-          
+
+          // Enhanced temperature chart with high/low ranges
           visualizations.push({
             type: 'chart',
-            title: '5-Day Temperature Forecast',
-            description: `Weather forecast for ${weatherData.location ? `latitude ${weatherData.location.latitude}, longitude ${weatherData.location.longitude}` : 'your location'}`,
+            title: `${actualDays}-Day Temperature Forecast`,
+            description: `High and low temperatures with precipitation probability for ${weatherData.location ? `latitude ${weatherData.location.latitude}, longitude ${weatherData.location.longitude}` : 'your location'}`,
             data: {
               chartType: 'line',
               dataset: chartData,
               xAxis: 'day',
-              yAxis: 'temperature',
-              colors: ['#3b82f6', '#22c55e']
+              yAxis: 'high',
+              colors: ['#ef4444', '#3b82f6', '#10b981'],
+              lines: [
+                { key: 'high', color: '#ef4444', label: 'High °C' },
+                { key: 'low', color: '#3b82f6', label: 'Low °C' },
+                { key: 'precipitation', color: '#10b981', label: 'Rain Chance %' }
+              ]
             }
           })
-          
-          // Create metrics for current conditions
+
+          // Precipitation probability bar chart
+          visualizations.push({
+            type: 'chart',
+            title: 'Precipitation Forecast',
+            description: `Chance of rain and humidity levels for the next ${actualDays} days`,
+            data: {
+              chartType: 'bar',
+              dataset: chartData,
+              xAxis: 'day',
+              yAxis: 'precipitation',
+              colors: ['#06b6d4']
+            }
+          })
+
+          // Agricultural metrics if available
+          if (weatherData.agriculture) {
+            // Soil temperature metric
+            if (weatherData.agriculture.soilTemperature) {
+              const soilTemp = weatherData.agriculture.soilTemperature
+              const surfaceTemp = soilTemp.surface || soilTemp['10cm'] || soilTemp
+              visualizations.push({
+                type: 'metric',
+                title: 'Soil Temperature',
+                data: {
+                  value: typeof surfaceTemp === 'object' ? surfaceTemp.value || 15 : surfaceTemp,
+                  label: 'Soil Temperature',
+                  unit: '°C',
+                  context: 'Surface level',
+                  color: 'green'
+                }
+              })
+            }
+
+            // UV Index metric
+            if (weatherData.agriculture.uvIndex !== undefined) {
+              visualizations.push({
+                type: 'metric',
+                title: 'UV Index',
+                data: {
+                  value: weatherData.agriculture.uvIndex,
+                  label: 'UV Index',
+                  unit: '',
+                  context: weatherData.agriculture.uvIndex > 7 ? 'High - Use protection' : weatherData.agriculture.uvIndex > 3 ? 'Moderate' : 'Low',
+                  color: weatherData.agriculture.uvIndex > 7 ? 'red' : weatherData.agriculture.uvIndex > 3 ? 'yellow' : 'green'
+                }
+              })
+            }
+
+            // Spraying conditions
+            if (weatherData.agriculture.sprayConditions) {
+              visualizations.push({
+                type: 'metric',
+                title: 'Spraying Conditions',
+                data: {
+                  value: weatherData.agriculture.sprayConditions.suitable ? 'Good' : 'Poor',
+                  label: 'Spraying Conditions',
+                  unit: '',
+                  context: weatherData.agriculture.sprayConditions.reason || 'Based on weather',
+                  color: weatherData.agriculture.sprayConditions.suitable ? 'green' : 'red'
+                }
+              })
+            }
+          }
+
+          // Agricultural recommendations table
+          const recommendations = []
+          if (weatherData.current?.temperature !== undefined) {
+            if (weatherData.current.temperature > 30) {
+              recommendations.push(['High Temperature Alert', 'Consider irrigation and heat stress prevention', 'Critical'])
+            } else if (weatherData.current.temperature < 10) {
+              recommendations.push(['Low Temperature Alert', 'Frost protection may be needed', 'Warning'])
+            } else {
+              recommendations.push(['Temperature', 'Optimal growing conditions', 'Good'])
+            }
+          }
+
+          if (weatherData.agriculture?.sprayConditions) {
+            recommendations.push([
+              'Pesticide Application',
+              weatherData.agriculture.sprayConditions.suitable ? 'Conditions suitable for spraying' : 'Avoid spraying - poor conditions',
+              weatherData.agriculture.sprayConditions.suitable ? 'Recommended' : 'Not Recommended'
+            ])
+          }
+
+          if (forecast.some((day: any) => (day.precipitationProbability || 0) > 70)) {
+            recommendations.push(['Heavy Rain Expected', 'Prepare drainage and delay field work', 'Warning'])
+          }
+
+          if (recommendations.length > 0) {
+            visualizations.push({
+              type: 'table',
+              title: 'Agricultural Recommendations',
+              description: 'Weather-based recommendations for your farming operations',
+              data: {
+                headers: ['Recommendation', 'Details', 'Status'],
+                rows: recommendations
+              }
+            })
+          }
+
+          // Create comprehensive current weather summary
           if (weatherData.current) {
+            // Current temperature with weather icon context
             visualizations.push({
               type: 'metric',
               title: 'Current Conditions',
@@ -187,25 +301,65 @@ export function parseVisualizationsFromResponse(content: string, functionResults
                 value: Math.round(weatherData.current.temperature),
                 label: 'Current Temperature',
                 unit: '°C',
-                context: weatherData.current.weatherCondition || 'Clear',
+                context: `🌤️ ${weatherData.current.weatherCondition || 'Clear'}`,
                 color: 'blue'
               }
             })
+
+            // Wind conditions if available
+            if (weatherData.current.windSpeed !== undefined) {
+              visualizations.push({
+                type: 'metric',
+                title: 'Wind Conditions',
+                data: {
+                  value: Math.round(weatherData.current.windSpeed),
+                  label: 'Wind Speed',
+                  unit: 'km/h',
+                  context: `💨 ${weatherData.current.windDirection ? `${weatherData.current.windDirection}°` : 'Variable'}`,
+                  color: weatherData.current.windSpeed > 20 ? 'yellow' : 'blue'
+                }
+              })
+            }
+
+            // Humidity metric
+            if (weatherData.current.humidity !== undefined) {
+              visualizations.push({
+                type: 'metric',
+                title: 'Humidity',
+                data: {
+                  value: Math.round(weatherData.current.humidity),
+                  label: 'Relative Humidity',
+                  unit: '%',
+                  context: `💧 ${weatherData.current.humidity > 80 ? 'High humidity' : weatherData.current.humidity < 30 ? 'Low humidity' : 'Moderate'}`,
+                  color: weatherData.current.humidity > 80 || weatherData.current.humidity < 30 ? 'yellow' : 'green'
+                }
+              })
+            }
           }
         }
       }
       
-      // Auto-detect field data
+      // Auto-detect field data - only if user asked about fields, not weather
       if (result.name === 'getFields' && result.result?.fields) {
         // Skip auto-generation if we already have visualizations
         if (visualizations.some(v => v.title?.toLowerCase().includes('field'))) {
           console.log('🌾 Skipping auto-generated field visualizations - already exist')
           continue
         }
-        
+
+        // Check if user is asking about weather - if so, don't show field list
+        const userQuery = content.toLowerCase()
+        const isWeatherQuery = userQuery.includes('weather') || userQuery.includes('forecast') ||
+                              userQuery.includes('temperature') || userQuery.includes('rain')
+
+        if (isWeatherQuery) {
+          console.log('🌤️ Skipping field visualization for weather query')
+          continue
+        }
+
         const fields = result.result.fields
         console.log('🌾 Creating fields table visualization')
-        
+
         if (fields.length > 0) {
           const headers = ['Field Name', 'Area', 'Status']
           const rows = fields.map((field: any) => [
@@ -213,7 +367,7 @@ export function parseVisualizationsFromResponse(content: string, functionResults
             field.area ? `${field.area} acres` : 'N/A',
             field.status || 'Active'
           ])
-          
+
           visualizations.push({
             type: 'table',
             title: 'Your Fields',
@@ -223,7 +377,7 @@ export function parseVisualizationsFromResponse(content: string, functionResults
               rows
             }
           })
-          
+
           // Summary metric
           const totalArea = fields.reduce((sum: number, field: any) => sum + (field.area || 0), 0)
           if (totalArea > 0) {

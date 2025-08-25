@@ -287,24 +287,53 @@ export class JohnDeereAPIClient {
     const response = error.response
     const headers = response.headers || {}
     const data = response.data || {}
+    const requestUrl = error.config?.url || ''
 
     console.error('🚫 403 Forbidden Error Details:', {
       status: response.status,
+      url: requestUrl,
       headers: headers,
-      data: data,
-      url: error.config?.url
+      data: data
     })
 
     // Check for RCA (Required Customer Action) events
     const rcaWarning = headers['x-deere-warning'] || headers['X-Deere-Warning']
     const rcaLocation = headers['x-deere-terms-location'] || headers['X-Deere-Terms-Location']
-    
+
     if (rcaWarning && rcaLocation) {
       console.error('🔒 RCA Event detected:', rcaWarning)
       throw new JohnDeereRCAError(
         `Required Customer Action: ${rcaWarning}. Please complete the required action.`,
         rcaLocation
       )
+    }
+
+    // Enhanced boundary-specific error handling
+    if (requestUrl.includes('boundaries') || requestUrl.includes('boundary')) {
+      console.error('🌍 Boundary-specific 403 error detected')
+
+      // Check for missing ag2/ag3 scope which is required for boundary data
+      if (data.message?.includes('ag2') || data.message?.includes('ag3') ||
+          data.message?.includes('Locations Access Level') ||
+          data.message?.includes('boundary') || data.message?.includes('field boundary')) {
+        throw new JohnDeerePermissionError(
+          'Field boundary access requires ag2 (Analyze Production Data) or ag3 (Manage Locations & Production Data) scope. ' +
+          'Please reconnect with the appropriate permissions.',
+          ['ag2', 'ag3'],
+          data.current_scopes || []
+        )
+      }
+
+      // Check for "Share All Fields" permission (5001)
+      if (data.message?.includes('Share All Fields') || data.message?.includes('field access') ||
+          data.message?.includes('5001')) {
+        throw new JohnDeerePermissionError(
+          'Field boundary access requires "Share All Fields" permission (5001). ' +
+          'Please update your organization connection settings.',
+          ['ag2', 'ag3'],
+          data.current_scopes || []
+        )
+      }
     }
 
     // Check for permission/scope issues
@@ -325,7 +354,7 @@ export class JohnDeereAPIClient {
 
     // Generic 403 error
     throw new JohnDeereConnectionError(
-      `Access denied: ${data.message || 'Unknown permission error'}`
+      `Access denied: ${data.message || 'Unknown permission error'}. URL: ${requestUrl}`
     )
   }
 
@@ -1004,11 +1033,99 @@ export class JohnDeereAPIClient {
     }
   }
 
+  /**
+   * Validate if user has required scopes for field boundary access
+   */
+  private async validateBoundaryAccessScopes(): Promise<{ hasRequiredScopes: boolean; currentScopes?: string[] }> {
+    try {
+      // Get current token from database to check scopes
+      const token = await this.getValidAccessToken()
+      if (!token) {
+        return { hasRequiredScopes: false }
+      }
+
+      // Get user to check their token scopes
+      const { getCurrentUser } = await import('./auth')
+      const authUser = await getCurrentUser()
+
+      if (!authUser?.id) {
+        return { hasRequiredScopes: false }
+      }
+
+      const tokenRecord = await prisma.johnDeereToken.findUnique({
+        where: { userId: authUser.id },
+      })
+
+      if (!tokenRecord?.scope) {
+        return { hasRequiredScopes: false }
+      }
+
+      const currentScopes = tokenRecord.scope.split(' ')
+      const hasRequiredScopes = currentScopes.includes('ag2') || currentScopes.includes('ag3')
+
+      console.log(`🔍 Scope validation for boundary access:`, {
+        currentScopes,
+        hasAg2: currentScopes.includes('ag2'),
+        hasAg3: currentScopes.includes('ag3'),
+        hasRequiredScopes
+      })
+
+      return { hasRequiredScopes, currentScopes }
+    } catch (error) {
+      console.error('Error validating boundary access scopes:', error)
+      return { hasRequiredScopes: false }
+    }
+  }
+
   async getBoundariesForField(boundaryUri: string): Promise<any> {
     try {
-      const response = await this.axiosInstance.get(boundaryUri.replace('https://api.deere.com/platform', ''));
+      console.log(`🔍 Getting boundary data for URI: ${boundaryUri}`)
+
+      // Validate scopes before making the request
+      const scopeValidation = await this.validateBoundaryAccessScopes()
+      if (!scopeValidation.hasRequiredScopes) {
+        const errorMsg = `Field boundary access requires ag2 (Analyze Production Data) or ag3 (Manage Locations & Production Data) scope. ` +
+                        `Current scopes: ${scopeValidation.currentScopes?.join(', ') || 'none'}. ` +
+                        `Please reconnect your John Deere account with the appropriate permissions.`
+
+        throw new JohnDeerePermissionError(
+          errorMsg,
+          ['ag2', 'ag3'],
+          scopeValidation.currentScopes || []
+        )
+      }
+
+      // Handle different URI formats
+      let requestUrl = boundaryUri
+
+      // If it's a full URL, extract the path
+      if (boundaryUri.startsWith('http')) {
+        // Extract the path after the platform domain
+        const platformUrlPattern = /^https?:\/\/[^\/]+\/platform/
+        if (platformUrlPattern.test(boundaryUri)) {
+          requestUrl = boundaryUri.replace(platformUrlPattern, '')
+        } else {
+          // If it's not a platform URL, try to use it as a direct path
+          requestUrl = boundaryUri
+        }
+      }
+
+      console.log(`📍 Making boundary request to: ${requestUrl}`)
+
+      const response = await this.axiosInstance.get(requestUrl)
+      console.log(`✅ Boundary data retrieved successfully`)
+
       return response.data;
     } catch (error: any) {
+      console.error(`❌ Error getting boundary data for URI ${boundaryUri}:`, error.response?.data || error.message)
+
+      // Enhanced error handling for boundary requests
+      if (error.response?.status === 403) {
+        console.error('🚫 403 Forbidden - Boundary access denied')
+        console.error('   Response headers:', error.response.headers)
+        console.error('   Response data:', error.response.data)
+      }
+
       this.handleApiError(error, `getBoundariesForField for URI ${boundaryUri}`);
       throw error;
     }
@@ -1169,6 +1286,7 @@ let johnDeereClient: JohnDeereAPIClient | null = null
 export function getJohnDeereAPIClient(): JohnDeereAPIClient {
   if (!johnDeereClient) {
     const environment = (process.env.JOHN_DEERE_ENVIRONMENT as 'sandbox' | 'production') || 'production'
+    console.log(`🔧 Creating John Deere API client with environment: ${environment} (from JOHN_DEERE_ENVIRONMENT=${process.env.JOHN_DEERE_ENVIRONMENT})`)
     johnDeereClient = new JohnDeereAPIClient(environment)
   }
   return johnDeereClient

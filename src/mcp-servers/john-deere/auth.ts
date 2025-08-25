@@ -28,10 +28,10 @@ export class JohnDeereAuth implements AuthenticationProvider {
         MCPUtils.logWithTimestamp('INFO', 'John Deere: Using existing tokens (mock or loaded)')
         return true
       }
-      
-      // For MCP server, we'll use the stored tokens from the main application
-      // In a real implementation, this would integrate with the existing auth system
-      return await this.loadTokensFromStorage()
+
+      // For MCP server, we need to get tokens from the main application's database
+      // This requires making an API call to the main application to get the current user's tokens
+      return await this.loadTokensFromMainApp()
     } catch (error) {
       MCPUtils.logWithTimestamp('ERROR', 'John Deere: Authentication failed', error)
       return false
@@ -136,10 +136,16 @@ export class JohnDeereAuth implements AuthenticationProvider {
     return this.getAccessToken()
   }
 
-  private async loadTokensFromStorage(): Promise<boolean> {
+  private async loadTokensFromMainApp(): Promise<boolean> {
     try {
-      // In a real implementation, this would load from database or secure storage
-      // For now, we'll simulate this with environment variables for testing
+      // For now, let's use a simpler approach - the MCP server will be called
+      // with user context from the main application, so we'll get the tokens
+      // through the main application's API routes that already have user context
+
+      // This is a temporary solution until we implement proper MCP server integration
+      // In production, the MCP server should receive the user context directly
+
+      // For now, try to get tokens from environment variables as fallback
       const accessToken = process.env.JOHN_DEERE_ACCESS_TOKEN
       const refreshToken = process.env.JOHN_DEERE_REFRESH_TOKEN
       const expiresAt = process.env.JOHN_DEERE_TOKEN_EXPIRES_AT
@@ -151,8 +157,36 @@ export class JohnDeereAuth implements AuthenticationProvider {
           expiresAt: expiresAt ? parseInt(expiresAt) : Date.now() + (60 * 60 * 1000), // 1 hour default
           scope: 'ag1 ag2 ag3'
         }
-        
-        MCPUtils.logWithTimestamp('INFO', 'John Deere: Tokens loaded from storage')
+
+        MCPUtils.logWithTimestamp('INFO', 'John Deere: Tokens loaded from environment (MCP server)')
+        return true
+      }
+
+      MCPUtils.logWithTimestamp('WARN', 'John Deere: No tokens available for MCP server - need user context integration')
+      return false
+
+    } catch (error) {
+      MCPUtils.logWithTimestamp('ERROR', 'John Deere: Failed to load tokens for MCP server', error)
+      return false
+    }
+  }
+
+  private async loadTokensFromStorage(): Promise<boolean> {
+    try {
+      // Fallback to environment variables for testing
+      const accessToken = process.env.JOHN_DEERE_ACCESS_TOKEN
+      const refreshToken = process.env.JOHN_DEERE_REFRESH_TOKEN
+      const expiresAt = process.env.JOHN_DEERE_TOKEN_EXPIRES_AT
+
+      if (accessToken && refreshToken) {
+        this.tokens = {
+          accessToken,
+          refreshToken,
+          expiresAt: expiresAt ? parseInt(expiresAt) : Date.now() + (60 * 60 * 1000), // 1 hour default
+          scope: 'ag1 ag2 ag3'
+        }
+
+        MCPUtils.logWithTimestamp('INFO', 'John Deere: Tokens loaded from storage (fallback)')
         return true
       }
 

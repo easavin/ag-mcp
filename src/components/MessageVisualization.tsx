@@ -1,21 +1,52 @@
 'use client'
 
 import React from 'react'
-import { 
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, 
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area
 } from 'recharts'
-import { 
-  TrendingUp, TrendingDown, Minus, 
+import {
+  TrendingUp, TrendingDown, Minus,
   Table as TableIcon, BarChart3, PieChart as PieChartIcon,
-  Activity, Target, Zap
+  Activity, Target, Zap, Cloud, CloudRain, Sun, Wind,
+  Droplets, Thermometer, Eye, Shield, AlertTriangle,
+  CheckCircle, XCircle, Info
 } from 'lucide-react'
 import { VisualizationData, TableVisualization, ChartVisualization, MetricVisualization, ComparisonVisualization } from '@/types'
 
 interface MessageVisualizationProps {
   visualizations: VisualizationData[]
   className?: string
+}
+
+// Weather icon helper functions
+const getWeatherIcon = (condition: string) => {
+  const conditionLower = condition.toLowerCase()
+  if (conditionLower.includes('rain') || conditionLower.includes('shower')) return CloudRain
+  if (conditionLower.includes('cloud')) return Cloud
+  if (conditionLower.includes('sun') || conditionLower.includes('clear')) return Sun
+  if (conditionLower.includes('wind')) return Wind
+  if (conditionLower.includes('storm') || conditionLower.includes('thunder')) return Zap
+  return Cloud // default
+}
+
+const getStatusIcon = (status: string) => {
+  const statusLower = status.toLowerCase()
+  if (statusLower.includes('good') || statusLower.includes('recommended') || statusLower.includes('suitable')) return CheckCircle
+  if (statusLower.includes('poor') || statusLower.includes('not recommended') || statusLower.includes('critical')) return XCircle
+  if (statusLower.includes('warning') || statusLower.includes('alert')) return AlertTriangle
+  return Info // default
+}
+
+const getMetricIcon = (label: string) => {
+  const labelLower = label.toLowerCase()
+  if (labelLower.includes('temperature') || labelLower.includes('soil')) return Thermometer
+  if (labelLower.includes('humidity') || labelLower.includes('moisture')) return Droplets
+  if (labelLower.includes('wind')) return Wind
+  if (labelLower.includes('uv') || labelLower.includes('spraying')) return Shield
+  if (labelLower.includes('visibility')) return Eye
+  return Target // default
 }
 
 // Enhanced Table Component with Dark Theme Support
@@ -74,18 +105,27 @@ const DataTable: React.FC<{ data: TableVisualization['data'] }> = ({ data }) => 
                       borderBottom: '1px solid #374151'
                     }}
                   >
-                    {row.map((cell, cellIndex) => (
-                      <td
-                        key={cellIndex}
-                        style={{
-                          padding: '12px 8px',
-                          color: '#d1d5db',
-                          borderRight: cellIndex < row.length - 1 ? '1px solid #374151' : 'none'
-                        }}
-                      >
-                        {cell}
-                      </td>
-                    ))}
+                    {row.map((cell, cellIndex) => {
+                      const StatusIcon = getStatusIcon(cell)
+                      const isStatusColumn = cellIndex === row.length - 1 && (cell === 'Good' || cell === 'Warning' || cell === 'Critical' || cell === 'Recommended' || cell === 'Not Recommended')
+
+                      return (
+                        <td
+                          key={cellIndex}
+                          style={{
+                            padding: '12px 8px',
+                            color: '#d1d5db',
+                            borderRight: cellIndex < row.length - 1 ? '1px solid #374151' : 'none',
+                            position: 'relative'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {isStatusColumn && <StatusIcon style={{ width: '14px', height: '14px' }} />}
+                            {cell}
+                          </div>
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -244,16 +284,17 @@ const DataChart: React.FC<{ data: ChartVisualization['data'] }> = ({ data }) => 
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey={xAxis} stroke="#9ca3af" />
               <YAxis stroke="#9ca3af" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1f2937', 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1f2937',
                   border: '1px solid #374151',
                   borderRadius: '8px',
                   color: '#f9fafb'
-                }} 
+                }}
                 formatter={(value: any, name: string) => {
-                  if (name === 'high' || name === 'High °C') return [`${value}°C`, 'High Temperature']
-                  if (name === 'low' || name === 'Low °C') return [`${value}°C`, 'Low Temperature']
+                  if (name === 'high' || name === 'High °C') return [`${value}°C`, '🔥 High Temperature']
+                  if (name === 'low' || name === 'Low °C') return [`${value}°C`, '❄️ Low Temperature']
+                  if (name === 'precipitation' || name === 'Rain Chance %') return [`${value}%`, '🌧️ Rain Chance']
                   return [value, name]
                 }}
               />
@@ -286,16 +327,18 @@ const DataChart: React.FC<{ data: ChartVisualization['data'] }> = ({ data }) => 
               <XAxis dataKey={xAxis} stroke="#9ca3af" />
               <YAxis yAxisId="temp" orientation="left" stroke="#9ca3af" />
               <YAxis yAxisId="precip" orientation="right" stroke="#9ca3af" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1f2937', 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1f2937',
                   border: '1px solid #374151',
                   borderRadius: '8px',
                   color: '#f9fafb'
-                }} 
+                }}
                 formatter={(value: any, name: string) => {
-                  if (name === 'precipitationProbability') return [`${value}%`, 'Rain Chance']
-                  if (name === 'maxTemp' || name === 'temperature') return [`${value}°C`, 'Temperature']
+                  if (name === 'precipitationProbability') return [`${value}%`, '🌧️ Rain Chance']
+                  if (name === 'maxTemp' || name === 'temperature') return [`${value}°C`, '🌡️ Temperature']
+                  if (name === 'high') return [`${value}°C`, '🔥 High Temperature']
+                  if (name === 'low') return [`${value}°C`, '❄️ Low Temperature']
                   return [value, name]
                 }}
               />
@@ -413,10 +456,10 @@ const DataChart: React.FC<{ data: ChartVisualization['data'] }> = ({ data }) => 
   )
 }
 
-// Metric Display Component
+// Metric Display Component with Weather Icons
 const MetricDisplay: React.FC<{ data: MetricVisualization['data'] }> = ({ data }) => {
   const { value, label, unit, trend, context, color = 'blue' } = data
-  
+
   console.log('🔧 MetricDisplay rendering with data:', data)
 
   const getTrendIcon = () => {
@@ -431,27 +474,72 @@ const MetricDisplay: React.FC<{ data: MetricVisualization['data'] }> = ({ data }
     }
   }
 
+  const getColorScheme = () => {
+    switch (color) {
+      case 'green': return { bg: '#065f46', border: '#10b981', text: '#34d399' }
+      case 'red': return { bg: '#7f1d1d', border: '#ef4444', text: '#fca5a5' }
+      case 'yellow': return { bg: '#78350f', border: '#f59e0b', text: '#fcd34d' }
+      case 'blue': return { bg: '#1e3a8a', border: '#3b82f6', text: '#93c5fd' }
+      default: return { bg: '#1f2937', border: '#6b7280', text: '#d1d5db' }
+    }
+  }
+
+  const MetricIcon = getMetricIcon(label)
+  const colors = getColorScheme()
+
+  // Enhanced weather condition detection
+  const isWeatherMetric = label.toLowerCase().includes('temperature') ||
+                         label.toLowerCase().includes('humidity') ||
+                         label.toLowerCase().includes('wind') ||
+                         label.toLowerCase().includes('weather')
+
   return (
     <div style={{
-      backgroundColor: '#1f2937',
-      border: '1px solid #374151',
-      borderRadius: '8px',
-      padding: '16px',
-      color: '#f9fafb'
+      backgroundColor: colors.bg,
+      border: `2px solid ${colors.border}`,
+      borderRadius: '12px',
+      padding: '20px',
+      color: '#f9fafb',
+      position: 'relative',
+      overflow: 'hidden'
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <p style={{ fontSize: '14px', fontWeight: '500', opacity: 0.75, color: '#9ca3af' }}>{label}</p>
-          <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#f9fafb' }}>
-            {value}
-            {unit && <span style={{ fontSize: '14px', fontWeight: 'normal', marginLeft: '4px', color: '#d1d5db' }}>{unit}</span>}
-          </p>
-          {context && <p style={{ fontSize: '12px', opacity: 0.6, marginTop: '4px', color: '#9ca3af' }}>{context}</p>}
+      {/* Subtle background pattern for weather metrics */}
+      {isWeatherMetric && (
+        <div style={{
+          position: 'absolute',
+          top: '-10px',
+          right: '-10px',
+          opacity: 0.1,
+          transform: 'scale(0.8)'
+        }}>
+          <MetricIcon className="w-16 h-16" />
         </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <MetricIcon style={{ width: '18px', height: '18px', color: colors.text }} />
+            <p style={{ fontSize: '14px', fontWeight: '600', color: '#e5e7eb' }}>{label}</p>
+          </div>
+
+          <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#f9fafb', marginBottom: '4px' }}>
+            {value}
+            {unit && <span style={{ fontSize: '16px', fontWeight: 'normal', marginLeft: '4px', color: colors.text }}>{unit}</span>}
+          </p>
+
+          {context && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Info style={{ width: '12px', height: '12px', color: colors.text, opacity: 0.7 }} />
+              <p style={{ fontSize: '13px', color: colors.text, opacity: 0.9 }}>{context}</p>
+            </div>
+          )}
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {getTrendIcon()}
           {trend?.percentage && (
-            <span style={{ fontSize: '14px', fontWeight: '500', color: '#d1d5db' }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: colors.text }}>
               {trend.percentage > 0 ? '+' : ''}{trend.percentage}%
             </span>
           )}

@@ -13,6 +13,19 @@ export interface ChatMessage {
   functionResult?: any
 }
 
+export interface InternalChatMessage extends ChatMessage {
+  role: 'user' | 'assistant' | 'system' | 'function' | 'tool'
+  tool_calls?: Array<{
+    id: string
+    type: 'function'
+    function: {
+      name: string
+      arguments: string
+    }
+  }>
+  tool_call_id?: string
+}
+
 export interface LLMResponse {
   content: string
   model: string
@@ -189,7 +202,7 @@ export class LLMService {
    * Generate a chat completion using Gemini as primary, OpenAI as fallback
    */
   async generateChatCompletion(
-    messages: ChatMessage[],
+    messages: ChatMessage[] | InternalChatMessage[],
     options?: {
       maxTokens?: number
       temperature?: number
@@ -211,35 +224,10 @@ export class LLMService {
       functionCount: functionsToUse.length
     })
 
-    // Try Gemini first for all requests (including function calls)
-    // Gemini 2.0 Flash has excellent function calling capabilities
-    if (this.geminiClient) {
-      try {
-        console.log('Attempting to use Gemini 2.0 Flash...')
-        const result = await this.generateWithGemini(messages, {
-          maxTokens,
-          temperature,
-          systemPrompt,
-          enableFunctions,
-          functions: functionsToUse,
-        })
-        
-        // Check if Gemini returned an empty response
-        if (!result.content && (!result.functionCalls || result.functionCalls.length === 0)) {
-          console.warn('⚠️ Gemini returned empty response, falling back to OpenAI')
-          throw new Error('Gemini returned empty response')
-        }
-        
-        return result
-      } catch (error) {
-        console.warn('Gemini failed, falling back to OpenAI:', error)
-      }
-    }
-
-    // Fallback to OpenAI
+    // Try OpenAI first (now the default)
     if (this.openaiClient) {
       try {
-        console.log('Using OpenAI GPT-4o-mini as fallback...')
+        console.log('Using OpenAI GPT-4o-mini as primary provider...')
         return await this.generateWithOpenAI(messages, {
           maxTokens,
           temperature,
@@ -248,7 +236,31 @@ export class LLMService {
           functions: functionsToUse,
         })
       } catch (error) {
-        console.error('OpenAI also failed:', error)
+        console.warn('OpenAI failed, falling back to Gemini:', error)
+      }
+    }
+
+    // Fallback to Gemini
+    if (this.geminiClient) {
+      try {
+        console.log('Using Gemini 2.0 Flash as fallback...')
+        const result = await this.generateWithGemini(messages, {
+          maxTokens,
+          temperature,
+          systemPrompt,
+          enableFunctions,
+          functions: functionsToUse,
+        })
+
+        // Check if Gemini returned an empty response
+        if (!result.content && (!result.functionCalls || result.functionCalls.length === 0)) {
+          console.warn('⚠️ Gemini returned empty response')
+          throw new Error('Gemini returned empty response')
+        }
+
+        return result
+      } catch (error) {
+        console.error('Gemini also failed:', error)
         throw new Error('Both LLM providers failed')
       }
     }
@@ -313,7 +325,8 @@ export class LLMService {
           if (part.functionCall && part.functionCall.name) {
             functionCalls.push({
               name: part.functionCall.name,
-              arguments: part.functionCall.args || {}
+              arguments: part.functionCall.args || {},
+              callId: `gemini_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
             })
           }
         }
@@ -352,7 +365,7 @@ export class LLMService {
     }
 
     // Prepare messages for OpenAI format
-    const openaiMessages = this.convertToOpenAIFormat(messages, options.systemPrompt)
+    const openaiMessages = this.convertToOpenAIFormat(messages as InternalChatMessage[], options.systemPrompt)
 
     // Prepare function calling if enabled
     const completionOptions: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
@@ -470,11 +483,11 @@ export class LLMService {
    * Convert messages to OpenAI format
    */
   private convertToOpenAIFormat(
-    messages: ChatMessage[],
+    messages: InternalChatMessage[],
     systemPrompt?: string
   ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
     const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
-    let lastAssistantToolCallId: string | undefined
+    const toolCallMap = new Map<string, string>() // Maps tool call index to ID
 
     // Add system prompt if provided
     if (systemPrompt) {
@@ -484,7 +497,19 @@ export class LLMService {
       })
     }
 
-    // Convert chat messages
+    // First pass: collect all tool call IDs from assistant messages
+    let toolCallIndex = 0
+    for (const message of messages) {
+      if (message.role === 'assistant' && message.tool_calls?.length > 0) {
+        for (const toolCall of message.tool_calls) {
+          toolCallMap.set(toolCallIndex.toString(), toolCall.id)
+          toolCallIndex++
+        }
+      }
+    }
+
+    // Second pass: convert messages and match tool calls to tool results
+    let currentToolIndex = 0
     for (const message of messages) {
       let content = message.content
 
@@ -496,10 +521,28 @@ export class LLMService {
         content = `${content}\n\n${fileInfo}`
       }
 
-      if (message.role === 'function') {
-        // Prefer native tool message when we have a previous assistant tool call id
-        if (lastAssistantToolCallId) {
-          openaiMessages.push({ role: 'tool', content, tool_call_id: lastAssistantToolCallId })
+      if (message.role === 'tool') {
+        // Handle tool messages with tool_call_id
+        let toolCallId = message.tool_call_id
+
+        // If no explicit tool_call_id, use the next available tool call ID
+        if (!toolCallId) {
+          toolCallId = toolCallMap.get(currentToolIndex.toString())
+          currentToolIndex++
+        }
+
+        if (toolCallId) {
+          openaiMessages.push({ role: 'tool', content, tool_call_id: toolCallId })
+        } else {
+          // Fallback to user-style function result text
+          openaiMessages.push({ role: 'user', content: `Function result: ${content}` })
+        }
+      } else if (message.role === 'function') {
+        // Legacy support for function role - use next available tool call ID
+        const toolCallId = toolCallMap.get(currentToolIndex.toString())
+        if (toolCallId) {
+          openaiMessages.push({ role: 'tool', content, tool_call_id: toolCallId })
+          currentToolIndex++
         } else {
           // Fallback to user-style function result text
           openaiMessages.push({ role: 'user', content: `Function result: ${content}` })
@@ -507,16 +550,21 @@ export class LLMService {
       } else {
         // Assistant/user/system messages
         if (message.role === 'assistant') {
-          openaiMessages.push({ role: 'assistant', content })
+          // Include tool_calls in assistant message if present
+          if (message.tool_calls?.length > 0) {
+            openaiMessages.push({
+              role: 'assistant',
+              content,
+              tool_calls: message.tool_calls
+            })
+          } else {
+            openaiMessages.push({ role: 'assistant', content })
+          }
         } else if (message.role === 'user') {
           openaiMessages.push({ role: 'user', content })
         } else {
           // system
           openaiMessages.push({ role: 'system', content })
-        }
-        // Track tool call id from assistant messages (single-call support)
-        if (message.role === 'assistant' && message.functionCall?.callId) {
-          lastAssistantToolCallId = message.functionCall.callId
         }
       }
     }
