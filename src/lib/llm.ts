@@ -13,8 +13,16 @@ export interface ChatMessage {
   functionResult?: any
 }
 
-export interface InternalChatMessage extends ChatMessage {
+export interface InternalChatMessage {
   role: 'user' | 'assistant' | 'system' | 'function' | 'tool'
+  content: string
+  fileAttachments?: {
+    filename: string
+    fileType: string
+    fileSize: number
+  }[]
+  functionCall?: FunctionCall
+  functionResult?: any
   tool_calls?: Array<{
     id: string
     type: 'function'
