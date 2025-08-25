@@ -280,7 +280,7 @@ export class LLMService {
    * Generate response using Google Gemini
    */
   private async generateWithGemini(
-    messages: ChatMessage[],
+    messages: InternalChatMessage[],
     options: {
       maxTokens: number
       temperature: number
@@ -359,7 +359,7 @@ export class LLMService {
    * Generate response using OpenAI
    */
   private async generateWithOpenAI(
-    messages: ChatMessage[],
+    messages: InternalChatMessage[],
     options: {
       maxTokens: number
       temperature: number
@@ -444,7 +444,7 @@ export class LLMService {
    * Convert messages to Gemini format
    */
   private convertToGeminiFormat(
-    messages: ChatMessage[],
+    messages: InternalChatMessage[],
     systemPrompt?: string
   ): Array<{ role: string; parts: Array<{ text: string }> }> {
     const geminiMessages: Array<{ role: string; parts: Array<{ text: string }> }> = []
@@ -508,7 +508,7 @@ export class LLMService {
     // First pass: collect all tool call IDs from assistant messages
     let toolCallIndex = 0
     for (const message of messages) {
-      if (message.role === 'assistant' && message.tool_calls?.length > 0) {
+      if (message.role === 'assistant' && message.tool_calls && message.tool_calls.length > 0) {
         for (const toolCall of message.tool_calls) {
           toolCallMap.set(toolCallIndex.toString(), toolCall.id)
           toolCallIndex++
@@ -559,7 +559,7 @@ export class LLMService {
         // Assistant/user/system messages
         if (message.role === 'assistant') {
           // Include tool_calls in assistant message if present
-          if (message.tool_calls?.length > 0) {
+          if (message.tool_calls && message.tool_calls.length > 0) {
             openaiMessages.push({
               role: 'assistant',
               content,

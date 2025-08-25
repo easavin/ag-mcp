@@ -1202,7 +1202,7 @@ The user asked about weather for a specific field, but there was an authenticati
         } else {
           // Call LLM for complex queries or when we need more processing
           try {
-            response = await llmService.generateChatCompletion(messagesWithFunctions as ChatMessage[] | InternalChatMessage[], {
+            response = await llmService.generateChatCompletion(messagesWithFunctions, {
               maxTokens: options?.maxTokens || 4000,
               temperature: 0.1, // Lower temperature for more consistent function calling
               systemPrompt: systemPrompt,
