@@ -12,7 +12,7 @@ export class JohnDeereAuth implements AuthenticationProvider {
       clientId: process.env.JOHN_DEERE_CLIENT_ID || '',
       clientSecret: process.env.JOHN_DEERE_CLIENT_SECRET || '',
       redirectUri: process.env.JOHN_DEERE_REDIRECT_URI || 'http://localhost:3000/api/auth/johndeere/callback',
-      sandboxMode: process.env.JOHN_DEERE_SANDBOX_MODE === 'true'
+      sandboxMode: process.env.JOHN_DEERE_SANDBOX_MODE === 'false'
     }
 
     // Validate configuration
