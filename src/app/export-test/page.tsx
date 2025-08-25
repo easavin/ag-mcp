@@ -161,7 +161,7 @@ export default function ExportTestPage() {
 
     } catch (error) {
       console.error('🧪 Direct download test failed:', error)
-      alert('Direct download test failed: ' + error.message)
+      alert('Direct download test failed: ' + (error instanceof Error ? error.message : 'Unknown error'))
     }
   }
 

@@ -548,6 +548,12 @@ const MetricDisplay: React.FC<{ data: MetricVisualization['data'] }> = ({ data }
             <button
               onClick={async () => {
                 try {
+                  if (!data.action) {
+                    console.error('❌ No action data available')
+                    alert('Download action is not available')
+                    return
+                  }
+
                   if (data.action.content) {
                     console.log('📁 Starting download for:', data.action.filename)
 

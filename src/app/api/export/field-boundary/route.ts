@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { getLLMService } from '@/lib/llm'
 
-export async function POST(request: NextRequest) {
+async function handleExportRequest(request: NextRequest) {
   console.log('📁 Field boundary export request')
 
   try {
@@ -101,6 +101,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function POST(request: NextRequest) {
+  return handleExportRequest(request)
+}
+
 // GET endpoint for download by URL (if needed)
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -115,15 +119,15 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Redirect to POST with query parameters as body
-  const body = JSON.stringify({ fieldName, platform, format })
-
-  // Create a new request with POST method and body
-  const newRequest = new Request(request.url, {
+  // Create a new request with the parameters as JSON body
+  const newRequest = new NextRequest(request.url, {
     method: 'POST',
-    headers: request.headers,
-    body
+    headers: {
+      ...Object.fromEntries(request.headers.entries()),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ fieldName, platform, format }),
   })
 
-  return POST(newRequest)
+  return handleExportRequest(newRequest)
 }

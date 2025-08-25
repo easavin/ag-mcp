@@ -1,4 +1,8 @@
-import { FieldBoundary, Coordinate } from '@/types'
+// Coordinate interface for geographic points
+export interface Coordinate {
+  lat: number
+  lon: number
+}
 
 export interface FieldBoundary {
   id: string
@@ -14,11 +18,7 @@ export interface FieldBoundary {
   }
 }
 
-export interface Coordinate {
-  lat: number
-  lng: number
-  elevation?: number
-}
+// Removed duplicate Coordinate interface - using the one at the top of the file
 
 export class KMLGenerator {
   /**
@@ -29,7 +29,7 @@ export class KMLGenerator {
 
     // Convert coordinates to KML format (longitude,latitude,elevation)
     const coordinateString = coordinates
-      .map(coord => `${coord.lng},${coord.lat}${coord.elevation ? ',' + coord.elevation : ''}`)
+      .map(coord => `${coord.lon},${coord.lat}`)
       .join(' ')
 
     // Create KML content
@@ -102,7 +102,7 @@ export class KMLGenerator {
 
     // Calculate center point
     const centerLat = coordinates.reduce((sum, coord) => sum + coord.lat, 0) / coordinates.length
-    const centerLng = coordinates.reduce((sum, coord) => sum + coord.lng, 0) / coordinates.length
+    const centerLng = coordinates.reduce((sum, coord) => sum + coord.lon, 0) / coordinates.length
 
     return `
     <Placemark>
@@ -169,13 +169,13 @@ export class KMLGenerator {
         if (point.lat !== undefined && point.lon !== undefined) {
           coordinates.push({
             lat: point.lat,
-            lng: point.lon
+            lon: point.lon
           })
         } else if (point.x !== undefined && point.y !== undefined) {
           // Some APIs use x,y instead of lat,lon
           coordinates.push({
             lat: point.y,
-            lng: point.x
+            lon: point.x
           })
         }
       }
@@ -230,7 +230,7 @@ export class KMLGenerator {
   static generateMultipleFieldsKML(fields: FieldBoundary[]): string {
     const fieldPlacemarks = fields.map(field => {
       const coordinateString = field.coordinates
-        .map(coord => `${coord.lng},${coord.lat}${coord.elevation ? ',' + coord.elevation : ''}`)
+        .map(coord => `${coord.lon},${coord.lat}`)
         .join(' ')
 
       return `
