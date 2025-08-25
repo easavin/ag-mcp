@@ -359,9 +359,10 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
   if (!isOpen) return null;
 
   // Check if John Deere is connected based on status
-  const isJohnDeereConnected = connectionStatus.status === 'connected' || 
+  const isJohnDeereConnected = connectionStatus.status === 'connected' ||
                                connectionStatus.status === 'partial_connection' ||
-                               connectionStatus.status === 'connection_required';
+                               connectionStatus.status === 'connection_required' ||
+                               connectionStatus.status === 'api_unavailable';
 
   // Define available integrations
   const integrations: Integration[] = [
@@ -580,6 +581,30 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
           <span className="status-icon">🔐</span>
           <span>Authentication Required</span>
           <p className="status-message">Please sign in to connect your John Deere account.</p>
+        </div>
+      );
+    }
+
+    if (connectionStatus.status === 'api_unavailable') {
+      return (
+        <div className="connection-status warning">
+          <span className="status-icon">🌐</span>
+          <span>API Temporarily Unavailable</span>
+          <p className="status-message">John Deere API is currently unreachable (DNS issue). Your OAuth tokens are valid.</p>
+          <div className="troubleshooting-info">
+            <p><strong>Possible causes:</strong></p>
+            <ul>
+              <li>• Temporary network connectivity issue</li>
+              <li>• John Deere sandbox API maintenance</li>
+              <li>• DNS server configuration issues</li>
+            </ul>
+            <p><strong>Suggestions:</strong></p>
+            <ul>
+              <li>• Wait a few minutes and try again</li>
+              <li>• Check your internet connection</li>
+              <li>• Try switching between WiFi and mobile data</li>
+            </ul>
+          </div>
         </div>
       );
     }

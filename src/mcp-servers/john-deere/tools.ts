@@ -368,13 +368,24 @@ export class JohnDeereTools {
       let fieldData
       if (args.fieldId) {
         // Get field boundary by ID
-        // For now, return mock boundary data since getBoundariesForField requires boundaryUri
-        fieldData = { mockBoundary: true, fieldId: args.fieldId }
+        try {
+          const boundaryData = await apiClient.getBoundariesForField(args.fieldId, args.organizationId)
+          fieldData = {
+            success: true,
+            fieldId: args.fieldId,
+            boundary: boundaryData
+          }
+        } catch (error: any) {
+          return MCPUtils.createErrorResult(
+            `Failed to get boundary for field ID ${args.fieldId}: ${error.message}`,
+            'Boundary retrieval failed'
+          )
+        }
       } else if (args.fieldName && args.organizationId) {
         // Find field by name first, then get boundary
         const fields = await apiClient.getFields(args.organizationId)
         const field = fields.find(f => f.name.toLowerCase() === args.fieldName!.toLowerCase())
-        
+
         if (!field) {
           return MCPUtils.createErrorResult(
             `Field "${args.fieldName}" not found in organization`,
@@ -382,8 +393,20 @@ export class JohnDeereTools {
           )
         }
 
-                    // For now, return mock boundary data since getBoundariesForField requires boundaryUri
-            fieldData = { mockBoundary: true, fieldId: field.id, fieldName: field.name }
+        try {
+          const boundaryData = await apiClient.getBoundariesForField(field.id, args.organizationId)
+          fieldData = {
+            success: true,
+            fieldId: field.id,
+            fieldName: field.name,
+            boundary: boundaryData
+          }
+        } catch (error: any) {
+          return MCPUtils.createErrorResult(
+            `Failed to get boundary for field "${args.fieldName}": ${error.message}`,
+            'Boundary retrieval failed'
+          )
+        }
       } else {
         return MCPUtils.createErrorResult(
           'Either fieldId or (fieldName + organizationId) required'

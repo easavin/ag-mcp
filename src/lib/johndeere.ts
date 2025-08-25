@@ -302,7 +302,7 @@ export function getJohnDeereAPI(forceRecreate: boolean = false): JohnDeereAPI {
   if (!johnDeereAPI || forceRecreate) {
     const clientId = process.env.JOHN_DEERE_CLIENT_ID
     const clientSecret = process.env.JOHN_DEERE_CLIENT_SECRET
-    const environment = (process.env.JOHN_DEERE_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox'
+    const environment = (process.env.JOHN_DEERE_ENVIRONMENT as 'sandbox' | 'production') || 'production'
     
     // Handle redirect URI - use NEXTAUTH_URL if available, otherwise default to localhost for development
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'

@@ -308,6 +308,13 @@ export interface MetricVisualization extends VisualizationData {
     }
     context?: string
     color?: 'green' | 'red' | 'yellow' | 'blue' | 'gray'
+    action?: {
+      type: 'download'
+      url?: string
+      content?: string
+      filename: string
+      label: string
+    }
   }
 }
 

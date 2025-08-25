@@ -950,6 +950,87 @@ export const SATSHOT_TOOLS: MCPTool[] = [
   }
 ];
 
+// Export and Integration Tools
+export const EXPORT_TOOLS: MCPTool[] = [
+  {
+    name: 'export_field_boundary_kml',
+    description: 'Export field boundary as KML file for Google Earth or other GIS applications',
+    parameters: {
+      type: 'object',
+      properties: {
+        fieldName: {
+          type: 'string',
+          description: 'Name of the field to export'
+        },
+        platform: {
+          type: 'string',
+          enum: ['johndeere', 'satshot', 'fieldview', 'auravant'],
+          description: 'Platform where the field boundary is stored'
+        },
+        includeMetadata: {
+          type: 'boolean',
+          description: 'Include field metadata in the KML file',
+          default: true
+        },
+        coordinateSystem: {
+          type: 'string',
+          description: 'Coordinate system (WGS84, UTM, etc.)',
+          default: 'WGS84'
+        }
+      },
+      required: ['fieldName', 'platform']
+    }
+  },
+  {
+    name: 'export_field_boundary_shapefile',
+    description: 'Export field boundary as Shapefile for GIS applications',
+    parameters: {
+      type: 'object',
+      properties: {
+        fieldName: {
+          type: 'string',
+          description: 'Name of the field to export'
+        },
+        platform: {
+          type: 'string',
+          enum: ['johndeere', 'satshot', 'fieldview', 'auravant'],
+          description: 'Platform where the field boundary is stored'
+        },
+        includeMetadata: {
+          type: 'boolean',
+          description: 'Include field metadata in the shapefile',
+          default: true
+        }
+      },
+      required: ['fieldName', 'platform']
+    }
+  },
+  {
+    name: 'get_field_ndvi_satshot',
+    description: 'Get latest NDVI index for a field using its boundary coordinates from any platform',
+    parameters: {
+      type: 'object',
+      properties: {
+        fieldName: {
+          type: 'string',
+          description: 'Name of the field to analyze'
+        },
+        platform: {
+          type: 'string',
+          enum: ['johndeere', 'satshot', 'fieldview', 'auravant'],
+          description: 'Platform where the field boundary is stored'
+        },
+        dateRange: {
+          type: 'string',
+          description: 'Date range for NDVI data (e.g., "7d", "30d", "90d")',
+          default: '30d'
+        }
+      },
+      required: ['fieldName', 'platform']
+    }
+  }
+];
+
 // All MCP Tools combined
 export const ALL_MCP_TOOLS: MCPTool[] = [
   ...FIELD_OPERATION_TOOLS,
@@ -961,6 +1042,7 @@ export const ALL_MCP_TOOLS: MCPTool[] = [
   ...AURAVANT_TOOLS,
   ...SATSHOT_TOOLS,
   ...FILE_MANAGEMENT_TOOLS,
+  ...EXPORT_TOOLS,
 ]
 
 // Tool execution functions
@@ -1013,7 +1095,12 @@ export class MCPToolExecutor {
     if (FILE_MANAGEMENT_TOOLS.find(tool => tool.name === toolName)) {
       return this.executeFileManagement(toolName, parameters);
     }
-    
+
+    // Export Tools
+    if (EXPORT_TOOLS.find(tool => tool.name === toolName)) {
+      return this.executeExport(toolName, parameters);
+    }
+
     return {
       success: false,
       message: `Unknown MCP tool: ${toolName}`
@@ -1251,6 +1338,19 @@ export class MCPToolExecutor {
         return this.listJohnDeereFiles(parameters);
       default:
         return { success: false, message: 'Unknown file management tool' };
+    }
+  }
+
+  private async executeExport(toolName: string, parameters: any): Promise<MCPToolResult> {
+    switch (toolName) {
+      case 'export_field_boundary_kml':
+        return this.exportFieldBoundaryKML(parameters);
+      case 'export_field_boundary_shapefile':
+        return this.exportFieldBoundaryShapefile(parameters);
+      case 'get_field_ndvi_satshot':
+        return this.getFieldNDVIFromSatshot(parameters);
+      default:
+        return { success: false, message: 'Unknown export tool' };
     }
   }
 
@@ -2383,6 +2483,212 @@ export class MCPToolExecutor {
         acknowledged: false
       }
     ]
+  }
+
+  // Export Tool Implementations
+  private async exportFieldBoundaryKML(params: {
+    fieldName: string,
+    platform: 'johndeere' | 'satshot' | 'fieldview' | 'auravant',
+    includeMetadata?: boolean,
+    coordinateSystem?: string
+  }): Promise<MCPToolResult> {
+    try {
+      console.log(`📁 Exporting KML for field: ${params.fieldName} from ${params.platform}`)
+
+      // Get field boundary data based on platform
+      let fieldData: any = null
+
+      if (params.platform === 'johndeere') {
+        // Get field boundary from John Deere
+        const boundaryResponse = await this.getFieldBoundaryFromJohnDeere(params.fieldName)
+        if (!boundaryResponse.success) {
+          return boundaryResponse
+        }
+        fieldData = boundaryResponse.data
+      } else {
+        return {
+          success: false,
+          message: `Platform '${params.platform}' is not yet supported for KML export. Currently supported: johndeere`
+        }
+      }
+
+      // Import KML generator dynamically
+      const { KMLGenerator } = await import('../lib/kml-generator')
+
+      // Convert to standardized format and generate KML
+      const standardizedField = KMLGenerator.convertJohnDeereBoundary(fieldData)
+
+      const kmlContent = KMLGenerator.generateFieldBoundaryKML(standardizedField)
+
+      const filename = `${params.fieldName.replace(/[^a-zA-Z0-9]/g, '_')}_boundary.kml`
+
+      return {
+        success: true,
+        message: `KML file generated successfully for field "${params.fieldName}"`,
+        data: {
+          kmlContent,
+          filename,
+          fieldName: params.fieldName,
+          platform: params.platform,
+          coordinateCount: standardizedField.coordinates.length
+        },
+        actionTaken: 'Generated KML export file'
+      }
+    } catch (error) {
+      console.error('❌ KML export failed:', error)
+      return {
+        success: false,
+        message: `Failed to export KML for field "${params.fieldName}": ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
+    }
+  }
+
+  private async exportFieldBoundaryShapefile(params: {
+    fieldName: string,
+    platform: 'johndeere' | 'satshot' | 'fieldview' | 'auravant',
+    includeMetadata?: boolean
+  }): Promise<MCPToolResult> {
+    try {
+      console.log(`📁 Exporting Shapefile for field: ${params.fieldName} from ${params.platform}`)
+
+      return {
+        success: false,
+        message: 'Shapefile export is not yet implemented. Please use KML export instead.',
+        data: {
+          fieldName: params.fieldName,
+          platform: params.platform,
+          status: 'not_implemented'
+        }
+      }
+    } catch (error) {
+      console.error('❌ Shapefile export failed:', error)
+      return {
+        success: false,
+        message: `Failed to export Shapefile for field "${params.fieldName}": ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
+    }
+  }
+
+  private async getFieldNDVIFromSatshot(params: {
+    fieldName: string,
+    platform: 'johndeere' | 'satshot' | 'fieldview' | 'auravant',
+    dateRange?: string
+  }): Promise<MCPToolResult> {
+    try {
+      console.log(`🌱 Getting NDVI for field: ${params.fieldName} from ${params.platform}`)
+
+      // First get field boundary to extract coordinates
+      let fieldData: any = null
+      let coordinates: { lat: number, lng: number } | null = null
+
+      if (params.platform === 'johndeere') {
+        // Get field boundary from John Deere
+        const boundaryResponse = await this.getFieldBoundaryFromJohnDeere(params.fieldName)
+        if (!boundaryResponse.success) {
+          return boundaryResponse
+        }
+        fieldData = boundaryResponse.data
+
+        // Extract coordinates from John Deere boundary data
+        const { extractCoordinatesFromBoundary } = await import('../app/api/chat/completion/route')
+        coordinates = extractCoordinatesFromBoundary(fieldData)
+      } else {
+        return {
+          success: false,
+          message: `Platform '${params.platform}' is not yet supported for NDVI analysis. Currently supported: johndeere`
+        }
+      }
+
+      if (!coordinates) {
+        return {
+          success: false,
+          message: `Could not extract coordinates from field "${params.fieldName}" boundary data`
+        }
+      }
+
+      // Use Satshot API to get NDVI data
+      const satshotResponse = await this.getSatshotNDVI(coordinates, params.dateRange || '30d')
+
+      return {
+        success: true,
+        message: `Retrieved NDVI data for field "${params.fieldName}" using coordinates from ${params.platform}`,
+        data: {
+          fieldName: params.fieldName,
+          platform: params.platform,
+          coordinates,
+          dateRange: params.dateRange || '30d',
+          ndviData: satshotResponse
+        },
+        actionTaken: 'Retrieved NDVI analysis from Satshot'
+      }
+    } catch (error) {
+      console.error('❌ NDVI retrieval failed:', error)
+      return {
+        success: false,
+        message: `Failed to get NDVI for field "${params.fieldName}": ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
+    }
+  }
+
+  // Helper method to get field boundary from John Deere
+  private async getFieldBoundaryFromJohnDeere(fieldName: string): Promise<MCPToolResult> {
+    try {
+      const apiClient = getJohnDeereAPIClient()
+
+      // Get organizations first
+      const orgs = await apiClient.getOrganizations()
+      if (!orgs || orgs.length === 0) {
+        return { success: false, message: 'No John Deere organizations found' }
+      }
+
+      const orgId = orgs[0].id
+
+      // Get fields to find the matching field
+      const fields = await apiClient.getFields(orgId)
+      const targetField = fields?.find((f: any) => f.name.toLowerCase() === fieldName.toLowerCase())
+
+      if (!targetField) {
+        return { success: false, message: `Field "${fieldName}" not found in organization ${orgId}` }
+      }
+
+      // Get field boundary
+      const boundary = await apiClient.getBoundariesForField(targetField.id, orgId)
+
+      return {
+        success: true,
+        message: `Retrieved boundary for field "${fieldName}"`,
+        data: {
+          field: targetField,
+          boundary: {
+            id: targetField.id,
+            name: targetField.name,
+            ...boundary
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to get John Deere field boundary:', error)
+      return {
+        success: false,
+        message: `Failed to get field boundary: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
+    }
+  }
+
+  // Helper method to get NDVI from Satshot
+  private async getSatshotNDVI(coordinates: { lat: number, lng: number }, dateRange: string): Promise<any> {
+    // This is a placeholder - you would implement actual Satshot API integration here
+    console.log(`🌱 Getting NDVI data from Satshot for coordinates: ${coordinates.lat}, ${coordinates.lng}`)
+
+    // Mock NDVI data for now
+    return {
+      ndvi: 0.72,
+      dateRange,
+      coordinates,
+      lastUpdated: new Date().toISOString(),
+      status: 'mock_data',
+      message: 'NDVI integration with Satshot is not yet implemented. This is mock data.'
+    }
   }
 }
 

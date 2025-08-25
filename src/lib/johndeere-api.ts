@@ -158,7 +158,7 @@ export class JohnDeereAPIClient {
   private equipmentAxiosInstance: AxiosInstance
   private environment: 'sandbox' | 'production'
 
-  constructor(environment: 'sandbox' | 'production' = 'sandbox') {
+  constructor(environment: 'sandbox' | 'production' = 'production') {
     this.environment = environment
     const config = JOHN_DEERE_CONFIG[environment]
     
@@ -1077,9 +1077,9 @@ export class JohnDeereAPIClient {
     }
   }
 
-  async getBoundariesForField(boundaryUri: string): Promise<any> {
+  async getBoundariesForField(fieldId: string, organizationId?: string): Promise<any> {
     try {
-      console.log(`🔍 Getting boundary data for URI: ${boundaryUri}`)
+      console.log(`🔍 Getting boundary data for field: ${fieldId}`)
 
       // Validate scopes before making the request
       const scopeValidation = await this.validateBoundaryAccessScopes()
@@ -1095,21 +1095,19 @@ export class JohnDeereAPIClient {
         )
       }
 
-      // Handle different URI formats
-      let requestUrl = boundaryUri
-
-      // If it's a full URL, extract the path
-      if (boundaryUri.startsWith('http')) {
-        // Extract the path after the platform domain
-        const platformUrlPattern = /^https?:\/\/[^\/]+\/platform/
-        if (platformUrlPattern.test(boundaryUri)) {
-          requestUrl = boundaryUri.replace(platformUrlPattern, '')
-        } else {
-          // If it's not a platform URL, try to use it as a direct path
-          requestUrl = boundaryUri
+      // Get organization ID if not provided
+      let orgId = organizationId
+      if (!orgId) {
+        const orgs = await this.getOrganizations()
+        if (!orgs || orgs.length === 0) {
+          throw new Error('No John Deere organizations found')
         }
+        orgId = orgs[0].id
+        console.log(`🏢 Auto-detected organization ID: ${orgId}`)
       }
 
+      // Construct the proper John Deere API endpoint
+      const requestUrl = `/organizations/${orgId}/fields/${fieldId}/boundaries`
       console.log(`📍 Making boundary request to: ${requestUrl}`)
 
       const response = await this.axiosInstance.get(requestUrl)
@@ -1117,7 +1115,7 @@ export class JohnDeereAPIClient {
 
       return response.data;
     } catch (error: any) {
-      console.error(`❌ Error getting boundary data for URI ${boundaryUri}:`, error.response?.data || error.message)
+      console.error(`❌ Error getting boundary data for field ${fieldId}:`, error.response?.data || error.message)
 
       // Enhanced error handling for boundary requests
       if (error.response?.status === 403) {
@@ -1126,7 +1124,7 @@ export class JohnDeereAPIClient {
         console.error('   Response data:', error.response.data)
       }
 
-      this.handleApiError(error, `getBoundariesForField for URI ${boundaryUri}`);
+      this.handleApiError(error, `getBoundariesForField for field ${fieldId}`);
       throw error;
     }
   }

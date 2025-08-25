@@ -47,11 +47,48 @@ export async function GET(request: NextRequest) {
     
     // Get organizations and their full response to extract connection links
     console.log('📡 Fetching organizations with connection links...')
-    const response = await johnDeereClient.getOrganizationsWithConnectionLinks()
-    console.log('✅ Organizations response received:', {
-      organizationsCount: response.organizations?.length || 0,
-      connectionLinksCount: response.connectionLinks?.length || 0
-    })
+    let response
+    try {
+      response = await johnDeereClient.getOrganizationsWithConnectionLinks()
+      console.log('✅ Organizations response received:', {
+        organizationsCount: response.organizations?.length || 0,
+        connectionLinksCount: response.connectionLinks?.length || 0
+      })
+    } catch (apiError: any) {
+      console.error('❌ Error fetching organizations with connection links:', apiError)
+
+      // Check for DNS/network issues
+      if (apiError.code === 'ENOTFOUND' || apiError.message?.includes('ENOTFOUND')) {
+        console.log('🌐 DNS/Network issue detected - John Deere API may be temporarily unavailable')
+
+        return NextResponse.json({
+          status: 'api_unavailable',
+          message: 'John Deere API is currently unavailable (DNS resolution failed). This may be a temporary network issue.',
+          details: 'The sandbox API endpoint (sandboxapi.deere.com) is not reachable. OAuth tokens are valid but data access is temporarily unavailable.',
+          organizations: [],
+          connectionRequired: false, // Don't require reconnection since tokens are valid
+          apiStatus: 'unavailable',
+          troubleshooting: {
+            issue: 'DNS resolution failed for sandboxapi.deere.com',
+            possibleCauses: [
+              'Temporary network connectivity issue',
+              'John Deere sandbox API maintenance',
+              'DNS server configuration issues',
+              'Firewall blocking DNS queries'
+            ],
+            suggestions: [
+              'Wait a few minutes and try again',
+              'Check your internet connection',
+              'Try switching between WiFi and mobile data',
+              'Contact John Deere support if issue persists'
+            ]
+          }
+        })
+      }
+
+      // Re-throw for other error types to be handled below
+      throw apiError
+    }
     
     const organizations = response.organizations || []
     const connectionLinks = response.connectionLinks || []

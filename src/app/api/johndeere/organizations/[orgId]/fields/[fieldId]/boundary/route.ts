@@ -50,23 +50,6 @@ export async function POST(
       )
     }
 
-    // Find the boundary link
-    const boundaryLink = field.links?.find(link => link.rel === 'boundaries')?.uri
-    
-    if (!boundaryLink) {
-      return NextResponse.json(
-        { 
-          error: 'No boundary data available for this field',
-          field: {
-            id: field.id,
-            name: field.name,
-            area: field.area
-          }
-        },
-        { status: 404 }
-      )
-    }
-
     // Check organization connection status before making boundary request
     console.log(`🔗 Checking organization connection status for ${targetOrgId}`)
     const connectionStatus = await apiClient.checkOrganizationConnection(targetOrgId)
@@ -82,8 +65,8 @@ export async function POST(
 
     console.log(`✅ Organization ${targetOrgId} is connected, proceeding with boundary request`)
 
-    // Get the boundary data
-    const boundaryData = await apiClient.getBoundariesForField(boundaryLink)
+    // Get the boundary data using the field ID directly
+    const boundaryData = await apiClient.getBoundariesForField(field.id, targetOrgId)
 
     return NextResponse.json({
       success: true,

@@ -1639,6 +1639,40 @@ input[type="file"] {
   border-color: #f59e0b;
 }
 
+.connection-status.warning {
+  background: #1a1a0f;
+  border-color: #f59e0b;
+}
+
+.connection-status.warning .status-header {
+  color: #f59e0b;
+}
+
+.troubleshooting-info {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #2a2a1a;
+  border-radius: 6px;
+  border: 1px solid #444;
+}
+
+.troubleshooting-info p {
+  margin: 0.5rem 0;
+  font-weight: 500;
+  color: #e5e5e5;
+}
+
+.troubleshooting-info ul {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.troubleshooting-info li {
+  margin: 0.25rem 0;
+  color: #d4d4d4;
+  font-size: 0.85rem;
+}
+
 .status-header {
   display: flex;
   align-items: center;

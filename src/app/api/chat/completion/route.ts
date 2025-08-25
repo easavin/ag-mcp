@@ -22,7 +22,7 @@ function calculateFieldArea(boundaryData: any): string | null {
   }
 }
 
-function extractCoordinatesFromBoundary(boundaryData: any): { lat: number, lng: number } | null {
+export function extractCoordinatesFromBoundary(boundaryData: any): { lat: number, lng: number } | null {
   try {
     console.log('🔍 Extracting coordinates from boundary data...')
     console.log('📊 Full boundary structure:', JSON.stringify(boundaryData, null, 2).substring(0, 1000))
@@ -959,6 +959,49 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
                   console.log('🔍 FULL BOUNDARY RESPONSE DEBUG:')
                   console.log(JSON.stringify(functionResults.find(r => r.name === 'get_field_boundary'), null, 2))
 
+                  // Check if user wants to download/export the boundary
+                  const userWantsDownload = originalUserQuery.toLowerCase().includes('download') ||
+                                          originalUserQuery.toLowerCase().includes('export') ||
+                                          originalUserQuery.toLowerCase().includes('kml') ||
+                                          originalUserQuery.toLowerCase().includes('shapefile')
+
+                  if (userWantsDownload) {
+                    console.log('📁 User wants to download/export boundary - auto-triggering export function...')
+
+                    try {
+                      // Determine export format based on user query
+                      let exportFormat = 'kml' // default
+                      if (originalUserQuery.toLowerCase().includes('shapefile')) {
+                        exportFormat = 'shapefile'
+                      }
+
+                      // Auto-call the export function
+                      const exportResult = await executeFunction({
+                        name: `export_field_boundary_${exportFormat}`,
+                        arguments: {
+                          fieldName: targetField.name,
+                          platform: 'johndeere'
+                        }
+                      }, request)
+
+                      functionResults.push({
+                        name: `export_field_boundary_${exportFormat}`,
+                        result: exportResult,
+                        callId: `auto_export_${Date.now()}`
+                      })
+
+                      console.log(`✅ Auto-export function executed successfully: ${exportFormat}`)
+
+                    } catch (error) {
+                      console.error('❌ Auto-export function failed:', error)
+                      functionResults.push({
+                        name: `export_field_boundary_kml`, // fallback to KML
+                        result: { error: `Auto-export failed: ${error instanceof Error ? error.message : 'Unknown error'}` },
+                        callId: `auto_export_${Date.now()}`
+                      })
+                    }
+                  }
+
                 // Extract coordinates and call weather API BEFORE sending to LLM
                 if (boundaryResult && !boundaryResult.error && userAskedForLocationData) {
                   console.log('🌦️ Extracting coordinates from boundary data for weather call...')
@@ -1092,6 +1135,8 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
         ) && functionResults.some(result =>
           result.result?.success && (result.result?.data || result.result?.fields)
         ) && (userAskedAboutWeather || hasWeather)
+
+
 
         // Only enable functions if we actually have boundary data to work with
         const hasBoundaryData = functionResults.some(result =>
@@ -1272,9 +1317,23 @@ The user asked about weather for a specific field, but there was an authenticati
       }
     }
 
+    // Clean up raw KML content from LLM response if download is available
+    if (response.content && functionResults.some(result =>
+      result.name?.startsWith('export_field_boundary_') && result.result?.success
+    )) {
+      console.log('🧹 Cleaning up raw KML content from response...')
+      // Remove raw KML content from response while keeping the summary
+      response.content = response.content
+        .replace(/```xml[\s\S]*?```/g, '') // Remove XML code blocks
+        .replace(/Here is the KML file content[\s\S]*?You can use this file/g, 'You can use this file') // Clean up text around XML
+        .replace(/\n{3,}/g, '\n\n') // Clean up excessive newlines
+        .trim()
+      console.log('✅ KML content cleaned up from response')
+    }
+
     // Parse potential visualization data from LLM response
     console.log('🔍 Raw LLM response content:', response.content)
-    
+
     // Use the new visualization parser - extract visualizations and clean content
     const { visualizations, cleanedContent } = parseVisualizationsFromResponse(response.content, functionResults)
 

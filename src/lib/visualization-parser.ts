@@ -6,7 +6,53 @@ export function parseVisualizationsFromResponse(content: string, functionResults
   
   console.log('🔍 Parsing visualizations from content length:', content.length)
   console.log('🔍 Function results:', functionResults?.length || 0)
+
+  // Check for export function results first
+  if (functionResults) {
+    for (const result of functionResults) {
+      if (result.name && result.name.startsWith('export_field_boundary_') && result.result?.success) {
+        console.log('📁 Found export function result:', result.name)
+
+        const exportData = result.result.data
+        if (exportData?.kmlContent) {
+          const format = result.name.includes('kml') ? 'KML' : 'Shapefile'
+          const fieldName = exportData.fieldName || 'Field'
+
+          console.log(`📁 Creating download visualization for ${format} export:`, {
+            fieldName,
+            filename: exportData.filename,
+            contentLength: exportData.kmlContent.length,
+            coordinatesCount: exportData.coordinateCount
+          })
+
+          visualizations.push({
+            type: 'metric',
+            title: `${format} Export Ready`,
+            description: `Your ${fieldName} field boundary has been exported successfully as a ${format} file`,
+            data: {
+              value: 'Download Ready',
+              label: `${format} File`,
+              action: {
+                type: 'download',
+                content: exportData.kmlContent,
+                filename: exportData.filename || `${fieldName}_boundary.${format.toLowerCase()}`,
+                label: `Download ${format}`
+              }
+            }
+          })
+
+          console.log(`✅ Created download visualization for ${format} export with content length: ${exportData.kmlContent.length}`)
+        }
+      }
+    }
+  }
   
+  // Check if user is asking for a specific field operation (download, export, etc.)
+  const isSpecificFieldOperation = functionResults?.some(result =>
+    result.name?.startsWith('export_field_boundary_') ||
+    (result.name === 'get_field_boundary' && result.result?.success)
+  )
+
   // First, check for the expected format with visualizations array
   const expectedFormatMatch = content.match(/```json\n\{\s*"content":\s*"[^"]*",\s*"visualizations":\s*(\[[^\]]*\])\s*\}\s*\n```/)
   if (expectedFormatMatch) {
@@ -15,6 +61,15 @@ export function parseVisualizationsFromResponse(content: string, functionResults
       if (fullJson.visualizations) {
         console.log('✅ Found expected JSON format with visualizations array')
         cleanedContent = fullJson.content || content.replace(/```json\n[\s\S]*?\n```/, '').trim()
+
+        // If this is a specific field operation, filter out generic field listings
+        if (isSpecificFieldOperation) {
+          const filteredVisualizations = fullJson.visualizations.filter((viz: any) =>
+            !(viz.type === 'table' && viz.title?.toLowerCase().includes('fields'))
+          )
+          return { visualizations: filteredVisualizations, cleanedContent }
+        }
+
         return { visualizations: fullJson.visualizations, cleanedContent }
       }
     } catch (error) {
@@ -352,8 +407,19 @@ export function parseVisualizationsFromResponse(content: string, functionResults
         const isWeatherQuery = userQuery.includes('weather') || userQuery.includes('forecast') ||
                               userQuery.includes('temperature') || userQuery.includes('rain')
 
+        // Check if user is doing a specific field operation (download, export, boundary)
+        const isSpecificFieldOperation = functionResults.some(otherResult =>
+          otherResult.name?.startsWith('export_field_boundary_') ||
+          (otherResult.name === 'get_field_boundary' && otherResult.result?.success)
+        )
+
         if (isWeatherQuery) {
           console.log('🌤️ Skipping field visualization for weather query')
+          continue
+        }
+
+        if (isSpecificFieldOperation) {
+          console.log('📁 Skipping field visualization for specific field operation')
           continue
         }
 

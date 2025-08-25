@@ -11,7 +11,7 @@ import {
   Table as TableIcon, BarChart3, PieChart as PieChartIcon,
   Activity, Target, Zap, Cloud, CloudRain, Sun, Wind,
   Droplets, Thermometer, Eye, Shield, AlertTriangle,
-  CheckCircle, XCircle, Info
+  CheckCircle, XCircle, Info, Download
 } from 'lucide-react'
 import { VisualizationData, TableVisualization, ChartVisualization, MetricVisualization, ComparisonVisualization } from '@/types'
 
@@ -542,6 +542,80 @@ const MetricDisplay: React.FC<{ data: MetricVisualization['data'] }> = ({ data }
             <span style={{ fontSize: '14px', fontWeight: '600', color: colors.text }}>
               {trend.percentage > 0 ? '+' : ''}{trend.percentage}%
             </span>
+          )}
+          {/* Download Action Button */}
+          {data.action && data.action.type === 'download' && (
+            <button
+              onClick={async () => {
+                try {
+                  if (data.action.content) {
+                    console.log('📁 Starting download for:', data.action.filename)
+
+                    // Create blob from content - use text/xml for better browser compatibility
+                    const blob = new Blob([data.action.content], {
+                      type: data.action.filename?.endsWith('.kml') ? 'application/vnd.google-earth.kml+xml' : 'text/xml'
+                    })
+                    const url = URL.createObjectURL(blob)
+
+                    console.log('📁 Created blob URL:', url)
+
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.download = data.action.filename || 'download.kml'
+                    link.target = '_blank' // Open in new tab if download fails
+
+                    // Trigger download
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+
+                    console.log('📁 Download initiated')
+
+                    // Clean up blob URL after a longer delay to ensure download starts
+                    setTimeout(() => {
+                      URL.revokeObjectURL(url)
+                      console.log('📁 Cleaned up blob URL')
+                    }, 1000) // Increased delay
+
+                  } else if (data.action.url) {
+                    console.log('📁 Falling back to URL download:', data.action.url)
+                    // Fallback to URL-based download
+                    const link = document.createElement('a')
+                    link.href = data.action.url
+                    link.download = data.action.filename || 'download'
+                    link.target = '_blank'
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                  } else {
+                    console.error('❌ No content or URL provided for download')
+                    alert('Download content is not available')
+                  }
+                } catch (error) {
+                  console.error('❌ Download failed:', error)
+                  alert('Download failed. Please try again.')
+                }
+              }}
+              style={{
+                backgroundColor: '#10b981',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+            >
+              <Download style={{ width: '12px', height: '12px' }} />
+              {data.action.label || 'Download'}
+            </button>
           )}
         </div>
       </div>
