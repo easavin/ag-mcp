@@ -153,10 +153,10 @@ export class SatshotXMLRPCClient {
   private async makeXMLRPCCallWithCookies(method: string, params: any[]): Promise<XMLRPCResponse> {
     const https = require('https')
     const { URL } = require('url')
-    
+
     return new Promise((resolve) => {
       const startTime = Date.now()
-      
+
       // Create XML-RPC request body
       const xmlrpcRequest = `<?xml version="1.0"?>
 <methodCall>
@@ -166,11 +166,19 @@ ${params.map(param => `    <param><value><string>${param}</string></value></para
   </params>
 </methodCall>`
 
-      const url = new URL(this.config.baseUrl)
+      // Use the client URL which includes session token if available
+      const clientUrl = this.getClientUrl()
+      console.log('🔧 Satshot: Making XML-RPC call to:', clientUrl)
+      console.log('🔧 Satshot: Session available:', !!this.session)
+      if (this.session) {
+        console.log('🔧 Satshot: Session token length:', this.session.sessionToken.length)
+      }
+
+      const url = new URL(clientUrl)
       const options: any = {
         hostname: url.hostname,
         port: url.port || 443,
-        path: url.pathname,
+        path: url.pathname + url.search, // Include query parameters (session token)
         method: 'POST',
         headers: {
           'Content-Type': 'text/xml',
@@ -201,7 +209,19 @@ ${params.map(param => `    <param><value><string>${param}</string></value></para
 
         res.on('end', () => {
           const duration = Date.now() - startTime
-          
+
+          // Check HTTP status code first
+          if (res.statusCode !== 200) {
+            MCPUtils.logWithTimestamp('ERROR', `HTTP ${res.statusCode} error for ${method}: ${res.statusMessage}`)
+            resolve({
+              error: {
+                faultCode: res.statusCode,
+                faultString: `HTTP ${res.statusCode}: ${res.statusMessage || 'Unknown error'}`
+              }
+            })
+            return
+          }
+
           try {
             // Parse XML-RPC response using xml2js
             parseString(data, { explicitArray: false }, (error: any, result: any) => {

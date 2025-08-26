@@ -1045,6 +1045,53 @@ export const ALL_MCP_TOOLS: MCPTool[] = [
   ...EXPORT_TOOLS,
 ]
 
+/**
+ * Get relevant MCP tools based on selected data sources
+ * Reduces token usage by only including tools for selected sources
+ */
+export function getRelevantMCPTools(selectedDataSources: string[] = []): MCPTool[] {
+  const relevantTools: MCPTool[] = []
+
+  // Always include basic field operations (core functionality)
+  relevantTools.push(...FIELD_OPERATION_TOOLS)
+  relevantTools.push(...EQUIPMENT_MANAGEMENT_TOOLS)
+
+  // Conditionally include tools based on data sources
+  if (selectedDataSources.includes('weather')) {
+    relevantTools.push(...WEATHER_TOOLS)
+    console.log('🌤️ Including weather tools')
+  }
+
+  if (selectedDataSources.includes('eu-commission')) {
+    relevantTools.push(...EU_COMMISSION_TOOLS)
+    console.log('🇪🇺 Including EU Commission tools')
+  }
+
+  if (selectedDataSources.includes('usda')) {
+    relevantTools.push(...USDA_TOOLS)
+    console.log('🇺🇸 Including USDA tools')
+  }
+
+  if (selectedDataSources.includes('auravant')) {
+    relevantTools.push(...AURAVANT_TOOLS)
+    console.log('🌱 Including Auravant tools')
+  }
+
+  if (selectedDataSources.includes('satshot')) {
+    relevantTools.push(...SATSHOT_TOOLS)
+    console.log('🛰️ Including Satshot tools')
+  }
+
+  // Always include file management and export tools (utility functions)
+  relevantTools.push(...FILE_MANAGEMENT_TOOLS)
+  relevantTools.push(...EXPORT_TOOLS)
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🔧 Loaded ${relevantTools.length} relevant tools from ${selectedDataSources.length} data sources`)
+  }
+  return relevantTools
+}
+
 // Tool execution functions
 export class MCPToolExecutor {
   

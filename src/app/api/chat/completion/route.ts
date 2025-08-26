@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getLLMService, AGRICULTURAL_SYSTEM_PROMPT, ChatMessage, InternalChatMessage, FunctionCall } from '@/lib/llm'
+import { getLLMService, AGRICULTURAL_SYSTEM_PROMPT, getRelevantFunctions, ChatMessage, InternalChatMessage, FunctionCall } from '@/lib/llm'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
-import { mcpToolExecutor, ALL_MCP_TOOLS } from '@/lib/mcp-tools'
+import { mcpToolExecutor, getRelevantMCPTools } from '@/lib/mcp-tools'
 import { JohnDeereConnectionError, JohnDeereRCAError, JohnDeerePermissionError } from '@/lib/johndeere-api'
 import { parseVisualizationsFromResponse } from '@/lib/visualization-parser'
 import { sanitizeResponseContent } from '@/lib/response-sanitizer'
+
+// Debug mode for development only
+const DEBUG_MODE = process.env.NODE_ENV === 'development'
 
 function calculateFieldArea(boundaryData: any): string | null {
   try {
@@ -22,10 +25,31 @@ function calculateFieldArea(boundaryData: any): string | null {
   }
 }
 
+/**
+ * Limit chat history to reduce token usage
+ * Keeps system message + last N user/assistant pairs
+ */
+function limitChatHistory(messages: any[], maxExchanges = 10): any[] {
+  if (!messages || messages.length <= maxExchanges) {
+    return messages
+  }
+
+  // Always keep the system message (usually first message)
+  const systemMessage = messages[0]?.role === 'system' ? messages[0] : null
+  const remainingMessages = systemMessage ? messages.slice(1) : messages
+
+  // Keep the last N exchanges (user + assistant pairs)
+  const limitedMessages = remainingMessages.slice(-maxExchanges)
+
+  return systemMessage ? [systemMessage, ...limitedMessages] : limitedMessages
+}
+
 export function extractCoordinatesFromBoundary(boundaryData: any): { lat: number, lng: number } | null {
   try {
-    console.log('🔍 Extracting coordinates from boundary data...')
-    console.log('📊 Full boundary structure:', JSON.stringify(boundaryData, null, 2).substring(0, 1000))
+    if (DEBUG_MODE) {
+      console.log('🔍 Extracting coordinates from boundary data...')
+      console.log('📊 Full boundary structure:', JSON.stringify(boundaryData, null, 2).substring(0, 1000))
+    }
 
     let coordinates = null
 
@@ -115,7 +139,8 @@ export function extractCoordinatesFromBoundary(boundaryData: any): { lat: number
       return coordinates
     } else {
       console.warn('⚠️ Could not find coordinates in boundary data structure')
-      // Log the actual structure we received for debugging
+          // Log the actual structure we received for debugging
+    if (DEBUG_MODE) {
       console.log('📊 Received boundary data keys:', Object.keys(boundaryData || {}))
       if (boundaryData?.data) {
         console.log('📊 Data keys:', Object.keys(boundaryData.data))
@@ -123,6 +148,7 @@ export function extractCoordinatesFromBoundary(boundaryData: any): { lat: number
       if (boundaryData?.data?.boundary) {
         console.log('📊 Boundary keys:', Object.keys(boundaryData.data.boundary))
       }
+    }
       return null
     }
   } catch (error) {
@@ -433,8 +459,10 @@ async function executeFunction(functionCall: FunctionCall, request: NextRequest)
     return executeJohnDeereFunction(functionCall, request)
   }
 
-  // Check if it's an MCP tool
-  const mcpTool = ALL_MCP_TOOLS.find(tool => tool.name === name)
+  // Check if it's an MCP tool - for execution we need to check all possible tools
+  // since the data source selection might not match the tool being called
+  const allPossibleTools = getRelevantMCPTools(['weather', 'johndeere', 'eu-commission', 'usda', 'satshot', 'auravant'])
+  const mcpTool = allPossibleTools.find(tool => tool.name === name)
   if (mcpTool) {
     console.log(`🛠️ Executing MCP tool: ${name}`)
     try {
@@ -639,8 +667,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Limit chat history to last 10 exchanges to reduce token usage
+    const limitedMessages = limitChatHistory(messages, 10)
+
     // Convert database messages to LLM format
-    const chatMessages: ChatMessage[] = messages.map((msg: any) => ({
+    const chatMessages: ChatMessage[] = limitedMessages.map((msg: any) => ({
       role: msg.role,
       content: msg.content,
       fileAttachments: msg.fileAttachments || [],
@@ -749,12 +780,16 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
     
     // Enable functions - always enable weather and MCP tools, enable John Deere if connected
     const enableFunctions = true
-    
+
+    // Get relevant functions based on selected data sources to reduce token usage
+    const relevantFunctions = getRelevantFunctions(selectedDataSources)
+
     let response = await llmService.generateChatCompletion(chatMessages, {
       maxTokens: options?.maxTokens || 4000,
       temperature: options?.temperature || 0.7,
       systemPrompt: systemPrompt,
       enableFunctions: enableFunctions,
+      functions: relevantFunctions,
     })
 
     console.log('🎯 LLM response received:', {
@@ -839,16 +874,18 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
           )
         )
 
-        console.log('🔍 Detailed function results analysis:', functionResults.map(result => ({
-          name: result.name,
-          hasError: result.error,
-          resultKeys: result.result ? Object.keys(result.result) : 'no result',
-          hasSuccess: result.result?.success,
-          hasFields: result.result?.fields ? 'yes' : 'no',
-          fieldsCount: result.result?.fields?.length || 0,
-          resultType: typeof result.result,
-          resultSample: result.result ? JSON.stringify(result.result).substring(0, 200) + '...' : 'no result'
-        })))
+        if (DEBUG_MODE) {
+          console.log('🔍 Detailed function results analysis:', functionResults.map(result => ({
+            name: result.name,
+            hasError: result.error,
+            resultKeys: result.result ? Object.keys(result.result) : 'no result',
+            hasSuccess: result.result?.success,
+            hasFields: result.result?.fields ? 'yes' : 'no',
+            fieldsCount: result.result?.fields?.length || 0,
+            resultType: typeof result.result,
+            resultSample: result.result ? JSON.stringify(result.result).substring(0, 200) + '...' : 'no result'
+          })))
+        }
 
         const userAskedForBoundary = originalUserQuery.toLowerCase().includes('boundary') ||
                                      originalUserQuery.toLowerCase().includes('border') ||
@@ -867,14 +904,16 @@ Active data sources: ${selectedDataSources?.join(', ') || 'none'}`
                                         !originalFunctionCalls.some(fc => fc.name === 'get_field_boundary')
 
         // Auto-trigger boundary call if user asked for boundary and we have fields
-        console.log('🔍 Auto-boundary check:', {
-          hasGetFieldsResult,
-          userAskedForBoundary,
-          userAskedForLocationData,
-          hasExistingBoundaryCall: originalFunctionCalls.some(fc => fc.name === 'get_field_boundary'),
-          originalUserQuery: originalUserQuery.toLowerCase(),
-          shouldTrigger: shouldAutoTriggerBoundary
-        })
+        if (DEBUG_MODE) {
+          console.log('🔍 Auto-boundary check:', {
+            hasGetFieldsResult,
+            userAskedForBoundary,
+            userAskedForLocationData,
+            hasExistingBoundaryCall: originalFunctionCalls.some(fc => fc.name === 'get_field_boundary'),
+            originalUserQuery: originalUserQuery.toLowerCase(),
+            shouldTrigger: shouldAutoTriggerBoundary
+          })
+        }
 
         if (shouldAutoTriggerBoundary) {
           console.log(`🔄 Auto-triggering get_field_boundary function after successful getFields (reason: ${userAskedForBoundary ? 'boundary request' : 'location-dependent request'})`)
@@ -1252,6 +1291,7 @@ The user asked about weather for a specific field, but there was an authenticati
               temperature: 0.1, // Lower temperature for more consistent function calling
               systemPrompt: systemPrompt,
               enableFunctions: needsMultiStepFunctions, // Enable functions for multi-step workflows
+              functions: needsMultiStepFunctions ? relevantFunctions : [], // Use relevant functions for multi-step workflows
             })
           } catch (llmError) {
             console.error('❌ LLM generation failed:', llmError)
