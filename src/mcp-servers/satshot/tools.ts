@@ -117,19 +117,29 @@ export class SatshotTools {
         }
       },
       {
+        name: 'get_scene_years',
+        description: 'Get available years with satellite scenes in reverse chronological order',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
+        },
+        handler: this.getAvailableSceneYears.bind(this)
+      },
+      {
         name: 'get_available_scenes',
         description: 'Get available satellite scenes for a location',
         inputSchema: {
           type: 'object',
           properties: {
-            latitude: { 
-              type: 'number', 
+            latitude: {
+              type: 'number',
               description: 'Latitude coordinate',
               minimum: -90,
               maximum: 90
             },
-            longitude: { 
-              type: 'number', 
+            longitude: {
+              type: 'number',
               description: 'Longitude coordinate',
               minimum: -180,
               maximum: 180
@@ -234,15 +244,25 @@ export class SatshotTools {
         handler: this.analyzeFieldImagery.bind(this)
       },
       {
+        name: 'get_scene_years',
+        description: 'Get available years with satellite scenes in reverse chronological order',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
+        },
+        handler: this.getAvailableSceneYears.bind(this)
+      },
+      {
         name: 'get_available_scenes',
         description: 'Get available satellite scenes for a location',
-        inputSchema: this.getToolDefinitions()[4].inputSchema,
+        inputSchema: this.getToolDefinitions()[5].inputSchema,
         handler: this.getAvailableScenes.bind(this)
       },
       {
         name: 'export_satshot_data',
         description: 'Export data from Satshot in various formats',
-        inputSchema: this.getToolDefinitions()[5].inputSchema,
+        inputSchema: this.getToolDefinitions()[6].inputSchema,
         handler: this.exportData.bind(this)
       },
       {
@@ -356,6 +376,37 @@ export class SatshotTools {
         handler: this.testGetMapInfoMethod.bind(this)
       },
       {
+        name: 'test_extract_image_set_around_hilited_shapes_method',
+        description: 'Test the specific extract_image_set_around_hilited_shapes method with exact documentation parameters',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            mapContext: {
+              type: 'string',
+              description: 'Map context handle from load_map (e.g., "7itczae00oe7rm3szs7iprnqumgbu424.map")',
+              default: '7itczae00oe7rm3szs7iprnqumgbu424.map'
+            },
+            sceneId: {
+              type: 'integer',
+              description: 'Scene ID to extract imagery from (integer)',
+              default: 12345
+            },
+            hiliteList: {
+              type: 'array',
+              items: { type: 'integer' },
+              description: 'Array of hilite IDs around which to extract images',
+              default: [1, 2, 3]
+            },
+            buffer: {
+              type: 'integer',
+              description: 'Buffer size in meters (default 100)',
+              default: 100
+            }
+          }
+        },
+        handler: this.testExtractImageSetAroundHilitedShapesMethod.bind(this)
+      },
+      {
         name: 'get_satshot_user_info',
         description: 'Get detailed user information, fields, and maps from Satshot account',
         inputSchema: {
@@ -402,7 +453,7 @@ export class SatshotTools {
         console.log('🔧 Satshot: Client session:', session ? 'valid' : 'null')
         if (session) {
           console.log('🔧 Satshot: Session details: user=' + session.username + ', server=' + session.server + ', token=' + (session.sessionToken ? 'present' : 'null'))
-          console.log('🔧 Satshot: Client URL with token:', client.getClientUrl())
+
         } else {
           console.log('🔧 Satshot: No session found, attempting to get session from auth')
           // Try to get the session directly from auth
@@ -634,7 +685,7 @@ export class SatshotTools {
         console.log('🔧 Satshot: Client session:', session ? 'valid' : 'null')
         if (session) {
           console.log('🔧 Satshot: Session details: user=' + session.username + ', server=' + session.server + ', token=' + (session.sessionToken ? 'present' : 'null'))
-          console.log('🔧 Satshot: Client URL with token:', client.getClientUrl())
+
         } else {
           console.log('🔧 Satshot: No session found, attempting to get session from auth')
           // Try to get the session directly from auth
@@ -1091,15 +1142,16 @@ export class SatshotTools {
                   error: response.error.faultString
                 })
               }
-            } catch (methodError) {
-              console.log(`🔧 Satshot: Method ${method} threw exception:`, methodError.message)
-              methodTests.push({
-                method,
-                description,
-                status: 'exception',
-                error: methodError.message
-              })
-            }
+                    } catch (methodError) {
+          const errorMsg = methodError instanceof Error ? methodError.message : String(methodError)
+          console.log(`🔧 Satshot: Method ${method} threw exception:`, errorMsg)
+          methodTests.push({
+            method,
+            description,
+            status: 'exception',
+            error: errorMsg
+          })
+        }
           }
         }
       }
@@ -1236,12 +1288,13 @@ export class SatshotTools {
             })
           }
         } catch (methodError) {
-          console.log(`🔧 Satshot: Method ${method} threw exception:`, methodError.message)
+          const errorMsg = methodError instanceof Error ? methodError.message : String(methodError)
+          console.log(`🔧 Satshot: Method ${method} threw exception:`, errorMsg)
           analysisResults.push({
             method,
             description,
             status: 'exception',
-            error: methodError.message,
+            error: errorMsg,
             params: params
           })
         }
@@ -1368,12 +1421,13 @@ export class SatshotTools {
             })
           }
         } catch (methodError) {
-          console.log(`🔧 Satshot: EXCEPTION:`, methodError.message)
+          const errorMsg = methodError instanceof Error ? methodError.message : String(methodError)
+          console.log(`🔧 Satshot: EXCEPTION:`, errorMsg)
           testResults.push({
             test: description,
             status: 'exception',
             parameters: params,
-            error: methodError.message
+            error: errorMsg
           })
         }
       }
@@ -1550,12 +1604,13 @@ export class SatshotTools {
             })
           }
         } catch (methodError) {
-          console.log(`🔧 Satshot: EXCEPTION:`, methodError.message)
+          const errorMsg = methodError instanceof Error ? methodError.message : String(methodError)
+          console.log(`🔧 Satshot: EXCEPTION:`, errorMsg)
           testResults.push({
             test: description,
             status: 'exception',
             parameters: params,
-            error: methodError.message,
+            error: errorMsg,
             analysisType: params[2],
             mode: params[3],
             numZones: params[4]
@@ -1564,9 +1619,9 @@ export class SatshotTools {
       }
 
       // Analyze results and provide recommendations
-      let analysisCapabilities = []
-      let supportedTypes = []
-      let supportedModes = []
+      let analysisCapabilities: string[] = []
+      let supportedTypes: string[] = []
+      let supportedModes: string[] = []
 
       for (const result of workingTests) {
         if (!supportedTypes.includes(result.parameters[2])) {
@@ -1856,6 +1911,266 @@ export class SatshotTools {
     }
   }
 
+  public async testExtractImageSetAroundHilitedShapesMethod(args: SatshotToolArgs): Promise<MCPToolResult> {
+    try {
+      MCPUtils.logWithTimestamp('INFO', 'Satshot: Testing extract_image_set_around_hilited_shapes method ONLY', args)
+
+      const hasAuth = await this.auth.authenticate()
+      if (!hasAuth) {
+        return MCPUtils.createErrorResult('Satshot authentication required')
+      }
+
+      const client = this.auth.getClient()
+      if (!client) {
+        return MCPUtils.createErrorResult('No Satshot client available')
+      }
+
+      const mapContext = args.mapContext || '7itczae00oe7rm3szs7iprnqumgbu424.map'
+      const sceneId = args.sceneId || 12345
+      const hiliteList = args.hiliteList || [1, 2, 3]
+      const buffer = args.buffer || 100
+
+      console.log('🔧 Satshot: Testing extract_image_set_around_hilited_shapes method with documentation parameters:')
+      console.log('🔧 Method: extract_image_set_around_hilited_shapes')
+      console.log('🔧 Parameters:')
+      console.log('🔧   $mapcontext =', mapContext, '(string)')
+      console.log('🔧   $sceneid =', sceneId, '(integer)')
+      console.log('🔧   $hilitelist =', hiliteList, '(array)')
+      console.log('🔧   $buffer =', buffer, '(integer)')
+      console.log('🔧 Expected: struct keyed to hilite IDs with image handles as values')
+
+      // Test the exact method from documentation: extract_image_set_around_hilited_shapes(mapcontext, sceneid, hilitelist, buffer)
+      const testStart = Date.now()
+
+      console.log(`🔧 Satshot: Calling extract_image_set_around_hilited_shapes("${mapContext}", ${sceneId}, ${JSON.stringify(hiliteList)}, ${buffer})`)
+      const response = await client.callMethod('extract_image_set_around_hilited_shapes', [mapContext, sceneId, hiliteList, buffer])
+
+      const testDuration = Date.now() - testStart
+      console.log(`🔧 Satshot: Method completed in ${testDuration}ms`)
+
+      if (!response.error) {
+        console.log('🔧 Satshot: SUCCESS! Image extraction completed:', JSON.stringify(response.result, null, 2))
+
+        // Parse the response structure to understand the return format
+        const result = response.result
+
+        return MCPUtils.createSuccessResult(
+          `🖼️ extract_image_set_around_hilited_shapes method test PASSED - Images extracted successfully`,
+          {
+            method: 'extract_image_set_around_hilited_shapes',
+            documentation: {
+              signature: 'static struct extract_image_set_around_hilited_shapes( string $mapcontext, integer $sceneid, array $hilitelist, [integer $buffer = 100])',
+              purpose: 'Extracts an image for each hilited shape in array HILITELIST from scene SCENEID, returns struct keyed to hilite IDs with image handles as values',
+              parameters: {
+                mapcontext: 'string (map context handle)',
+                sceneid: 'integer (scene ID to extract from)',
+                hilitelist: 'array (list of hilite IDs)',
+                buffer: 'integer (buffer size in meters, defaults to 100)'
+              },
+              returns: 'struct keyed to hilite IDs with image handles as values',
+              exceptions: ['MAP_NOT_FOUND', 'INSUFFICIENT_BALANCE', 'HILITE_NOT_FOUND', 'PARAMETER_CONSTRAINT_VIOLATION', 'INSUFFICIENT_PRIVILEGES'],
+              privileges: ['analyze (required)', 'specialimagery (for special imagery)']
+            },
+            testResult: {
+              parametersUsed: {
+                mapContext: mapContext,
+                sceneId: sceneId,
+                hiliteList: hiliteList,
+                buffer: buffer
+              },
+              extractionResult: result,
+              testDuration: `${testDuration}ms`,
+              status: 'success',
+              compliant: true,
+              resultStructure: {
+                type: typeof result,
+                isObject: typeof result === 'object',
+                keys: result && typeof result === 'object' ? Object.keys(result) : null
+              }
+            },
+            server: (this.auth.getConfig && this.auth.getConfig().server) || 'us',
+            testedAt: new Date().toISOString()
+          }
+        )
+      } else {
+        console.log(`🔧 Satshot: FAILED:`, response.error.faultString)
+
+        return MCPUtils.createSuccessResult(
+          `🖼️ extract_image_set_around_hilited_shapes method test COMPLETED - Method returned error`,
+          {
+            method: 'extract_image_set_around_hilited_shapes',
+            documentation: {
+              signature: 'static struct extract_image_set_around_hilited_shapes( string $mapcontext, integer $sceneid, array $hilitelist, [integer $buffer = 100])',
+              purpose: 'Extracts an image for each hilited shape in array HILITELIST from scene SCENEID, returns struct keyed to hilite IDs with image handles as values',
+              parameters: {
+                mapcontext: 'string (map context handle)',
+                sceneid: 'integer (scene ID to extract from)',
+                hilitelist: 'array (list of hilite IDs)',
+                buffer: 'integer (buffer size in meters, defaults to 100)'
+              },
+              returns: 'struct keyed to hilite IDs with image handles as values',
+              exceptions: ['MAP_NOT_FOUND', 'INSUFFICIENT_BALANCE', 'HILITE_NOT_FOUND', 'PARAMETER_CONSTRAINT_VIOLATION', 'INSUFFICIENT_PRIVILEGES'],
+              privileges: ['analyze (required)', 'specialimagery (for special imagery)']
+            },
+            testResult: {
+              parametersUsed: {
+                mapContext: mapContext,
+                sceneId: sceneId,
+                hiliteList: hiliteList,
+                buffer: buffer
+              },
+              error: response.error.faultString,
+              testDuration: `${testDuration}ms`,
+              status: 'error',
+              compliant: false,
+              errorAnalysis: {
+                errorType: response.error.faultCode,
+                errorMessage: response.error.faultString,
+                likelyCause: this.analyzeImageExtractionError(response.error.faultString)
+              }
+            },
+            server: (this.auth.getConfig && this.auth.getConfig().server) || 'us',
+            testedAt: new Date().toISOString()
+          }
+        )
+      }
+
+    } catch (error) {
+      const errorMessage = MCPUtils.formatError(error)
+      MCPUtils.logWithTimestamp('ERROR', 'Satshot: extract_image_set_around_hilited_shapes method test failed', error)
+      return MCPUtils.createErrorResult(
+        'extract_image_set_around_hilited_shapes method test failed',
+        errorMessage
+      )
+    }
+  }
+
+  private analyzeImageExtractionError(errorMessage: string): string {
+    if (errorMessage.includes('HILITE_NOT_FOUND')) {
+      return 'No hilited shapes found or invalid hilite IDs provided'
+    } else if (errorMessage.includes('MAP_NOT_FOUND')) {
+      return 'Invalid map context provided'
+    } else if (errorMessage.includes('INSUFFICIENT_PRIVILEGES')) {
+      return 'User lacks analyze privilege required for this method'
+    } else if (errorMessage.includes('INSUFFICIENT_BALANCE')) {
+      return 'Insufficient account balance for image extraction'
+    } else if (errorMessage.includes('PARAMETER_CONSTRAINT_VIOLATION')) {
+      return 'Invalid parameter values (e.g., buffer <= 0)'
+    } else {
+      return 'Unknown error - may need valid scene ID or existing hilited shapes'
+    }
+  }
+
+  public async getAvailableSceneYears(args: SatshotToolArgs): Promise<MCPToolResult> {
+    try {
+      MCPUtils.logWithTimestamp('INFO', 'Satshot: Getting available scene years', args)
+
+      const hasAuth = await this.auth.authenticate()
+      if (!hasAuth) {
+        return MCPUtils.createErrorResult('Satshot authentication required')
+      }
+
+      const client = this.auth.getClient()
+      if (!client) {
+        return MCPUtils.createErrorResult('No Satshot client available')
+      }
+
+      console.log('🔧 Satshot: Getting available scene years (requires viewscenes privilege)')
+      console.log('🔧 Method: get_available_scene_years')
+      console.log('🔧 Parameters: none')
+      console.log('🔧 Expected: array of years in reverse chronological order')
+
+      // Call the exact method from documentation: get_available_scene_years()
+      const testStart = Date.now()
+
+      console.log('🔧 Satshot: Calling get_available_scene_years()')
+      const response = await client.callMethod('get_available_scene_years', [])
+
+      const testDuration = Date.now() - testStart
+      console.log(`🔧 Satshot: Method completed in ${testDuration}ms`)
+
+      if (!response.error) {
+        console.log('🔧 Satshot: SUCCESS! Available scene years:', JSON.stringify(response.result, null, 2))
+
+        // Validate the response structure - should be array of years
+        const years = response.result
+
+        return MCPUtils.createSuccessResult(
+          `📅 get_available_scene_years method test PASSED - Available scene years retrieved`,
+          {
+            method: 'get_available_scene_years',
+            documentation: {
+              signature: 'static array get_available_scene_years()',
+              purpose: 'Returns an array of years in which the database has scenes available, in reverse chronological order',
+              parameters: 'none',
+              returns: 'array of integers (years)',
+              exceptions: ['INSUFFICIENT_PRIVILEGES'],
+              privileges: ['viewscenes (required)']
+            },
+            testResult: {
+              availableYears: years,
+              yearCount: Array.isArray(years) ? years.length : 'not an array',
+              testDuration: `${testDuration}ms`,
+              status: 'success',
+              compliant: true,
+              yearsAnalysis: {
+                type: typeof years,
+                isArray: Array.isArray(years),
+                sampleYears: Array.isArray(years) ? years.slice(0, 5) : null,
+                chronologicalOrder: Array.isArray(years) && years.length > 1 ?
+                  (years[0] > years[1] ? 'reverse chronological' : 'chronological') : 'unknown'
+              }
+            },
+            server: (this.auth.getConfig && this.auth.getConfig().server) || 'us',
+            testedAt: new Date().toISOString()
+          }
+        )
+      } else {
+        console.log(`🔧 Satshot: FAILED:`, response.error.faultString)
+
+        return MCPUtils.createSuccessResult(
+          `📅 get_available_scene_years method test COMPLETED - Method returned error`,
+          {
+            method: 'get_available_scene_years',
+            documentation: {
+              signature: 'static array get_available_scene_years()',
+              purpose: 'Returns an array of years in which the database has scenes available, in reverse chronological order',
+              parameters: 'none',
+              returns: 'array of integers (years)',
+              exceptions: ['INSUFFICIENT_PRIVILEGES'],
+              privileges: ['viewscenes (required)']
+            },
+            testResult: {
+              error: response.error.faultString,
+              testDuration: `${testDuration}ms`,
+              status: 'error',
+              compliant: false,
+              errorAnalysis: {
+                errorType: response.error.faultCode,
+                errorMessage: response.error.faultString,
+                likelyCause: response.error.faultString.includes('INSUFFICIENT_PRIVILEGES') ?
+                  'User lacks viewscenes privilege required for this method' :
+                  response.error.faultString.includes('METHOD_NOT_FOUND') ?
+                  'Method not available in this SatShot instance' :
+                  'Unknown error - may need different authentication or server configuration'
+              }
+            },
+            server: (this.auth.getConfig && this.auth.getConfig().server) || 'us',
+            testedAt: new Date().toISOString()
+          }
+        )
+      }
+
+    } catch (error) {
+      const errorMessage = MCPUtils.formatError(error)
+      MCPUtils.logWithTimestamp('ERROR', 'Satshot: get_available_scene_years method test failed', error)
+      return MCPUtils.createErrorResult(
+        'get_available_scene_years method test failed',
+        errorMessage
+      )
+    }
+  }
+
   public async getUserInfo(args: SatshotToolArgs): Promise<MCPToolResult> {
     try {
       MCPUtils.logWithTimestamp('INFO', 'Satshot: Getting user info', args)
@@ -1923,19 +2238,19 @@ export class SatshotTools {
               case 'fields':
                 if (value?.array?.data?.value) {
                   parsedInfo.fields = Array.isArray(value.array.data.value)
-                    ? value.array.data.value.map(f => f?.string || f?.int || f)
+                    ? value.array.data.value.map((f: any) => f?.string || f?.int || f)
                     : [value.array.data.value?.string || value.array.data.value?.int || value.array.data.value]
                 }
                 break
               case 'maps':
                 if (value?.array?.data?.value) {
                   parsedInfo.maps = Array.isArray(value.array.data.value)
-                    ? value.array.data.value.map(m => m?.string || m?.int || m)
+                    ? value.array.data.value.map((m: any) => m?.string || m?.int || m)
                     : [value.array.data.value?.string || value.array.data.value?.int || value.array.data.value]
                 }
                 break
               default:
-                parsedInfo.metadata[name] = value?.string || value?.int || value
+                (parsedInfo.metadata as any)[name] = value?.string || value?.int || value
             }
           }
         } else if (userInfo?.string) {
