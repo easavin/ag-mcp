@@ -7,7 +7,6 @@ const logos = [
   { src: '/assets/logos/johndeere-logo.png', alt: 'John Deere', width: 40, height: 16 },
   { src: '/assets/logos/climate-logo.png', alt: 'Climate FieldView', width: 40, height: 16 },
   { src: '/assets/logos/auravant-logo.png', alt: 'Auravant', width: 40, height: 16 },
-  { src: '/assets/logos/claas-logo.png', alt: 'Claas', width: 40, height: 16 },
   { src: '/assets/logos/usda-logo.png', alt: 'USDA', width: 40, height: 16 },
   { src: '/assets/logos/ec-logo.png', alt: 'European Commission', width: 40, height: 16 },
   { src: '/assets/logos/weather-logo.svg', alt: 'Weather Data', width: 40, height: 16 },

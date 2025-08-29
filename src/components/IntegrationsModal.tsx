@@ -466,23 +466,6 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       ]
     },
     {
-      id: 'claas',
-      name: 'CLAAS Telematics',
-      description: 'Connect your CLAAS equipment for real-time monitoring, performance analytics, and fleet management insights. (Coming soon)',
-      logo: '/assets/logos/claas-logo.png',
-      logoFallback: '🚜',
-      category: 'Equipment Management',
-      isConnected: false,
-      features: [
-        'Real-time equipment monitoring',
-        'Machine performance analytics',
-        'Fuel consumption tracking',
-        'Maintenance scheduling and alerts',
-        'Fleet management dashboard',
-        'More features coming soon!'
-      ]
-    },
-    {
       id: 'auravant',
       name: 'Auravant',
       description: 'Connect your Auravant account to access agricultural data, livestock management, and work order planning. (Coming soon)',
@@ -765,7 +748,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
                       </div>
                     ) : (
                       // Show "Coming soon" only for climate-fieldview, claas, and auravant
-                      integration.id === 'climate-fieldview' || integration.id === 'claas' || integration.id === 'auravant' ? (
+                      integration.id === 'climate-fieldview' || integration.id === 'auravant' ? (
                         <button 
                           className="connect-btn"
                           disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}
