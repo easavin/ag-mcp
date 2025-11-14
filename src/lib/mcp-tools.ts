@@ -964,7 +964,7 @@ export const EXPORT_TOOLS: MCPTool[] = [
         },
         platform: {
           type: 'string',
-          enum: ['johndeere', 'satshot', 'fieldview', 'auravant'],
+          enum: ['johndeere', 'fieldview', 'auravant'],
           description: 'Platform where the field boundary is stored'
         },
         includeMetadata: {
@@ -993,7 +993,7 @@ export const EXPORT_TOOLS: MCPTool[] = [
         },
         platform: {
           type: 'string',
-          enum: ['johndeere', 'satshot', 'fieldview', 'auravant'],
+          enum: ['johndeere', 'fieldview', 'auravant'],
           description: 'Platform where the field boundary is stored'
         },
         includeMetadata: {
@@ -1017,7 +1017,7 @@ export const EXPORT_TOOLS: MCPTool[] = [
         },
         platform: {
           type: 'string',
-          enum: ['johndeere', 'satshot', 'fieldview', 'auravant'],
+          enum: ['johndeere', 'fieldview', 'auravant'],
           description: 'Platform where the field boundary is stored'
         },
         dateRange: {
@@ -1040,7 +1040,6 @@ export const ALL_MCP_TOOLS: MCPTool[] = [
   ...EU_COMMISSION_TOOLS,
   ...USDA_TOOLS,
   ...AURAVANT_TOOLS,
-  ...SATSHOT_TOOLS,
   ...FILE_MANAGEMENT_TOOLS,
   ...EXPORT_TOOLS,
 ]
@@ -1077,10 +1076,6 @@ export function getRelevantMCPTools(selectedDataSources: string[] = []): MCPTool
     console.log('🌱 Including Auravant tools')
   }
 
-  if (selectedDataSources.includes('satshot')) {
-    relevantTools.push(...SATSHOT_TOOLS)
-    console.log('🛰️ Including Satshot tools')
-  }
 
   // Always include file management and export tools (utility functions)
   relevantTools.push(...FILE_MANAGEMENT_TOOLS)
@@ -2535,7 +2530,7 @@ export class MCPToolExecutor {
   // Export Tool Implementations
   private async exportFieldBoundaryKML(params: {
     fieldName: string,
-    platform: 'johndeere' | 'satshot' | 'fieldview' | 'auravant',
+    platform: 'johndeere' | 'fieldview' | 'auravant',
     includeMetadata?: boolean,
     coordinateSystem?: string
   }): Promise<MCPToolResult> {
@@ -2592,7 +2587,7 @@ export class MCPToolExecutor {
 
   private async exportFieldBoundaryShapefile(params: {
     fieldName: string,
-    platform: 'johndeere' | 'satshot' | 'fieldview' | 'auravant',
+    platform: 'johndeere' | 'fieldview' | 'auravant',
     includeMetadata?: boolean
   }): Promise<MCPToolResult> {
     try {
@@ -2618,7 +2613,7 @@ export class MCPToolExecutor {
 
   private async getFieldNDVIFromSatshot(params: {
     fieldName: string,
-    platform: 'johndeere' | 'satshot' | 'fieldview' | 'auravant',
+    platform: 'johndeere' | 'fieldview' | 'auravant',
     dateRange?: string
   }): Promise<MCPToolResult> {
     try {

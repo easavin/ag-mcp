@@ -461,7 +461,7 @@ async function executeFunction(functionCall: FunctionCall, request: NextRequest)
 
   // Check if it's an MCP tool - for execution we need to check all possible tools
   // since the data source selection might not match the tool being called
-  const allPossibleTools = getRelevantMCPTools(['weather', 'johndeere', 'eu-commission', 'usda', 'satshot', 'auravant'])
+  const allPossibleTools = getRelevantMCPTools(['weather', 'johndeere', 'eu-commission', 'usda', 'auravant'])
   const mcpTool = allPossibleTools.find(tool => tool.name === name)
   if (mcpTool) {
     console.log(`🛠️ Executing MCP tool: ${name}`)

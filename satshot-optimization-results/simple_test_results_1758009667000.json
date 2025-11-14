@@ -1,0 +1,104 @@
+{
+  "timestamp": "2025-09-16T08:01:07.000Z",
+  "totalTests": 8,
+  "successfulBoundaries": 7,
+  "successfulMaps": 0,
+  "results": [
+    {
+      "testCase": "Object_NAD83_Standard",
+      "method": "create_hilite_objects_from_wkt",
+      "success": true,
+      "parameters": [
+        {
+          "NDfield": "POLYGON((-99.16857557318038 47.69464840127363, -99.15788965246504 47.69464840127363, -99.15788965246504 47.70175375708481, -99.16857557318038 47.70175375708481, -99.16857557318038 47.69464840127363))"
+        },
+        "+init=EPSG:4269"
+      ],
+      "result": "-1"
+    },
+    {
+      "testCase": "Object_NAD83_Closed",
+      "method": "create_hilite_objects_from_wkt",
+      "success": true,
+      "parameters": [
+        {
+          "NDfield": "POLYGON((-99.16857557318038 47.69464840127363, -99.15788965246504 47.69464840127363, -99.15788965246504 47.70175375708481, -99.16857557318038 47.70175375708481, -99.16857557318038 47.69464840127363))"
+        },
+        "+init=EPSG:4269"
+      ],
+      "result": "-1"
+    },
+    {
+      "testCase": "Object_WGS84_Standard",
+      "method": "create_hilite_objects_from_wkt",
+      "success": true,
+      "parameters": [
+        {
+          "NDfield": "POLYGON((-99.16857557318038 47.69464840127363, -99.15788965246504 47.69464840127363, -99.15788965246504 47.70175375708481, -99.16857557318038 47.70175375708481, -99.16857557318038 47.69464840127363))"
+        },
+        "+init=EPSG:4326"
+      ],
+      "result": "-1"
+    },
+    {
+      "testCase": "Object_WGS84_Closed",
+      "method": "create_hilite_objects_from_wkt",
+      "success": true,
+      "parameters": [
+        {
+          "NDfield": "POLYGON((-99.16857557318038 47.69464840127363, -99.15788965246504 47.69464840127363, -99.15788965246504 47.70175375708481, -99.16857557318038 47.70175375708481, -99.16857557318038 47.69464840127363))"
+        },
+        "+init=EPSG:4326"
+      ],
+      "result": "-1"
+    },
+    {
+      "testCase": "NoQuotes_NAD83_Standard",
+      "method": "create_hilite_objects_from_wkt",
+      "success": true,
+      "parameters": [
+        {
+          "NDfield": "POLYGON((-99.16857557318038 47.69464840127363, -99.15788965246504 47.69464840127363, -99.15788965246504 47.70175375708481, -99.16857557318038 47.70175375708481, -99.16857557318038 47.69464840127363))"
+        },
+        "+init=EPSG:4269"
+      ],
+      "result": "-1"
+    },
+    {
+      "testCase": "Direct_WKT_NAD83",
+      "method": "create_hilite_objects_from_wkt",
+      "success": false,
+      "parameters": [
+        "POLYGON((-99.16857557318038 47.69464840127363, -99.15788965246504 47.69464840127363, -99.15788965246504 47.70175375708481, -99.16857557318038 47.70175375708481, -99.16857557318038 47.69464840127363))",
+        "+init=EPSG:4269"
+      ],
+      "error": {
+        "faultCode": "unknown",
+        "faultString": "server error. invalid method parameters"
+      }
+    },
+    {
+      "testCase": "Array_WKT_NAD83",
+      "method": "create_hilite_objects_from_wkt",
+      "success": true,
+      "parameters": [
+        [
+          "POLYGON((-99.16857557318038 47.69464840127363, -99.15788965246504 47.69464840127363, -99.15788965246504 47.70175375708481, -99.16857557318038 47.70175375708481, -99.16857557318038 47.69464840127363))"
+        ],
+        "+init=EPSG:4269"
+      ],
+      "result": "-1"
+    },
+    {
+      "testCase": "Object_Only",
+      "method": "create_hilite_objects_from_wkt",
+      "success": true,
+      "parameters": [
+        {
+          "NDfield": "POLYGON((-99.16857557318038 47.69464840127363, -99.15788965246504 47.69464840127363, -99.15788965246504 47.70175375708481, -99.16857557318038 47.70175375708481, -99.16857557318038 47.69464840127363))"
+        }
+      ],
+      "result": "-1"
+    }
+  ]
+}

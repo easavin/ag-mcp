@@ -66,15 +66,6 @@ const DATA_SOURCES: DataSource[] = [
     color: '#DC2626',
     available: true
   },
-  {
-    id: 'satshot',
-    name: 'Satshot GIS',
-    icon: <Satellite className="w-5 h-5" />,
-    description: 'Satellite imagery, field mapping, precision agriculture GIS tools',
-    category: 'platform',
-    color: '#8B5CF6',
-    available: true
-  }
 ]
 
 export default function MultiSourceSelector({ 

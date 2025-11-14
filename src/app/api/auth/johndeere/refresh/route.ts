@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getJohnDeereAPI } from '@/lib/johndeere'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
+  // Get current authenticated user
+  const authUser = await getCurrentUser(request)
+  
+  if (!authUser) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 }
+    )
+  }
+
+  const userId = authUser.id
+
   try {
-    // TODO: Get user ID from authentication session
-    const userId = 'user_placeholder'
 
     // Get current tokens from database
     const tokenRecord = await prisma.johnDeereToken.findUnique({
@@ -71,13 +82,13 @@ export async function POST(request: NextRequest) {
     // If refresh fails, mark user as disconnected
     try {
       await prisma.user.update({
-        where: { id: 'user_placeholder' },
+        where: { id: userId },
         data: { johnDeereConnected: false },
       })
 
       // Optionally delete the invalid tokens
       await prisma.johnDeereToken.deleteMany({
-        where: { userId: 'user_placeholder' },
+        where: { userId },
       })
     } catch (dbError) {
       console.error('Error updating user connection status:', dbError)

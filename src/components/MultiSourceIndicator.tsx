@@ -71,16 +71,6 @@ const DATA_SOURCES: DataSource[] = [
     category: 'Market Data',
     status: 'connected'
   },
-  {
-    id: 'satshot',
-    name: 'Satshot GIS',
-    icon: <Satellite className="w-5 h-5" />,
-    color: '#8B5CF6',
-    description: 'Professional GIS and precision agriculture with satellite imagery analysis',
-    features: ['Satellite imagery', 'Field mapping', 'Vegetation indices', 'Agricultural GIS'],
-    category: 'GIS Platform',
-    status: 'connected'
-  }
 ]
 
 export default function MultiSourceIndicator({ 

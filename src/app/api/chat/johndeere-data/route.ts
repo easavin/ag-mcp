@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getJohnDeereAPIClient, JDField, JDOrganization, JDEquipment } from '@/lib/johndeere-api'
 import { getMockDataForType, formatMockDataMessage } from '@/lib/johndeere-mock-data'
+import { getCurrentUser } from '@/lib/auth'
 
 // Helper function to format field data for better readability
 function formatFieldsData(fields: JDField[]): string {
@@ -74,8 +75,17 @@ export async function POST(request: NextRequest) {
   try {
     const { dataType, organizationId, filters } = await request.json()
 
-    // TODO: Get user ID from authentication session
-    const userId = 'user_placeholder'
+    // Get current authenticated user
+    const authUser = await getCurrentUser(request)
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    const userId = authUser.id
 
     // Try to get real data first
     let data

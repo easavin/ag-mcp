@@ -1,0 +1,143 @@
+{
+  "timestamp": "2025-09-16T08:02:49.459Z",
+  "totalTests": 12,
+  "successfulDraws": 0,
+  "results": [
+    {
+      "testName": "No_Parameters",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [],
+      "error": {
+        "faultCode": "unknown",
+        "faultString": "server error. invalid method parameters"
+      }
+    },
+    {
+      "testName": "Map_Context_Only",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        "ga4ujyi40ctqv06coddnnjssfhvhirkb.map"
+      ]
+    },
+    {
+      "testName": "Empty_Object",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        {}
+      ],
+      "error": {
+        "faultCode": "unknown",
+        "faultString": "server error. invalid method parameters"
+      }
+    },
+    {
+      "testName": "Width_Height",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        800,
+        600
+      ],
+      "error": {
+        "faultCode": "unknown",
+        "faultString": "server error. invalid method parameters"
+      }
+    },
+    {
+      "testName": "Map_Context_Width_Height",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        "ga4ujyi40ctqv06coddnnjssfhvhirkb.map",
+        800,
+        600
+      ]
+    },
+    {
+      "testName": "Options_Object",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        {
+          "width": 800,
+          "height": 600
+        }
+      ],
+      "error": {
+        "faultCode": "unknown",
+        "faultString": "server error. invalid method parameters"
+      }
+    },
+    {
+      "testName": "Map_Context_Options",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        "ga4ujyi40ctqv06coddnnjssfhvhirkb.map",
+        {
+          "width": 800,
+          "height": 600
+        }
+      ]
+    },
+    {
+      "testName": "Format_PNG",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        "PNG"
+      ],
+      "error": {
+        "faultCode": "unknown",
+        "faultString": "No map context PNG exists."
+      }
+    },
+    {
+      "testName": "Map_Context_Format",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        "ga4ujyi40ctqv06coddnnjssfhvhirkb.map",
+        "PNG"
+      ]
+    },
+    {
+      "testName": "Full_Options",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        "ga4ujyi40ctqv06coddnnjssfhvhirkb.map",
+        {
+          "width": 800,
+          "height": 600,
+          "format": "PNG",
+          "quality": 90
+        }
+      ]
+    },
+    {
+      "testName": "Scene_Parameter",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        "S2_T14TMT_Aug19_19"
+      ],
+      "error": {
+        "faultCode": "unknown",
+        "faultString": "No map context S2_T14TMT_Aug19_19 exists."
+      }
+    },
+    {
+      "testName": "Map_Scene_Combined",
+      "method": "draw_map",
+      "success": false,
+      "parameters": [
+        "ga4ujyi40ctqv06coddnnjssfhvhirkb.map",
+        "S2_T14TMT_Aug19_19"
+      ]
+    }
+  ]
+}

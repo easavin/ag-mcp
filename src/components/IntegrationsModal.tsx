@@ -628,7 +628,7 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
           </div>
 
           <div className="integrations-grid">
-            {integrations.map((integration) => (
+            {integrations.filter(integration => integration.id !== 'satshot').map((integration) => (
               <div key={integration.id} className="integration-card">
                 <div className="integration-header">
                   <div className="integration-logo">

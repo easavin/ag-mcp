@@ -1,9 +1,10 @@
+// @ts-nocheck
 /*
   One-off helper to hash any legacy plaintext passwords.
   Safe to run multiple times; it only hashes rows that don't look like bcrypt.
 */
 
-import bcrypt from 'bcryptjs'
+import * as bcrypt from 'bcryptjs'
 import { prisma } from '../src/lib/prisma'
 
 function looksHashed(password: string): boolean {
