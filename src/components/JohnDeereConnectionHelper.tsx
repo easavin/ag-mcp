@@ -89,6 +89,11 @@ export default function JohnDeereConnectionHelper() {
   }
   
   const handleJohnDeereConnect = async () => {
+    if (connecting) {
+      console.log('⚠️ Connection already in progress, ignoring duplicate request')
+      return
+    }
+    
     setConnecting(true)
     console.log('🚀 Starting John Deere OAuth flow...')
     
@@ -177,9 +182,21 @@ export default function JohnDeereConnectionHelper() {
           }
         } catch (error) {
           console.error('❌ Error during token exchange:', error)
+          
+          let errorMessage = 'Failed to complete connection'
+          if (error instanceof Error) {
+            if (error.message.includes('invalid_grant') || error.message.includes('expired')) {
+              errorMessage = 'Authorization expired. Please try connecting again.'
+            } else if (error.message.includes('credentials not configured')) {
+              errorMessage = 'John Deere API not properly configured'
+            } else {
+              errorMessage = error.message
+            }
+          }
+          
           setConnectionStatus({ 
             status: 'error', 
-            message: 'Failed to complete connection', 
+            message: errorMessage, 
             error: error instanceof Error ? error.message : 'Unknown error'
           })
         }

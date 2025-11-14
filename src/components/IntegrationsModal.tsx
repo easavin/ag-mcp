@@ -256,23 +256,10 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       }
 
       if (event.data.type === 'JOHN_DEERE_AUTH_CALLBACK') {
-        const { code, state } = event.data
-        
-        try {
-          // Use the auth store's callback handler
-          await handleJohnDeereCallback(code, state)
-          
-          // Refresh connection status
-          await checkConnectionStatus()
-          setIsConnecting(false)
-        } catch (error) {
-          console.error('❌ IntegrationsModal - Error during token exchange:', error)
-          setIsConnecting(false)
-          setConnectionStatus({ 
-            status: 'error', 
-            error: error instanceof Error ? error.message : 'Failed to complete connection'
-          })
-        }
+        console.log('📨 IntegrationsModal - Received John Deere callback, delegating to main handler')
+        // Don't handle here - let the main JohnDeereConnectionHelper handle it
+        // This prevents duplicate API calls with the same authorization code
+        setIsConnecting(false)
       } else if (event.data.type === 'JOHN_DEERE_AUTH_ERROR') {
         console.error('❌ IntegrationsModal - OAuth error:', event.data.error)
         setIsConnecting(false)

@@ -142,6 +142,15 @@ export class JohnDeereAPI {
     })
 
     try {
+      console.log('🔄 Making token exchange request to:', config.tokenURL)
+      console.log('🔄 Request params:', {
+        grant_type: 'authorization_code',
+        code: code.substring(0, 10) + '...',
+        redirect_uri: this.redirectUri,
+        client_id: this.clientId,
+        client_secret: this.clientSecret.substring(0, 10) + '...'
+      })
+      
       const response = await axios.post(config.tokenURL, params, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -149,10 +158,37 @@ export class JohnDeereAPI {
         },
       })
 
+      console.log('✅ Token exchange successful:', {
+        hasAccessToken: !!response.data.access_token,
+        hasRefreshToken: !!response.data.refresh_token,
+        expiresIn: response.data.expires_in,
+        scope: response.data.scope
+      })
+
       return response.data
-    } catch (error) {
-      console.error('Error exchanging code for tokens:', error)
-      throw new Error('Failed to exchange authorization code for tokens')
+    } catch (error: any) {
+      console.error('❌ Error exchanging code for tokens:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      })
+      
+      // Provide more specific error messages
+      if (error.response?.status === 400) {
+        throw new Error(`Invalid authorization code or expired: ${error.response.data?.error_description || error.response.data?.error || 'Bad Request'}`)
+      } else if (error.response?.status === 401) {
+        throw new Error(`Invalid client credentials: ${error.response.data?.error_description || 'Unauthorized'}`)
+      } else if (error.response?.status >= 500) {
+        throw new Error(`John Deere server error: ${error.response.statusText}`)
+      }
+      
+      throw new Error(`Failed to exchange authorization code for tokens: ${error.message}`)
     }
   }
 

@@ -166,7 +166,9 @@ export const useAuthStore = create<AuthState>()(
             })
 
             if (!response.ok) {
-              throw new Error('Failed to complete John Deere connection')
+              const errorData = await response.json().catch(() => ({}))
+              const errorMessage = errorData.error || 'Failed to complete John Deere connection'
+              throw new Error(errorMessage)
             }
 
             const { user, connection } = await response.json()

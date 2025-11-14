@@ -81,8 +81,31 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('❌ Error handling John Deere callback:', error)
+    
+    // Log detailed error information for debugging
+    if (error instanceof Error) {
+      console.error('❌ Error name:', error.name)
+      console.error('❌ Error message:', error.message)
+      console.error('❌ Error stack:', error.stack)
+    }
+    
+    // Check for specific error types
+    let errorMessage = 'Failed to complete John Deere authorization'
+    if (error instanceof Error) {
+      if (error.message.includes('credentials not configured')) {
+        errorMessage = 'John Deere API credentials not configured'
+      } else if (error.message.includes('Authentication required')) {
+        errorMessage = 'User authentication required'
+      } else if (error.message.includes('Failed to exchange')) {
+        errorMessage = 'Failed to exchange authorization code for tokens'
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to complete John Deere authorization' },
+      { 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : String(error) : undefined
+      },
       { status: 500 }
     )
   }
