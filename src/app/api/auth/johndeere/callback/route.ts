@@ -188,19 +188,39 @@ export async function GET(request: NextRequest) {
           console.log('🔧 Code:', '${code}');
           console.log('🔧 State:', '${state}');
           console.log('🔧 Window opener exists:', !!window.opener);
+          console.log('🔧 Current origin:', window.location.origin);
+          console.log('🔧 Parent origin:', window.opener ? 'exists' : 'none');
           
           // Send the code and state to the parent window or redirect to complete the flow
-          if (window.opener) {
+          if (window.opener && !window.opener.closed) {
             console.log('🔧 Sending postMessage to parent...');
-            window.opener.postMessage({
+            
+            // Try multiple times with different origins to ensure delivery
+            const message = {
               type: 'JOHN_DEERE_AUTH_CALLBACK',
               code: '${code}',
               state: '${state}'
-            }, window.location.origin);
-            console.log('🔧 PostMessage sent, closing popup...');
-            window.close();
+            };
+            
+            // Send to current origin
+            window.opener.postMessage(message, window.location.origin);
+            console.log('🔧 PostMessage sent to:', window.location.origin);
+            
+            // Also try with wildcard (less secure but more compatible)
+            setTimeout(() => {
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage(message, '*');
+                console.log('🔧 PostMessage sent with wildcard origin');
+              }
+            }, 100);
+            
+            // Close popup after a short delay
+            setTimeout(() => {
+              console.log('🔧 Closing popup...');
+              window.close();
+            }, 500);
           } else {
-            console.log('🔧 No opener, redirecting to completion page...');
+            console.log('🔧 No opener or opener closed, redirecting to completion page...');
             // Main window was redirected, send to completion page
             window.location.href = '/johndeere-connection?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}';
           }

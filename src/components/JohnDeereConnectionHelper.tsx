@@ -144,9 +144,13 @@ export default function JohnDeereConnectionHelper() {
       console.log('📨 Expected origin:', window.location.origin)
       console.log('📨 Message type:', event.data?.type)
       
-      // Ensure the message is from our domain
-      if (event.origin !== window.location.origin) {
-        console.warn('⚠️ Ignoring message from different origin:', event.origin)
+      // Be more flexible with origin checking for John Deere callbacks
+      const isValidOrigin = event.origin === window.location.origin || 
+                           event.origin === 'https://agmcp.vercel.app' ||
+                           (event.data?.type === 'JOHN_DEERE_AUTH_CALLBACK' && event.origin.includes('vercel.app'))
+      
+      if (!isValidOrigin) {
+        console.warn('⚠️ Ignoring message from invalid origin:', event.origin)
         return
       }
 
@@ -204,6 +208,8 @@ export default function JohnDeereConnectionHelper() {
         // Clean up
         setConnecting(false)
         window.removeEventListener('message', messageListener)
+        clearTimeout(timeoutId)
+        clearInterval(checkClosed)
         popup?.close()
       } else if (event.data.type === 'JOHN_DEERE_AUTH_ERROR') {
         console.error('❌ OAuth error:', event.data.error)
@@ -216,6 +222,8 @@ export default function JohnDeereConnectionHelper() {
         // Clean up
         setConnecting(false)
         window.removeEventListener('message', messageListener)
+        clearTimeout(timeoutId)
+        clearInterval(checkClosed)
         popup?.close()
       }
     }
@@ -224,6 +232,18 @@ export default function JohnDeereConnectionHelper() {
     window.addEventListener('message', messageListener)
     console.log('👂 Message listener added, waiting for messages...')
     
+    // Set up timeout for popup response
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ Popup response timeout - no message received')
+      window.removeEventListener('message', messageListener)
+      popup?.close()
+      setConnecting(false)
+      setConnectionStatus({ 
+        status: 'error', 
+        message: 'Connection timeout. Please try again.' 
+      })
+    }, 60000) // 60 second timeout
+    
     // Clean up if popup is closed manually
     const checkClosed = setInterval(() => {
       if (popup?.closed) {
@@ -231,6 +251,7 @@ export default function JohnDeereConnectionHelper() {
         setConnecting(false)
         window.removeEventListener('message', messageListener)
         clearInterval(checkClosed)
+        clearTimeout(timeoutId)
       }
     }, 1000)
     
