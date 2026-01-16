@@ -59,7 +59,7 @@ export default function JohnDeereConnectionHelper() {
 
     setRefreshing(true)
     try {
-      const res = await fetch('/api/johndeere/connection-status')
+      const res = await fetch('/api/johndeere/connection-status', { credentials: 'include' })
       const data = await res.json()
 
       if (!res.ok) {
@@ -97,8 +97,6 @@ export default function JohnDeereConnectionHelper() {
     setConnecting(true)
     console.log('🚀 Starting John Deere OAuth flow...')
     
-    let popup: Window | null = null
-    
     try {
       // First, make a POST request to get the authorization URL
       console.log('📡 Fetching authorization URL...')
@@ -109,20 +107,11 @@ export default function JohnDeereConnectionHelper() {
       }
       
       const { authorizationUrl } = await response.json()
-      console.log('🔗 Opening popup with URL:', authorizationUrl)
+      console.log('🔗 Redirecting to:', authorizationUrl)
       
-      popup = window.open(authorizationUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes')
+      // Redirect the current window instead of opening a popup
+      window.location.href = authorizationUrl
       
-      if (!popup) {
-        console.error('❌ Failed to open popup window')
-        setConnecting(false)
-        setConnectionStatus({ 
-          status: 'error', 
-          message: 'Failed to open OAuth popup. Please allow popups for this site.', 
-          error: 'Popup blocked'
-        })
-        return
-      }
     } catch (error) {
       console.error('❌ Error starting OAuth flow:', error)
       setConnecting(false)
@@ -131,143 +120,13 @@ export default function JohnDeereConnectionHelper() {
         message: 'Failed to start OAuth flow', 
         error: error instanceof Error ? error.message : 'Unknown error'
       })
-      return
     }
-    
-    console.log('✅ Popup opened successfully, popup object:', popup)
-    console.log('✅ Popup URL:', popup.location?.href || 'Cannot access (different origin)')
-    console.log('✅ Waiting for OAuth callback...')
-    
-    // Listen for messages from the popup
-    const messageListener = async (event: MessageEvent) => {
-      console.log('📨 Received message:', event.data, 'from origin:', event.origin)
-      console.log('📨 Expected origin:', window.location.origin)
-      console.log('📨 Message type:', event.data?.type)
-      
-      // Be more flexible with origin checking for John Deere callbacks
-      const isValidOrigin = event.origin === window.location.origin || 
-                           event.origin === 'https://agmcp.vercel.app' ||
-                           (event.data?.type === 'JOHN_DEERE_AUTH_CALLBACK' && event.origin.includes('vercel.app'))
-      
-      if (!isValidOrigin) {
-        console.warn('⚠️ Ignoring message from invalid origin:', event.origin)
-        return
-      }
-
-      if (event.data.type === 'JOHN_DEERE_AUTH_CALLBACK') {
-        const { code, state } = event.data
-        console.log('✅ Received OAuth callback with code:', code?.substring(0, 10) + '...', 'state:', state)
-        
-        try {
-          console.log('🔄 Exchanging code for tokens...')
-          // Exchange the code for tokens via our API
-          const response = await fetch('/api/auth/johndeere/callback', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code, state }),
-          })
-
-          const responseData = await response.json()
-          console.log('📝 Callback response:', response.status, responseData)
-
-          if (response.ok) {
-            console.log('🎉 OAuth flow completed successfully!')
-            // Success! Refresh the connection status
-            await checkConnectionStatus()
-          } else {
-            console.error('❌ Callback failed:', responseData)
-            setConnectionStatus({ 
-              status: 'error', 
-              message: 'Failed to complete connection', 
-              error: responseData.error 
-            })
-          }
-        } catch (error) {
-          console.error('❌ Error during token exchange:', error)
-          
-          let errorMessage = 'Failed to complete connection'
-          if (error instanceof Error) {
-            if (error.message.includes('invalid_grant') || error.message.includes('expired')) {
-              errorMessage = 'Authorization expired. Please try connecting again.'
-            } else if (error.message.includes('credentials not configured')) {
-              errorMessage = 'John Deere API not properly configured'
-            } else {
-              errorMessage = error.message
-            }
-          }
-          
-          setConnectionStatus({ 
-            status: 'error', 
-            message: errorMessage, 
-            error: error instanceof Error ? error.message : 'Unknown error'
-          })
-        }
-        
-        // Clean up
-        setConnecting(false)
-        window.removeEventListener('message', messageListener)
-        clearTimeout(timeoutId)
-        clearInterval(checkClosed)
-        popup?.close()
-      } else if (event.data.type === 'JOHN_DEERE_AUTH_ERROR') {
-        console.error('❌ OAuth error:', event.data.error)
-        setConnectionStatus({ 
-          status: 'error', 
-          message: 'OAuth authentication failed', 
-          error: event.data.error 
-        })
-        
-        // Clean up
-        setConnecting(false)
-        window.removeEventListener('message', messageListener)
-        clearTimeout(timeoutId)
-        clearInterval(checkClosed)
-        popup?.close()
-      }
-    }
-
-    // Add the message listener
-    window.addEventListener('message', messageListener)
-    console.log('👂 Message listener added, waiting for messages...')
-    
-    // Set up timeout for popup response
-    const timeoutId = setTimeout(() => {
-      console.log('⏰ Popup response timeout - no message received')
-      window.removeEventListener('message', messageListener)
-      popup?.close()
-      setConnecting(false)
-      setConnectionStatus({ 
-        status: 'error', 
-        message: 'Connection timeout. Please try again.' 
-      })
-    }, 60000) // 60 second timeout
-    
-    // Clean up if popup is closed manually
-    const checkClosed = setInterval(() => {
-      if (popup?.closed) {
-        console.log('🚪 Popup was closed manually')
-        setConnecting(false)
-        window.removeEventListener('message', messageListener)
-        clearInterval(checkClosed)
-        clearTimeout(timeoutId)
-      }
-    }, 1000)
-    
-    // Also log popup status periodically for debugging
-    const statusCheck = setInterval(() => {
-      if (!popup?.closed) {
-        try {
-          console.log('🔍 Popup status check - still open, URL:', popup.location?.href || 'Cannot access (different origin)')
-        } catch (e) {
-          console.log('🔍 Popup status check - still open, cannot access URL (cross-origin)')
-        }
-      } else {
-        clearInterval(statusCheck)
-      }
-    }, 5000)
   }
+
+  /* 
+  // Popup handling code removed as we are now redirecting the main window
+  // The callback page will handle the redirection back to the app
+  */
 
   const renderStatusItem = (label: string, result: TestResult, icon: string) => {
     if (!result) return null;

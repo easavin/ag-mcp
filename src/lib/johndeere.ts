@@ -99,10 +99,12 @@ export class JohnDeereAPI {
     this.redirectUri = redirectUri
     this.environment = environment
 
-    const config = JOHN_DEERE_CONFIG[environment]
+    // IMPORTANT: In sandbox mode, John Deere requires using the 'production' OAuth URLs
+    // The sandbox base URL is ONLY for API calls, not for authentication
+    const config = JOHN_DEERE_CONFIG['production'] // Always use production config for OAuth
     
     this.client = axios.create({
-      baseURL: config.baseURL,
+      baseURL: JOHN_DEERE_CONFIG[environment].baseURL, // Use environment-specific API base URL
       headers: {
         'Accept': 'application/vnd.deere.axiom.v3+json',
         'Content-Type': 'application/json',
@@ -113,7 +115,8 @@ export class JohnDeereAPI {
   // OAuth Flow Methods
   generateAuthorizationUrl(scopes: string[] = ['ag1', 'ag2', 'ag3', 'eq1', 'eq2', 'work1', 'files', 'offline_access']): { url: string; state: string } {
     const state = uuidv4()
-    const config = JOHN_DEERE_CONFIG[this.environment]
+    // Always use production OAuth URL even for sandbox environment
+    const config = JOHN_DEERE_CONFIG['production']
     
     const params = new URLSearchParams({
       client_id: this.clientId,
@@ -131,7 +134,8 @@ export class JohnDeereAPI {
   }
 
   async exchangeCodeForTokens(code: string): Promise<JohnDeereTokens> {
-    const config = JOHN_DEERE_CONFIG[this.environment]
+    // Always use production token URL even for sandbox environment
+    const config = JOHN_DEERE_CONFIG['production']
     
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -155,6 +159,7 @@ export class JohnDeereAPI {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json',
+          'User-Agent': 'AgMCP-JohnDeere/1.0',
         },
       })
 
@@ -193,13 +198,15 @@ export class JohnDeereAPI {
   }
 
   async refreshAccessToken(refreshToken: string): Promise<JohnDeereTokens> {
-    const config = JOHN_DEERE_CONFIG[this.environment]
+    // Always use production token URL even for sandbox environment
+    const config = JOHN_DEERE_CONFIG['production']
     
     const params = new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: this.clientId,
       client_secret: this.clientSecret,
+      redirect_uri: this.redirectUri,
     })
 
     try {
@@ -207,6 +214,7 @@ export class JohnDeereAPI {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json',
+          'User-Agent': 'AgMCP-JohnDeere/1.0',
         },
       })
 

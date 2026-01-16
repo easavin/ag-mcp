@@ -119,15 +119,20 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state')
     const error = searchParams.get('error')
 
+    console.log('🔄 GET callback route called')
+    console.log('📝 Received params:', { code: code ? 'PRESENT' : 'MISSING', state: state ? 'PRESENT' : 'MISSING', error })
+
     if (error) {
       // Return HTML page that closes popup and sends error to parent
       return new NextResponse(`
         <!DOCTYPE html>
         <html>
         <head>
-          <title>John Deere Authorization</title>
+          <title>John Deere Authorization Failed</title>
         </head>
         <body>
+          <h3>Authorization Failed</h3>
+          <p>Error: ${error}</p>
           <script>
             if (window.opener) {
               window.opener.postMessage({
@@ -139,7 +144,6 @@ export async function GET(request: NextRequest) {
               window.location.href = '/?error=john_deere_auth_failed&message=${encodeURIComponent(error)}';
             }
           </script>
-          <p>Authorization failed. This window should close automatically.</p>
         </body>
         </html>
       `, {
@@ -152,9 +156,11 @@ export async function GET(request: NextRequest) {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>John Deere Authorization</title>
+          <title>John Deere Authorization Failed</title>
         </head>
         <body>
+          <h3>Authorization Failed</h3>
+          <p>Missing authorization code or state.</p>
           <script>
             if (window.opener) {
               window.opener.postMessage({
@@ -166,7 +172,6 @@ export async function GET(request: NextRequest) {
               window.location.href = '/?error=john_deere_auth_failed&message=Missing authorization code';
             }
           </script>
-          <p>Authorization failed. This window should close automatically.</p>
         </body>
         </html>
       `, {
@@ -176,56 +181,44 @@ export async function GET(request: NextRequest) {
 
     // For GET requests (browser redirects), we can't easily get the authenticated user
     // So we'll redirect to a success page that will handle the completion client-side
+    // We prefer redirecting to the handler page immediately to ensure reliability
     return new NextResponse(`
       <!DOCTYPE html>
       <html>
       <head>
         <title>John Deere Authorization</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; text-align: center; }
+          .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 2s linear infinite; margin: 20px auto; }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
       </head>
       <body>
+        <h3>Authorization Successful</h3>
+        <p>Completing connection...</p>
+        <div class="loader"></div>
+        <p id="status">Redirecting...</p>
+        
         <script>
-          console.log('🔧 Popup callback script executing...');
-          console.log('🔧 Code:', '${code}');
-          console.log('🔧 State:', '${state}');
-          console.log('🔧 Window opener exists:', !!window.opener);
-          console.log('🔧 Current origin:', window.location.origin);
-          console.log('🔧 Parent origin:', window.opener ? 'exists' : 'none');
+          const code = '${code}';
+          const state = '${state}';
+          const targetUrl = '/johndeere-connection?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state);
           
-          // Send the code and state to the parent window or redirect to complete the flow
-          if (window.opener && !window.opener.closed) {
-            console.log('🔧 Sending postMessage to parent...');
-            
-            // Try multiple times with different origins to ensure delivery
-            const message = {
-              type: 'JOHN_DEERE_AUTH_CALLBACK',
-              code: '${code}',
-              state: '${state}'
-            };
-            
-            // Send to current origin
-            window.opener.postMessage(message, window.location.origin);
-            console.log('🔧 PostMessage sent to:', window.location.origin);
-            
-            // Also try with wildcard (less secure but more compatible)
-            setTimeout(() => {
-              if (window.opener && !window.opener.closed) {
-                window.opener.postMessage(message, '*');
-                console.log('🔧 PostMessage sent with wildcard origin');
-              }
-            }, 100);
-            
-            // Close popup after a short delay
-            setTimeout(() => {
-              console.log('🔧 Closing popup...');
-              window.close();
-            }, 500);
-          } else {
-            console.log('🔧 No opener or opener closed, redirecting to completion page...');
-            // Main window was redirected, send to completion page
-            window.location.href = '/johndeere-connection?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}';
+          console.log('🔧 Popup callback script executing...');
+          
+          // Function to redirect to fallback page
+          function redirectToFallback() {
+             console.log('🔧 Redirecting to fallback page:', targetUrl);
+             window.location.href = targetUrl;
           }
+
+          // Force redirect immediately for reliability
+          // The window.opener communication is fragile across different domains/protocols
+          // Redirecting to the main app ensures we're back on the same origin
+          console.log('🔧 Redirecting immediately to completion page...');
+          setTimeout(redirectToFallback, 100);
+          
         </script>
-        <p>Authorization successful! Completing connection...</p>
       </body>
       </html>
     `, {

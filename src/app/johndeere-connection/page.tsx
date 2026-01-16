@@ -26,6 +26,7 @@ export default function JohnDeereConnectionPage() {
         
         const response = await fetch('/api/auth/johndeere/callback', {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },

@@ -519,8 +519,27 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       return (
         <div className="connection-status partial">
           <span className="status-icon">🟡</span>
-          <span>Connected - Permissions Required</span>
-          <p className="status-message">Account connected but organization permissions needed.</p>
+          <span>Connected - Setup Required</span>
+          <p className="status-message">
+            Your account is connected, but we need you to grant organization access at{' '}
+            <a 
+              href="https://connections.deere.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ color: '#10b981', textDecoration: 'underline' }}
+            >
+              connections.deere.com
+            </a>.
+          </p>
+          <div className="troubleshooting-info">
+            <p><strong>Next Steps:</strong></p>
+            <ol style={{ paddingLeft: '1.2rem', margin: '0.5rem 0' }}>
+              <li>Go to <a href="https://connections.deere.com" target="_blank" rel="noopener noreferrer" style={{ color: '#10b981' }}>connections.deere.com</a></li>
+              <li>Find "AgMCP" in the list</li>
+              <li>Click "Manage" and enable access to your organizations</li>
+              <li>Come back here and click "Refresh Status"</li>
+            </ol>
+          </div>
         </div>
       );
     }
