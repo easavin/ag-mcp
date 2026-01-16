@@ -282,17 +282,8 @@ export default function IntegrationsModal({ isOpen, onClose }: IntegrationsModal
       const data = await response.json();
       
       if (data.authorizationUrl) {
-        const authWindow = window.open(
-          data.authorizationUrl,
-          'JohnDeereAuth',
-          'width=800,height=600,scrollbars=yes,resizable=yes'
-        );
-
-        if (!authWindow) {
-          console.error('❌ IntegrationsModal - Failed to open popup window')
-          alert('Please allow pop-ups for this site to connect with John Deere.');
-          setIsConnecting(false);
-        }
+        // Redirect the current window instead of opening a popup
+        window.location.href = data.authorizationUrl;
       } else {
         throw new Error('No authorization URL received');
       }
